@@ -8,11 +8,21 @@ import { erstelleAdminSeiten, type AdminDateien } from "./admin-seiten.js";
 import type { BildKodierer } from "./bild.js";
 import { erstelleAuthRouten, type erstelleAuth } from "./auth.js";
 import type { Db } from "./db/client.js";
+import { Konflikt, KONFLIKT } from "./konflikt.js";
 import { log } from "./log.js";
 import type { Fcm } from "./push.js";
 import { erstelleMetriken } from "./metriken.js";
-import { personAusSitzung, zweiterFaktorPflicht } from "./rechte.js";
+import {
+  hatKommandoOderStellvertretung,
+  personAusSitzung,
+  zweiterFaktorPflicht,
+} from "./rechte.js";
+import { erstelleBezirkRouten } from "./routes/admin/bezirke.js";
 import { erstelleEinheitenRouten } from "./routes/admin/einheiten.js";
+import { erstelleImportRouten } from "./routes/admin/import.js";
+import { erstelleLeitendeRouten } from "./routes/admin/leitende.js";
+import { erstelleStellvertretungsRouten } from "./routes/admin/stellvertretungen.js";
+import { erstelleTeilnehmendeRouten } from "./routes/admin/teilnehmende.js";
 import { erstelleSystemRouten } from "./routes/admin/system.js";
 import { erstelleZeitregelRouten } from "./routes/admin/zeitregeln.js";
 import { erstelleEinwilligungRouten } from "./routes/einwilligung.js";
@@ -33,14 +43,14 @@ const FEHLER: Record<number, { code: string; message: string }> = {
   500: { code: "INTERNER_FEHLER", message: "Interner Fehler" },
 };
 
-// An jeder Antwort (#220); die Verwaltung setzt eine volle CSP selbst, die behält sie
+// An jeder Antwort; die Verwaltung setzt eine volle CSP selbst, die behält sie
 const SICHERHEITS_KOPFZEILEN = {
   "X-Content-Type-Options": "nosniff",
   "Referrer-Policy": "no-referrer",
   "Content-Security-Policy": "frame-ancestors 'none'",
 };
 
-// Lesende Methoden ändern nichts; der Origin zählt nur bei den übrigen (#221)
+// Lesende Methoden ändern nichts; der Origin zählt nur bei den übrigen
 const LESEND = new Set(["GET", "HEAD", "OPTIONS"]);
 
 // Drei Zahlen statt semver: Die App schickt ihre Version als x.y.z
@@ -110,7 +120,7 @@ export function erstelleApp({
         // Der Healthcheck von Docker fragt alle 30 s; ein Erfolg füllt weder Log noch Zahlen, ein Fehler bleibt sichtbar (die requestId verbindet ihn mit seinem Grund)
         if (eintrag.route === "/health" && eintrag.status === 200) return;
         const nutzerId = c.get("nutzerId");
-        // Den Akteur nur bei 401 und 403 (#224): die ID, kein Name
+        // Den Akteur nur bei 401 und 403: die ID, kein Name
         log(c, {
           ...eintrag,
           ...((eintrag.status === 401 || eintrag.status === 403) &&
@@ -138,7 +148,12 @@ export function erstelleApp({
         }
         await next();
       })
-      .route("/", erstelleAuthRouten(auth))
+      .route(
+        "/",
+        erstelleAuthRouten(auth, (userId) =>
+          hatKommandoOderStellvertretung(db, userId),
+        ),
+      )
       // Einen Origin sendet nur ein Browser (die Verwaltung), die App nicht; erlaubt ist dieselbe Liste, die better-auth unter /api/auth prüft: BETTER_AUTH_URL und das App-Schema. Vor der Sitzung, damit eine fremde Seite keine Abfrage auslöst
       .use("/api/v1/*", async (c, next) => {
         const herkunft = c.req.header("Origin");
@@ -158,7 +173,24 @@ export function erstelleApp({
       .route("/api/v1/ich", erstelleIchRouten({ db }))
       .route("/api/v1/programme", erstelleProgrammRouten({ db, fcm }))
       .route("/api/v1/einwilligung", erstelleEinwilligungRouten({ db }))
+      .route("/api/v1/admin/bezirke", erstelleBezirkRouten({ db }))
       .route("/api/v1/admin/einheiten", erstelleEinheitenRouten({ db }))
+      .route(
+        "/api/v1/admin/einheiten/:einheitId/stellvertretungen",
+        erstelleStellvertretungsRouten({ db }),
+      )
+      .route(
+        "/api/v1/admin/einheiten/:einheitId/leitende",
+        erstelleLeitendeRouten({ db }),
+      )
+      .route(
+        "/api/v1/admin/einheiten/:einheitId/teilnehmende",
+        erstelleTeilnehmendeRouten({ db }),
+      )
+      .route(
+        "/api/v1/admin/einheiten/:einheitId/import",
+        erstelleImportRouten({ db }),
+      )
       .route(
         "/api/v1/admin/einheiten/:einheitId/zeitregeln",
         erstelleZeitregelRouten({ db }),
@@ -178,17 +210,20 @@ export function erstelleApp({
           return c.text("fehler", 503);
         }
       })
-      // Seiten für die Stores, ohne Login und ausserhalb der Versionsprüfung; die Texte folgen in #63
+      // Seiten für die Stores, ohne Login und ausserhalb der Versionsprüfung
       .get("/datenschutz", (c) => c.html(seiten.datenschutz))
       .get("/konto-loeschen", (c) => c.html(seiten.kontoLoeschen))
       .get("/support", (c) => c.html(seiten.support))
-      // Verwaltung im Browser (#141): nur die statische Hülle, Daten kommen über /api/v1/admin/*
+      // Verwaltung im Browser: nur die statische Hülle, Daten kommen über /api/v1/admin/*
       .route("/admin", erstelleAdminSeiten(seiten.admin))
-      // Eigene Routen statt Dateien, damit der Content-Type JSON ist; die Inhalte folgen in #24
+      // Eigene Routen statt Dateien, damit der Content-Type JSON ist
       .get("/.well-known/apple-app-site-association", (c) => c.json({}))
       .get("/.well-known/assetlinks.json", (c) => c.json([]))
       .notFound((c) => c.json(FEHLER[404], 404))
       .onError((fehler, c) => {
+        if (fehler instanceof Konflikt) {
+          return c.json(KONFLIKT[fehler.konflikt], 409);
+        }
         if (fehler instanceof HTTPException) {
           return c.json(
             FEHLER[fehler.status] ?? {

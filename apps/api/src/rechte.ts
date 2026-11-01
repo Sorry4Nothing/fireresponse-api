@@ -49,11 +49,11 @@ export function personAusSitzung(
       headers: c.req.raw.headers,
       query: { disableRefresh: true },
     });
-    // Für das Anfrage-Log bei 401 und 403 (#224); vor den Prüfungen, damit auch ein gesperrtes Konto und der Pflichtwechsel die ID zeigen
+    // Für das Anfrage-Log bei 401 und 403; vor den Prüfungen, damit auch ein gesperrtes Konto und der Pflichtwechsel die ID zeigen
     if (sitzung) c.set("nutzerId", sitzung.user.id);
     // banned prüft better-auth nur beim Anlegen einer Sitzung, nicht beim Lesen
     if (!sitzung || sitzung.user.banned) throw new HTTPException(401);
-    // Bis zum Pflichtwechsel (#15) nur das eigene Profil; den Zustand kennt die App aus get-session
+    // Bis zum Pflichtwechsel nur das eigene Profil; den Zustand kennt die App aus get-session
     if (
       sitzung.user.mussPasswortAendern &&
       !(c.req.method === "GET" && c.req.path === "/api/v1/ich")
@@ -112,6 +112,21 @@ export const hatVerwaltung = (person: Person) =>
   person.einheiten.some(
     (r) => r.typ === "kommandant" || r.typ === "stellvertretung",
   );
+
+// Für den Pfad zum zweiten Faktor, der vor der Sitzung der App läuft: Kommando oder Stellvertretung irgendeiner Einheit
+export async function hatKommandoOderStellvertretung(db: Db, userId: string) {
+  const [zeile] = await db
+    .select({ userId: einheitRolle.userId })
+    .from(einheitRolle)
+    .where(
+      and(
+        eq(einheitRolle.userId, userId),
+        inArray(einheitRolle.typ, ["kommandant", "stellvertretung"]),
+      ),
+    )
+    .limit(1);
+  return zeile !== undefined;
+}
 
 // Verwaltungs-Routen erst mit zweitem Faktor; eigener Code, damit die App zur Einrichtung führt. Alle anderen passen vorbei und behalten das 403/404 der Route
 export const zweiterFaktorPflicht = createMiddleware<{

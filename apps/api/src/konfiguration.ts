@@ -15,7 +15,7 @@ const schema = z.object({
   KONTAKT_EMAIL: z.email().optional(),
 });
 
-// Mit http setzt better-auth Cookies ohne Secure, darum in Produktion nur https (#222); lokal bleibt http://localhost
+// Mit http setzt better-auth Cookies ohne Secure, darum in Produktion nur https; lokal bleibt http://localhost
 const produktion = schema.extend({
   BETTER_AUTH_URL: z.url({ protocol: /^https$/ }),
 });
