@@ -12,7 +12,7 @@ import {
   startpasswortFelder,
 } from "../startpasswort.js";
 
-const VERWENDUNG = `Verwendung: npm run admin:anlegen -w apps/api -- --benutzername <benutzername> --name "<Vorname Nachname>"
+const VERWENDUNG = `Verwendung: npm run kantonsadmin:anlegen -w apps/api -- --benutzername <benutzername> --name "<Vorname Nachname>"
 Legt ein Konto des Kantonsadmins an. Das Startpasswort erzeugt die CLI selbst und nimmt keines entgegen.`;
 
 // Eigene Abbrüche mit gefahrlos druckbarer Meldung; fremde Meldungen könnten Eingaben oder Hosts wiederholen
@@ -99,7 +99,7 @@ if (!argumente) {
       "Nicht weiterleiten. Gilt 7 Tage und nur für die erste Anmeldung.",
     );
   } catch (fehler) {
-    console.error(`Admin nicht angelegt: ${beschreibe(fehler)}`);
+    console.error(`Kantonsadmin nicht angelegt: ${beschreibe(fehler)}`);
     process.exitCode = 1;
   } finally {
     // Kein process.exit(): offene Verbindungen zeigten sich in Tests nur als Timeout
