@@ -18,7 +18,7 @@ body:
   type: json
   content: |-
     {
-      "neuerKommandantId": "01a19971-0990-778a-b79c-f6c9ab416303",
+      "neuerKommandantId": "01a19986-fe2b-7a40-9825-15216324b52a",
       "bisherigeRolle": {
         "typ": "keine"
       }

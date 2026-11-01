@@ -4,11 +4,11 @@ Abläufe für den Betrieb von FireResponse; hier stehen Server, Konten, Deploy, 
 
 ## Server
 
-- Ein VPS. Die Domain ist `fireresponse.ch` (API unter `api.fireresponse.ch`); Anbieter und Region sind noch offen (#68). Im Gespräch ist Oracle Cloud «Always Free» (ARM, Ampere); ob die Region in der Schweiz liegt, ist ungeprüft, und die Home-Region lässt sich nach der Anmeldung nicht ändern.
+- Ein VPS. Die Domain ist `fireresponse.ch` (API unter `api.fireresponse.ch`); Anbieter und Region sind noch offen. Im Gespräch ist Oracle Cloud «Always Free» (ARM, Ampere); ob die Region in der Schweiz liegt, ist ungeprüft, und die Home-Region lässt sich nach der Anmeldung nicht ändern.
 - Das API-Image ist nur für arm64 gebaut (`image.yml` läuft auf `ubuntu-24.04-arm`). Die Images von postgres, caddy und restic gibt es auch für arm64. Auf einem amd64-Server startet das API-Image nicht.
 - Auf dem Server laufen Linux mit systemd-journald, die Docker Engine mit dem Compose-Plugin und git.
 - Der Dienst `api` hat in `deploy/docker-compose.prod.yml` höchstens 1 GB Arbeitsspeicher (`mem_limit`) und 256 Prozesse und Threads (`pids_limit`), damit viele gleichzeitige Bild-Uploads (bis 16 Mio. Pixel, beim Dekodieren rund 64 MB je Bild) nur die API treffen und nicht Postgres und Caddy; der Wert muss zum Server passen, und meldet `docker inspect` für den Container `OOMKilled`, ist er zu klein.
-- Härtung (#68): SSH nur mit Schlüssel und nur für zwei Personen, Firewall, automatische Sicherheitsupdates. Nach der Einrichtung bestätigt ein Portscan von aussen, dass nur SSH, 80 und 443 offen sind.
+- Härtung: SSH nur mit Schlüssel und nur für zwei Personen, Firewall, automatische Sicherheitsupdates. Nach der Einrichtung bestätigt ein Portscan von aussen, dass nur SSH, 80 und 443 offen sind.
 - Das Repo liegt auf dem Server als Checkout des ausgerollten Tags. Befehle in dieser Doku laufen im Wurzelordner dieses Checkouts, jene im Abschnitt «Backups» im Ordner `deploy/`.
 - Nur auf dem Server, nie im Repo: `deploy/.env` (Rechte 600, Vorlage `deploy/.env.example`) und der Schlüssel des Firebase-Dienstkontos unter `deploy/secrets/` (Ordner 700, Datei 400).
 
@@ -27,16 +27,16 @@ Erste Einrichtung auf dem Server:
 1. Das Repo klonen und den Release-Tag auschecken: `git fetch --tags && git checkout vX.Y.Z`
 2. `deploy/.env.example` nach `deploy/.env` kopieren und die Werte setzen (Passwörter hexadezimal, etwa aus `openssl rand -hex 32`; `BETTER_AUTH_SECRET` aus `openssl rand -base64 32`, `BETTER_AUTH_URL` ist die öffentliche Adresse der API mit `https://`; mit `http://` startet die API in Produktion nicht), dann `chmod 600 deploy/.env`. Die verantwortliche Stelle und ihre E-Mail-Adresse für die Seiten `/datenschutz`, `/konto-loeschen` und `/support` setzt man mit `VERANTWORTLICHE_STELLE` und `KONTAKT_EMAIL` in `deploy/.env` und in `docker-compose.prod.yml`; ohne Angabe nennen die Seiten weder Stelle noch Adresse.
 3. Den Schlüssel des Firebase-Dienstkontos für die Pushes nach `deploy/secrets/fcm-service-account.json` legen: Ordner 700, Datei 400, Besitzer `1000:1000` (die UID der API im Container)
-4. `deploy/Caddyfile.example` nach `deploy/Caddyfile` kopieren und die Domain eintragen (#68)
-5. Nach dem ersten Tag das API-Image auf GHCR öffentlich schalten (#70), sonst findet der Server es nicht
+4. `deploy/Caddyfile.example` nach `deploy/Caddyfile` kopieren und die Domain eintragen
+5. Nach dem ersten Tag das API-Image auf GHCR öffentlich schalten, sonst findet der Server es nicht
 
 Jedes Release rollt `deploy/deploy.sh vX.Y.Z` aus, nach `git fetch --tags && git checkout vX.Y.Z`. Das Skript aktualisiert die Images von postgres und caddy, sichert die Datenbank (siehe «Backups»), setzt die Passwörter der Datenbankrollen aus `deploy/.env`, führt die Migrationen mit der Besitzerrolle aus — nur vorwärts, nie zurück —, startet alle Dienste mit dem Tag neu und stoppt jeden Dienst ausser caddy, der einen Port veröffentlicht.
 
-`deploy/Caddyfile` liegt nur auf dem Server und folgt der Vorlage nicht von selbst. Ändert sich `deploy/Caddyfile.example` in einem Release, die Änderung von Hand nach `deploy/Caddyfile` übernehmen (die Domain bleibt) und in `deploy/` Caddy neu starten: `docker compose -f docker-compose.prod.yml restart caddy`. Mit #220 kamen HSTS und die Sicherheits-Kopfzeilen dazu; ein Server, der vorher eingerichtet wurde, braucht diesen Schritt. Prüfen mit `curl -sI https://<Domain>/health`: Die Antwort zeigt `strict-transport-security`, aber keine Zeile `server`.
+`deploy/Caddyfile` liegt nur auf dem Server und folgt der Vorlage nicht von selbst. Ändert sich `deploy/Caddyfile.example` in einem Release, die Änderung von Hand nach `deploy/Caddyfile` übernehmen (die Domain bleibt) und in `deploy/` Caddy neu starten: `docker compose -f docker-compose.prod.yml restart caddy`. Die Vorlage enthält HSTS und die Sicherheits-Kopfzeilen; ein Server mit älterer Vorlage braucht diesen Schritt. Prüfen mit `curl -sI https://<Domain>/health`: Die Antwort zeigt `strict-transport-security`, aber keine Zeile `server`.
 
 ### Deploy aus GitHub
 
-Statt von Hand rollt der Workflow «Deploy» ([`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml)) einen Tag aus, nachdem eine Person ihn in GitHub freigegeben hat (#252). Er prüft, dass der Tag `vX.Y.Z` heisst, auf `main` liegt und sein Image im GHCR existiert, und verbindet sich dann per SSH. Der Server führt für diesen Schlüssel nur [`deploy/ssh-deploy.sh`](../deploy/ssh-deploy.sh) aus: Es nimmt den Tag als einziges Argument, checkt ihn aus und startet `deploy/deploy.sh vX.Y.Z`. Der Ablauf auf dem Server bleibt derselbe wie von Hand.
+Statt von Hand rollt der Workflow «Deploy» ([`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml)) einen Tag aus, nachdem eine Person ihn in GitHub freigegeben hat. Er prüft, dass der Tag `vX.Y.Z` heisst, auf `main` liegt und sein Image im GHCR existiert, und verbindet sich dann per SSH. Der Server führt für diesen Schlüssel nur [`deploy/ssh-deploy.sh`](../deploy/ssh-deploy.sh) aus: Es nimmt den Tag als einziges Argument, checkt ihn aus und startet `deploy/deploy.sh vX.Y.Z`. Der Ablauf auf dem Server bleibt derselbe wie von Hand.
 
 Einrichtung, einmal:
 
@@ -46,9 +46,11 @@ Einrichtung, einmal:
 4. In der Umgebung `production` vier Secrets setzen: `DEPLOY_HOST` (Name oder Adresse des Servers), `DEPLOY_USER`, `DEPLOY_SSH_KEY` (der private Schlüssel) und `DEPLOY_HOST_KEY` (eine Zeile für `known_hosts`, aus `ssh-keyscan -t ed25519 <Host>` auf dem Server selbst geholt, nicht aus dem Internet). Der Workflow verbindet sich nur mit diesem Hostschlüssel.
 5. Die Firewall des Servers lässt SSH aus dem Internet zu, oder aus den Adressen der GitHub-Runner (die Liste steht unter `https://api.github.com/meta`, Feld `actions`, und ändert sich).
 
-Ablauf: Der Workflow «Release» ruft «Deploy» nach dem Image selbst auf (#262); die Umgebung `production` wartet dann auf die Freigabe. Ohne den Haken «ausrollen» bleibt es beim Image. Einen vorhandenen Tag, etwa zum erneuten Ausrollen, rollt man unter Actions → Deploy → Run workflow aus: Tag eintragen und freigeben. Der Lauf zeigt die Ausgabe von `deploy.sh`; sie enthält keine Passwörter. Ein Schlüssel wird rotiert, indem man ein neues Paar erzeugt, die Zeile in `authorized_keys` ersetzt und das Secret setzt.
+Ablauf: Der Workflow «Release» ruft «Deploy» nach dem Image selbst auf; die Umgebung `production` wartet dann auf die Freigabe. Ohne den Haken «ausrollen» bleibt es beim Image. Einen vorhandenen Tag, etwa zum erneuten Ausrollen, rollt man unter Actions → Deploy → Run workflow aus: Tag eintragen und freigeben. Der Lauf zeigt die Ausgabe von `deploy.sh`; sie enthält keine Passwörter. Ein Schlüssel wird rotiert, indem man ein neues Paar erzeugt, die Zeile in `authorized_keys` ersetzt und das Secret setzt.
 
-Das erste Konto des Kantonsadmins legt die CLI im laufenden API-Container an, in `deploy/`: `docker compose -f docker-compose.prod.yml exec api node --import tsx src/cli/admin-anlegen.ts --benutzername <name> --name "<Vorname Nachname>"`. Sie zeigt das Startpasswort. Immer `exec`, nie `run`: Die Ausgabe von `run` landet für 14 Tage im journald (siehe «Logs»), die von `exec` in keinem Log.
+Das erste Konto des Kantonsadmins legt die CLI im laufenden API-Container an, in `deploy/`: `docker compose -f docker-compose.prod.yml exec api node --import tsx src/cli/kantonsadmin-anlegen.ts --benutzername <name> --name "<Vorname Nachname>"`. Sie zeigt das Startpasswort. Immer `exec`, nie `run`: Die Ausgabe von `run` landet für 14 Tage im journald (siehe «Logs»), die von `exec` in keinem Log.
+
+Erste Einrichtung nach dem ersten Konto: Der Kantonsadmin meldet sich mit dem Startpasswort an, wechselt es und richtet den zweiten Faktor ein (`POST /api/auth/two-factor/enable`, danach `verify-totp` mit dem ersten Code); ohne ihn sind alle Routen unter `/api/v1/admin` zu. Dann legt er Bezirke und Einheiten mit Kommandant/in an (`POST /api/v1/admin/bezirke`, `POST /api/v1/admin/einheiten`) und gibt dem Kommando das Startpasswort aus der Antwort weiter. Das Kommando wechselt es, richtet ebenfalls den zweiten Faktor ein und legt Stellvertretungen, Leitende, Teilnehmende und Eltern an. Der Ablauf ist in `apps/api/test/einrichtung.test.ts` durchgespielt; Startpasswörter stehen nur in den Antworten der Anlage und nirgends im Log.
 
 ## Release
 
@@ -67,9 +69,9 @@ Ein Tag, dessen Lauf ein Image gebaut hat, wird nie verschoben, gelöscht oder n
 
 ## Release-Checkliste
 
-Sie läuft von Hand vor jedem Store-Release einer App: einmal auf Android und einmal auf einem iPhone, mit dem Release-Build aus dem Repo der jeweiligen App über TestFlight bzw. einen Testtrack der Play Console, nur in der Demo-Abteilung der Produktion (Screenshots nur von dort). Voraussetzung: Die Demo-Abteilung hat ein Demo-Kind in einer Stufe und ein Programm, das Eltern sehen (#76).
+Sie läuft von Hand vor jedem Store-Release einer App: einmal auf Android und einmal auf einem iPhone, mit dem Release-Build aus dem Repo der jeweiligen App über TestFlight bzw. einen Testtrack der Play Console, nur in der Demo-Abteilung der Produktion (Screenshots nur von dort). Voraussetzung: Die Demo-Abteilung hat ein Demo-Kind in einer Stufe und ein Programm, das Eltern sehen.
 
-- [ ] Demo-Konten für das Review aktivieren (#76)
+- [ ] Demo-Konten für das Review aktivieren
 - [ ] Ein Admin der Demo-Abteilung meldet sich mit zweitem Faktor an und legt eine Person an: ein Elternteil eines Demo-Kindes, mit erfundenem Namen
 - [ ] Mit der neuen Person: Login mit Startpasswort, Passwort setzen, App-Sperre
 - [ ] Programm öffnen und Kind mit Ja/Nein melden
@@ -174,7 +176,7 @@ MaxFileSec=1day
 
 Danach `sudo systemctl restart systemd-journald`; prüfen mit `systemd-analyze cat-config systemd/journald.conf`. `MaxRetentionSec` löscht ganze Journal-Dateien; ohne `MaxFileSec=1day` wechselten die Dateien nur monatlich, und Einträge blieben Wochen über die 14 Tage hinaus. `Storage=persistent` legt die Logs auf die Platte; der Standardwert ist beim Kompilieren festgelegt, und `auto` hielte sie ohne `/var/log/journal` nur im RAM.
 
-Andere Log-Dateien auf dem Server, etwa die eines Syslog-Dienstes mit den IP-Adressen von SSH-Clients: ebenfalls höchstens 14 Tage aufbewahren oder den Schreiber abschalten. Die Befehle dazu hängen vom System ab (#68).
+Andere Log-Dateien auf dem Server, etwa die eines Syslog-Dienstes mit den IP-Adressen von SSH-Clients: ebenfalls höchstens 14 Tage aufbewahren oder den Schreiber abschalten. Die Befehle dazu hängen vom System ab.
 
 ### Abgewiesene Anfragen prüfen
 
@@ -208,8 +210,8 @@ Der Ablauf gilt, sobald Daten in falsche Hände geraten sein könnten, etwa durc
 2. **Den Vorstand informieren.** Bedeutet die Panne wahrscheinlich ein hohes Risiko für die betroffenen Personen, geht so rasch als möglich eine Meldung an den EDÖB über <https://databreach.edoeb.admin.ch/report> (Art. 24 Abs. 1 DSG), ohne auf die Schritte 3 und 4 zu warten; noch fehlende Angaben folgen so rasch als möglich (Art. 15 Abs. 2 DSV).
 3. **Geheimnisse wechseln,** jedes einzeln:
    - Auth-Geheimnis: in `BETTER_AUTH_SECRET` einen neuen Zufallswert setzen und die API neu starten. Alte Cookies gelten dann nicht mehr, und die gespeicherten TOTP-Geheimnisse und Ersatzcodes lassen sich nicht mehr entschlüsseln: Kein Admin besteht den zweiten Faktor, bis er neu eingerichtet ist (Schritt 4). Den alten Wert vollständig entfernen, auch nicht als ältere Version in `BETTER_AUTH_SECRETS` behalten: Wer ihn kennt, könnte damit weiterhin Codes berechnen.
-   - Passwörter der Datenbankrollen (#69).
-   - Schlüssel des Firebase-Dienstkontos für FCM (#154): einen neuen Schlüssel erzeugen, ihn nach `deploy/secrets/fcm-service-account.json` legen, die API neu starten und erst dann den alten Schlüssel löschen.
-   - restic- und S3-Schlüssel (#71).
-4. **Gekapertes Konto sperren, dann zweite Faktoren neu einrichten.** Nach Schritt 3 besteht kein Admin den zweiten Faktor. Die CLI (`docker compose -f docker-compose.prod.yml exec api node --import tsx src/cli/zweiter-faktor-zuruecksetzen.ts --benutzername <name>`, in `deploy/`) setzt den Faktor genau eines vertrauenswürdigen Admins zurück; diese Person meldet sich an und richtet ihren Faktor neu ein. Dann deaktiviert sie das gekaperte Konto oder gibt ihm ein neues Startpasswort (#18); nie den Faktor eines Kontos zurücksetzen, solange sein altes Passwort noch gilt, sonst richtet die fremde Person den neuen Faktor selbst ein. Danach setzt sie die Faktoren der übrigen Admins zurück (#23), und diese richten ihre neu ein. Bleibt kein vertrauenswürdiger Admin übrig, legt die CLI (#20) einen neuen an, in `deploy/`: `docker compose -f docker-compose.prod.yml exec api node --import tsx src/cli/admin-anlegen.ts --benutzername <name> --name "<Vorname Nachname>"`; immer `exec`, nie `run`, sonst steht das Startpasswort 14 Tage im journald (siehe «Logs»).
+   - Passwörter der Datenbankrollen.
+   - Schlüssel des Firebase-Dienstkontos für FCM: einen neuen Schlüssel erzeugen, ihn nach `deploy/secrets/fcm-service-account.json` legen, die API neu starten und erst dann den alten Schlüssel löschen.
+   - restic- und S3-Schlüssel.
+4. **Gekapertes Konto sperren, dann zweite Faktoren neu einrichten.** Nach Schritt 3 besteht kein Admin den zweiten Faktor. Die CLI (`docker compose -f docker-compose.prod.yml exec api node --import tsx src/cli/zweiter-faktor-zuruecksetzen.ts --benutzername <name>`, in `deploy/`) setzt den Faktor genau eines vertrauenswürdigen Admins zurück; diese Person meldet sich an und richtet ihren Faktor neu ein. Dann deaktiviert sie das gekaperte Konto oder gibt ihm ein neues Startpasswort; nie den Faktor eines Kontos zurücksetzen, solange sein altes Passwort noch gilt, sonst richtet die fremde Person den neuen Faktor selbst ein. Danach setzt sie die Faktoren der übrigen Admins zurück, und diese richten ihre neu ein. Bleibt kein vertrauenswürdiger Admin übrig, legt die CLI einen neuen an, in `deploy/`: `docker compose -f docker-compose.prod.yml exec api node --import tsx src/cli/kantonsadmin-anlegen.ts --benutzername <name> --name "<Vorname Nachname>"`; immer `exec`, nie `run`, sonst steht das Startpasswort 14 Tage im journald (siehe «Logs»).
 5. **Dokumentieren:** die Tatsachen rund um die Panne, ihre Auswirkungen und die getroffenen Massnahmen (Art. 15 Abs. 4 DSV), dazu ob gemeldet wurde und warum. Die Dokumentation bleibt mindestens zwei Jahre erhalten, nie im Repo, in Issues oder in PRs.

@@ -546,9 +546,11 @@ paths:
         `POST /api/auth/two-factor/verify-totp` mit dem ersten Code aktiv (`twoFactorEnabled` wird erst dann `true`).
         Ein Aufruf allein schaltet nichts ein und entsperrt die Admin-Routen nicht.
 
-        Nur Admins richten den zweiten Faktor ein. Für alle anderen Personen (auch ohne Sitzung) antwortet der Pfad
-        mit 404 `NICHT_GEFUNDEN`, als gäbe es ihn nicht. Admins brauchen den Faktor für alle Routen unter
-        `/api/v1/admin`; ohne ihn antworten diese mit 403 `ZWEITER_FAKTOR_FEHLT`.
+        Nur Konten der Verwaltung richten den zweiten Faktor ein: Kantonsadmin, Kommando und Stellvertretungen. Für alle anderen
+        Personen (auch ohne Sitzung) antwortet der Pfad mit 404 `NICHT_GEFUNDEN`, als gäbe es ihn nicht. Die Verwaltung braucht den Faktor
+        für alle Routen unter `/api/v1/admin`; ohne ihn antworten diese mit 403 `ZWEITER_FAKTOR_FEHLT`. Der Faktor gehört zum Konto:
+        Wer ihn eingerichtet hat, gibt bei jeder Anmeldung den Code ein, auch in der App. Konten ohne Verwaltungsrolle (Leitende, Eltern,
+        Teilnehmende) melden sich nie mit zweitem Faktor an; hat eine Sitzung keinen, bekommt sie unter `/api/v1/admin` 403.
 
         Der Link `totpURI` (`otpauth://`) trägt «FireResponse» als Aussteller und den Benutzernamen als Kontonamen,
         6 Stellen und 30 Sekunden. Er enthält das Geheimnis und wird nur einmal gezeigt. Die zehn Ersatzcodes
@@ -561,8 +563,8 @@ paths:
         Wird der Faktor mit dem ersten Code bestätigt, beendet der Server alle anderen Sitzungen der Person
         und stellt ein neues Session-Cookie aus.
 
-        **Rollen.** Nur Admins (auch ohne bisherigen zweiten Faktor). Statuscodes: 200, 400, 404 (kein Admin oder
-        keine Sitzung), 426, 429.
+        **Rollen.** Kantonsadmin, Kommando und Stellvertretungen (auch ohne bisherigen zweiten Faktor). Statuscodes: 200, 400,
+        404 (keine Verwaltungsrolle oder keine Sitzung), 426, 429.
       requestBody:
         required: true
         content:
@@ -1492,6 +1494,501 @@ paths:
           $ref: "#/components/responses/AppVeraltet426"
         "429":
           $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/admin/bezirke:
+    get:
+      operationId: listeAdminBezirke
+      summary: Bezirke auflisten
+      tags:
+        - Verwaltung
+      description: |
+        Nur das Konto des Kantonsadmins (mit zweitem Faktor). Liefert alle Bezirke, sortiert nach Name.
+
+        Statuscodes: 200, 401, 403 (kein Kantonsadmin oder ohne zweiten Faktor), 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+      responses:
+        "200":
+          description: Bezirke.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminBezirkListe"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+    post:
+      operationId: legeAdminBezirkAn
+      summary: Bezirk anlegen
+      tags:
+        - Verwaltung
+      description: |
+        Nur das Konto des Kantonsadmins (mit zweitem Faktor). Der Name ist eindeutig, ohne Unterschied zwischen Gross- und Kleinschreibung (409 `BEZIRK_VORHANDEN`).
+        Das Anlegen steht im Audit-Log.
+
+        Statuscodes: 201, 400, 401, 403, 409, 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminBezirkAnlegen"
+      responses:
+        "201":
+          description: Bezirk angelegt.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAngelegt"
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "409":
+          $ref: "#/components/responses/AdminKonflikt409"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/admin/einheiten:
+    get:
+      operationId: listeAdminEinheiten
+      summary: Einheiten der Verwaltung auflisten
+      tags:
+        - Verwaltung
+      description: |
+        Konten der Verwaltung mit zweitem Faktor: Das Konto des Kantonsadmins sieht alle Einheiten, Kommando und Stellvertretungen nur die eigenen.
+        Sortiert nach Bezirk und Art.
+
+        Statuscodes: 200, 401, 403 (Leitende, Eltern, Teilnehmende und Konten der Verwaltung ohne zweiten Faktor), 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+      responses:
+        "200":
+          description: Einheiten.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminEinheitListe"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+    post:
+      operationId: legeAdminEinheitAn
+      summary: Einheit mit Kommandant/in anlegen
+      tags:
+        - Verwaltung
+      description: |
+        Nur das Konto des Kantonsadmins (mit zweitem Faktor). Einheit und Kommandant/in entstehen in einer Transaktion: Scheitert eines von beiden, entsteht nichts.
+        Die Kommandantin oder der Kommandant bekommt ein neues Konto mit Startpasswort (7 Tage gültig, Pflichtwechsel beim ersten Login). Es gibt keine Selbstregistrierung.
+        Das Startpasswort steht nur in dieser Antwort; die Verwaltung kann es später nicht mehr anzeigen.
+        Pro Bezirk gibt es höchstens eine Jugendfeuerwehr und eine Kinderfeuerwehr (409 `EINHEIT_VORHANDEN`). Ein vergebener Benutzername ist 409 `BENUTZERNAME_VERGEBEN` (ohne Unterschied zwischen Gross- und Kleinschreibung). Ein unbekannter Bezirk ist 400.
+        Das Kommando braucht den zweiten Faktor für die Verwaltung und richtet ihn selbst ein (`POST /api/auth/two-factor/enable`).
+
+        Statuscodes: 201, 400, 401, 403, 409, 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminEinheitAnlegen"
+      responses:
+        "201":
+          description: Einheit und Kommando angelegt.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminEinheitAngelegt"
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "409":
+          $ref: "#/components/responses/AdminKonflikt409"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/admin/einheiten/{einheitId}/stellvertretungen:
+    post:
+      operationId: legeAdminStellvertretungAn
+      summary: Stellvertretung anlegen
+      tags:
+        - Verwaltung
+      description: |
+        Nur Kommando der Einheit und Kantonsadmin (mit zweitem Faktor). Eine Stellvertretung (403) legt keine weitere an. Legt ein neues Konto mit Startpasswort an
+        (siehe `POST /api/v1/admin/einheiten`). Ohne `reihenfolge` kommt die neue Stellvertretung ans Ende; eine belegte Position ist 409 `REIHENFOLGE_BELEGT`.
+        Die Nummer ist freiwillig; Kommando und Stellvertretungen sind die Kontakte der Einheit.
+
+        Reihenfolge der Prüfung: Eingabe (400); Einheit unbekannt oder unsichtbar (404); kein Recht (403).
+
+        Statuscodes: 201, 400, 401, 403, 404, 409, 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/EinheitIdPfad"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminStellvertretungAnlegen"
+      responses:
+        "201":
+          description: Stellvertretung angelegt.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminStellvertretungAngelegt"
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "409":
+          $ref: "#/components/responses/AdminKonflikt409"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/admin/einheiten/{einheitId}/stellvertretungen/{userId}:
+    put:
+      operationId: ordneAdminStellvertretung
+      summary: Stellvertretung an eine Position setzen
+      tags:
+        - Verwaltung
+      description: |
+        Nur Kommando der Einheit und Kantonsadmin. Setzt die Stellvertretung an die Position `reihenfolge`; die übrigen rücken nach, und alle zählen danach lückenlos ab 1.
+        Eine zu grosse Zahl heisst: ans Ende. Dieselbe Position ist ein No-op (204). Das Ordnen steht im Audit-Log.
+
+        Statuscodes: 204, 400, 401, 403 (auch Stellvertretungen), 404 (Einheit unsichtbar oder Person keine Stellvertretung der Einheit), 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/EinheitIdPfad"
+        - $ref: "#/components/parameters/AdminUserIdPfad"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminStellvertretungOrdnen"
+      responses:
+        "204":
+          description: Geordnet.
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+    delete:
+      operationId: entferneAdminStellvertretung
+      summary: Stellvertretung entfernen
+      tags:
+        - Verwaltung
+      description: |
+        Nur Kommando der Einheit und Kantonsadmin. Nimmt der Person die Rolle; das Konto bleibt bestehen (die Person ist dann ohne Einheit). Die übrigen behalten ihre Positionen. Das Entfernen steht im Audit-Log.
+
+        Statuscodes: 204, 400, 401, 403 (auch Stellvertretungen), 404 (Einheit unsichtbar oder Person keine Stellvertretung der Einheit), 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/EinheitIdPfad"
+        - $ref: "#/components/parameters/AdminUserIdPfad"
+      responses:
+        "204":
+          description: Entfernt.
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/admin/einheiten/{einheitId}/leitende:
+    post:
+      operationId: legeAdminLeitendeAn
+      summary: Leitende anlegen
+      tags:
+        - Verwaltung
+      description: |
+        Kommando, Stellvertretungen und Kantonsadmin (mit zweitem Faktor), nur in der Einheit im Pfad. Legt ein neues Konto mit Startpasswort an und gibt ihm die Rolle «Leitung».
+        Leitende haben keine Nummer.
+
+        Statuscodes: 201, 400, 401, 403, 404, 409 (`BENUTZERNAME_VERGEBEN`), 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/EinheitIdPfad"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminNeuesKonto"
+      responses:
+        "201":
+          description: Leitende angelegt.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminKontoAngelegt"
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "409":
+          $ref: "#/components/responses/AdminKonflikt409"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/admin/einheiten/{einheitId}/teilnehmende:
+    post:
+      operationId: legeAdminTeilnehmendeAn
+      summary: Teilnehmende mit Eltern oder eigenem Konto anlegen
+      tags:
+        - Verwaltung
+      description: |
+        Kommando, Stellvertretungen und Kantonsadmin (mit zweitem Faktor), nur in der Einheit im Pfad. Das Kommando legt beim Anlegen fest, wer antwortet:
+        `antwort.art = eltern` (Eltern antworten, null bis vier Elternteile) oder `selbst` (die Person bekommt ein eigenes Konto mit ihrem Namen).
+        Ein Elternteil ist ein neues Konto (mit Startpasswort) oder ein bestehendes Konto (`bestehendesKonto`, der Benutzername): So hat ein Elternteil mit Kindern in mehreren Einheiten ein Konto.
+        Ein bestehendes Konto muss aktiv sein und darf weder dem Kantonsadmin gehören noch selbst für eine Person antworten (sonst 400).
+        Pro Person antworten die Eltern oder die Person selbst, nie beide. Alles geschieht in einer Transaktion. Der Rang muss zur Einheit gehören (sonst 400).
+
+        Statuscodes: 201, 400, 401, 403, 404, 409 (`BENUTZERNAME_VERGEBEN`, `SCHON_VERKNUEPFT`), 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/EinheitIdPfad"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminTeilnehmendeAnlegen"
+      responses:
+        "201":
+          description: Person und Konten angelegt.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminTeilnehmendeAngelegt"
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "409":
+          $ref: "#/components/responses/AdminKonflikt409"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/admin/einheiten/{einheitId}/teilnehmende/{teilnehmendeId}/eltern:
+    post:
+      operationId: legeAdminElternAn
+      summary: Elternteil zu einer Person hinzufügen
+      tags:
+        - Verwaltung
+      description: |
+        Kommando, Stellvertretungen und Kantonsadmin, nur für Personen der Einheit im Pfad. Der Elternteil ist ein neues Konto (mit Startpasswort) oder ein bestehendes (`bestehendesKonto`).
+        Antwortet die Person selbst, ist das 409 `SELBST_ANTWORTET`; dasselbe Konto zweimal ist 409 `SCHON_VERKNUEPFT`.
+
+        Statuscodes: 201, 400, 401, 403, 404, 409, 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/EinheitIdPfad"
+        - $ref: "#/components/parameters/AdminTeilnehmendeIdPfad"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminElternAnlegen"
+      responses:
+        "201":
+          description: Elternteil verknüpft.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminVerknuepftesKonto"
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "409":
+          $ref: "#/components/responses/AdminKonflikt409"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/admin/einheiten/{einheitId}/teilnehmende/{teilnehmendeId}/konto-wechsel:
+    post:
+      operationId: wechsleAdminKonto
+      summary: Konto-Wechsel Eltern → Kind
+      tags:
+        - Verwaltung
+      description: |
+        Kommando, Stellvertretungen und Kantonsadmin, nur für Personen der Einheit im Pfad. Die Familie meldet sich beim Kommando; in einer Transaktion bekommt die Person ein eigenes Konto
+        mit Startpasswort und fallen die Verknüpfungen aller Elternkonten weg. Die Person setzt beim ersten Login ein eigenes Passwort.
+        Danach ist die Person für die früheren Eltern unsichtbar (404 auf `PUT /api/v1/programme/{id}/teilnahmen/{teilnehmendeId}`); andere Kinder der Eltern bleiben.
+        Die Elternkonten selbst bleiben bestehen. Hat die Person schon ein eigenes Konto, ist das 409 `EIGENES_KONTO_VORHANDEN`.
+        Der Wechsel steht im Audit-Log.
+
+        Statuscodes: 201, 400, 401, 403, 404, 409, 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/EinheitIdPfad"
+        - $ref: "#/components/parameters/AdminTeilnehmendeIdPfad"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminKontoWechsel"
+      responses:
+        "201":
+          description: Eigenes Konto angelegt, Eltern gelöst.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminVerknuepftesKonto"
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "409":
+          $ref: "#/components/responses/AdminKonflikt409"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/admin/einheiten/{einheitId}/import/vorschau:
+    post:
+      operationId: vorschauAdminImport
+      summary: Vorschau des CSV-Imports
+      tags:
+        - Verwaltung
+      description: |
+        Kommando, Stellvertretungen und Kantonsadmin, nur für die Einheit im Pfad. Die Verwaltung liest die CSV-Datei im Browser und schickt die Zeilen als JSON (höchstens 200).
+        Die Vorschau schreibt nichts. Sie vergleicht mit dem Bestand der Einheit (ohne Unterschied bei Gross- und Kleinschreibung, Akzenten und Leerzeichen) und nennt je Zeile den Status
+        `neu`, `vorhanden` (die Person gibt es schon), `doppelt` (weiter oben in der Datei), `ungueltig` oder `ausgelassen`, dazu den vorgeschlagenen Benutzernamen des neuen Kontos.
+        Geschwister mit demselben Elternteil in der Datei teilen ein Elternkonto (`gleicheEltern`: Nummer der ersten Zeile). Die Antwort enthält keine Namen.
+
+        Statuscodes: 200, 400, 401, 403, 404, 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/EinheitIdPfad"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminImport"
+      responses:
+        "200":
+          description: Plan je Zeile.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminImportVorschau"
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/admin/einheiten/{einheitId}/import:
+    post:
+      operationId: importiereAdmin
+      summary: Teilnehmende und Eltern importieren
+      tags:
+        - Verwaltung
+      description: |
+        Gleiche Rechte und Eingabe wie die Vorschau. Der Server liest den Bestand neu (dem Browser glaubt er nicht) und legt alle Zeilen mit Status `neu` in einer Transaktion an:
+        Personen, Konten mit Startpasswort und die Verknüpfungen. Zwei gleichzeitige Importe derselben Einheit laufen nacheinander. Ein zweiter Lauf mit derselben Datei legt nichts mehr an.
+        Die Antwort nennt je neues Konto Name, Benutzername und Startpasswort; das Startpasswort steht nur hier.
+
+        Statuscodes: 201, 400, 401, 403, 404, 409 (`BENUTZERNAME_VERGEBEN`), 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/EinheitIdPfad"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminImport"
+      responses:
+        "201":
+          description: Importiert.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminImportErgebnis"
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "409":
+          $ref: "#/components/responses/AdminKonflikt409"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
 components:
   schemas:
     Fehler:
@@ -2008,6 +2505,14 @@ components:
           enum:
             - KEIN_KOMMANDANT
             - GLEICHE_PERSON
+            - BENUTZERNAME_VERGEBEN
+            - BEZIRK_VORHANDEN
+            - EINHEIT_VORHANDEN
+            - REIHENFOLGE_BELEGT
+            - ELTERN_ANTWORTEN
+            - SELBST_ANTWORTET
+            - EIGENES_KONTO_VORHANDEN
+            - SCHON_VERKNUEPFT
         message:
           type: string
           example: Diese Person ist schon Kommandantin oder Kommandant.
@@ -2426,6 +2931,376 @@ components:
               properties:
                 typ:
                   const: keine
+    AdminBezirkAnlegen:
+      type: object
+      required: [name]
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+    AdminBezirkListe:
+      type: object
+      required: [bezirke]
+      properties:
+        bezirke:
+          type: array
+          items:
+            type: object
+            required: [id, name]
+            properties:
+              id:
+                type: string
+                format: uuid
+              name:
+                type: string
+    AdminEinheitListe:
+      type: object
+      required: [einheiten]
+      properties:
+        einheiten:
+          type: array
+          items:
+            type: object
+            required: [id, name, typ, bezirkId, bezirk]
+            properties:
+              id:
+                type: string
+                format: uuid
+              name:
+                type: string
+              typ:
+                type: string
+                enum: [jf, kf]
+              bezirkId:
+                type: string
+                format: uuid
+              bezirk:
+                type: string
+                description: Name des Bezirks.
+    AdminNeuesKonto:
+      type: object
+      required: [vorname, nachname, benutzername]
+      additionalProperties: false
+      properties:
+        vorname:
+          type: string
+          minLength: 1
+          maxLength: 100
+        nachname:
+          type: string
+          minLength: 1
+          maxLength: 100
+        benutzername:
+          type: string
+          minLength: 3
+          maxLength: 64
+          pattern: ^[A-Za-z0-9._-]+$
+          description: Systemweit eindeutig; gespeichert wird er kleingeschrieben.
+    AdminNeuesKontoMitTelefon:
+      type: object
+      required: [vorname, nachname, benutzername]
+      additionalProperties: false
+      properties:
+        vorname:
+          type: string
+          minLength: 1
+          maxLength: 100
+        nachname:
+          type: string
+          minLength: 1
+          maxLength: 100
+        benutzername:
+          type: string
+          minLength: 3
+          maxLength: 64
+          pattern: ^[A-Za-z0-9._-]+$
+        telefon:
+          type: [string, "null"]
+          description: Freiwillig; leer oder `null` heisst keine Nummer. Nur Ziffern und die üblichen Trennzeichen.
+          example: +41 79 123 45 67
+    AdminKontoAngelegt:
+      type: object
+      required: [id, benutzername, startpasswort]
+      properties:
+        id:
+          type: string
+          format: uuid
+        benutzername:
+          type: string
+        startpasswort:
+          type: string
+          description: Nur in dieser Antwort. Gilt 7 Tage, nur für die erste Anmeldung.
+          example: ABCD-EFGH-JKMN
+    AdminEinheitAnlegen:
+      type: object
+      required: [bezirkId, typ, name, kommandant]
+      additionalProperties: false
+      properties:
+        bezirkId:
+          type: string
+          format: uuid
+        typ:
+          type: string
+          enum: [jf, kf]
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        kommandant:
+          $ref: "#/components/schemas/AdminNeuesKontoMitTelefon"
+    AdminEinheitAngelegt:
+      type: object
+      required: [id, kommandant]
+      properties:
+        id:
+          type: string
+          format: uuid
+        kommandant:
+          $ref: "#/components/schemas/AdminKontoAngelegt"
+    AdminStellvertretungAnlegen:
+      type: object
+      required: [vorname, nachname, benutzername]
+      additionalProperties: false
+      properties:
+        vorname:
+          type: string
+          minLength: 1
+          maxLength: 100
+        nachname:
+          type: string
+          minLength: 1
+          maxLength: 100
+        benutzername:
+          type: string
+          minLength: 3
+          maxLength: 64
+          pattern: ^[A-Za-z0-9._-]+$
+        telefon:
+          type: [string, "null"]
+        reihenfolge:
+          type: integer
+          minimum: 1
+          maximum: 99
+          description: Position der Stellvertretung (1 = erste Ansprechperson nach dem Kommando). Ohne Angabe ans Ende.
+    AdminStellvertretungAngelegt:
+      type: object
+      required: [id, benutzername, startpasswort, reihenfolge]
+      properties:
+        id:
+          type: string
+          format: uuid
+        benutzername:
+          type: string
+        startpasswort:
+          type: string
+        reihenfolge:
+          type: integer
+    AdminStellvertretungOrdnen:
+      type: object
+      required: [reihenfolge]
+      additionalProperties: false
+      properties:
+        reihenfolge:
+          type: integer
+          minimum: 1
+          maximum: 99
+    AdminElternAnlegen:
+      type: object
+      required: [eltern]
+      additionalProperties: false
+      properties:
+        eltern:
+          $ref: "#/components/schemas/AdminElternteil"
+    AdminElternteil:
+      description: Ein neues Konto oder ein bestehendes.
+      oneOf:
+        - $ref: "#/components/schemas/AdminNeuesKonto"
+        - type: object
+          required: [bestehendesKonto]
+          additionalProperties: false
+          properties:
+            bestehendesKonto:
+              type: string
+              description: Benutzername eines aktiven Kontos, das schon für ein anderes Kind antwortet oder sonst keine Verwaltungsrolle hat.
+    AdminTeilnehmendeAnlegen:
+      type: object
+      required: [vorname, nachname, antwort]
+      additionalProperties: false
+      properties:
+        vorname:
+          type: string
+          minLength: 1
+          maxLength: 100
+        nachname:
+          type: string
+          minLength: 1
+          maxLength: 100
+        rangId:
+          type: string
+          format: uuid
+          description: Rang der Einheit; ein fremder Rang ist 400.
+        antwort:
+          oneOf:
+            - type: object
+              required: [art, benutzername]
+              additionalProperties: false
+              properties:
+                art:
+                  const: selbst
+                benutzername:
+                  type: string
+                  minLength: 3
+                  maxLength: 64
+                  pattern: ^[A-Za-z0-9._-]+$
+            - type: object
+              required: [art, eltern]
+              additionalProperties: false
+              properties:
+                art:
+                  const: eltern
+                eltern:
+                  type: array
+                  maxItems: 4
+                  items:
+                    $ref: "#/components/schemas/AdminElternteil"
+    AdminVerknuepftesKonto:
+      type: object
+      required: [userId, benutzername, art]
+      properties:
+        userId:
+          type: string
+          format: uuid
+        benutzername:
+          type: string
+        art:
+          type: string
+          enum: [eltern, selbst]
+        startpasswort:
+          type: string
+          description: Nur bei einem neuen Konto; ein bestehendes behält sein Passwort.
+    AdminTeilnehmendeAngelegt:
+      type: object
+      required: [id, konten]
+      properties:
+        id:
+          type: string
+          format: uuid
+        konten:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminVerknuepftesKonto"
+    AdminKontoWechsel:
+      type: object
+      required: [benutzername]
+      additionalProperties: false
+      properties:
+        benutzername:
+          type: string
+          minLength: 3
+          maxLength: 64
+          pattern: ^[A-Za-z0-9._-]+$
+          description: Benutzername des neuen Kontos der Person.
+    AdminImport:
+      type: object
+      required: [zeilen]
+      additionalProperties: false
+      properties:
+        zeilen:
+          type: array
+          minItems: 1
+          maxItems: 200
+          items:
+            type: object
+            required: [vorname, nachname, art]
+            additionalProperties: false
+            properties:
+              vorname:
+                type: string
+                maxLength: 200
+              nachname:
+                type: string
+                maxLength: 200
+              art:
+                type: string
+                enum: [eltern, selbst, ohne, auslassen]
+                description: |
+                  `eltern`: die Eltern antworten (Name des Elternteils in `elternVorname` und `elternNachname`); `selbst`: die Person bekommt ein eigenes Konto;
+                  `ohne`: nur die Person, Konten folgen später; `auslassen`: Zeile überspringen.
+              elternVorname:
+                type: string
+                maxLength: 200
+              elternNachname:
+                type: string
+                maxLength: 200
+    AdminImportVorschau:
+      type: object
+      required: [zeilen, summe]
+      properties:
+        zeilen:
+          type: array
+          items:
+            type: object
+            required: [nr, status, art]
+            properties:
+              nr:
+                type: integer
+                description: Index der Zeile ab 0.
+              status:
+                type: string
+                enum: [neu, vorhanden, doppelt, ungueltig, ausgelassen]
+              art:
+                type: string
+                enum: [eltern, selbst, ohne, auslassen]
+              benutzername:
+                type: string
+                description: Vorgeschlagener Benutzername des neuen Kontos (bei `eltern` das der Eltern, bei `selbst` das der Person).
+              gleicheEltern:
+                type: integer
+                description: Nummer der Zeile, deren neues Elternkonto diese Person auch bekommt.
+              grund:
+                type: string
+        summe:
+          type: object
+          required: [neu, vorhanden, doppelt, ungueltig, ausgelassen, konten]
+          properties:
+            neu:
+              type: integer
+            vorhanden:
+              type: integer
+            doppelt:
+              type: integer
+            ungueltig:
+              type: integer
+            ausgelassen:
+              type: integer
+            konten:
+              type: integer
+              description: Zahl der neuen Konten.
+    AdminImportErgebnis:
+      type: object
+      required: [teilnehmende, konten, uebersprungen]
+      properties:
+        teilnehmende:
+          type: integer
+        uebersprungen:
+          type: integer
+        konten:
+          type: array
+          items:
+            type: object
+            required: [name, art, benutzername, startpasswort]
+            properties:
+              name:
+                type: string
+              art:
+                type: string
+                enum: [eltern, selbst]
+              benutzername:
+                type: string
+              startpasswort:
+                type: string
   parameters:
     AppVersion:
       name: X-App-Version
@@ -2475,6 +3350,22 @@ components:
       in: path
       required: true
       description: ID der teilnehmenden Person.
+      schema:
+        type: string
+        format: uuid
+    AdminUserIdPfad:
+      name: userId
+      in: path
+      required: true
+      description: ID der Person (UUID).
+      schema:
+        type: string
+        format: uuid
+    AdminTeilnehmendeIdPfad:
+      name: teilnehmendeId
+      in: path
+      required: true
+      description: ID der teilnehmenden Person (UUID), Person der Einheit im Pfad.
       schema:
         type: string
         format: uuid
@@ -2550,6 +3441,12 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/Fehler"
+    AdminKonflikt409:
+      description: Konflikt mit dem Bestand; `code` nennt den Grund (siehe `AdminKonflikt`).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/AdminKonflikt"
     ZuVieleAnfragen429:
       description: Zu viele Anfragen (code ZU_VIELE_ANFRAGEN)
       content:

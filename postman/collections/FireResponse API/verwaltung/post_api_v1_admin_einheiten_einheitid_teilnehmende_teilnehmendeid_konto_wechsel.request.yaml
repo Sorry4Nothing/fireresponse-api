@@ -1,0 +1,20 @@
+$kind: http-request
+name: "POST /api/v1/admin/einheiten/:einheitId/teilnehmende/:teilnehmendeId/konto-wechsel"
+order: 46000
+method: POST
+url: "{{baseUrl}}/api/v1/admin/einheiten/{{einheit_jfA}}/teilnehmende/{{ziel_45}}/konto-wechsel"
+headers:
+  - key: "Cookie"
+    value: "{{cookie}}"
+  - key: "expo-origin"
+    value: "{{expoOrigin}}"
+  - key: "X-Forwarded-For"
+    value: "{{ip}}"
+  - key: "X-App-Version"
+    value: "{{appVersion}}"
+  - key: "Content-Type"
+    value: "application/json"
+body:
+  type: json
+  content: |-
+    {{body_45}}
