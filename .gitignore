@@ -1,0 +1,25 @@
+node_modules/
+dist/
+coverage/
+*.log
+
+# Geheimnisse und Serverkonfiguration
+.env
+.env.*
+!.env.example
+deploy/.env
+deploy/Caddyfile
+deploy/secrets/
+*.pem
+*.key
+
+# Lokale Anweisungen für Agenten
+AGENTS.md
+CLAUDE.md
+docs/agents/
+
+# Editor und System
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
