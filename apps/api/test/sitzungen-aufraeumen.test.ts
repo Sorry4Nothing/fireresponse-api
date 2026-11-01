@@ -37,11 +37,9 @@ async function sitzungMitToken(userId: string, abstand: number) {
 }
 
 test("eine abgelaufene Sitzung geht samt Push-Token, eine gültige bleibt", async () => {
-  const [abteilung] =
-    await sql`insert into abteilung (name) values ('Testabteilung') returning id`;
   const [person] = await sql`
-    insert into "user" (name, email, abteilung_id)
-    values ('Testperson', ${`${randomUUID()}@example.org`}, ${abteilung.id})
+    insert into "user" (name, email)
+    values ('Testperson', ${`${randomUUID()}@example.org`})
     returning id`;
   await sitzungMitToken(person.id, -60_000);
   const gueltig = await sitzungMitToken(person.id, 3_600_000);

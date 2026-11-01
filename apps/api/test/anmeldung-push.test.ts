@@ -76,11 +76,16 @@ const melde = (
   konto: PersonaKonto,
   programmId: string,
   status: "ja" | "nein" = "ja",
-  kindId = welt.kindAId,
+  teilnehmendeId = welt.teilnehmende.jfA,
 ) =>
-  aufruf(konto, "PUT", `/api/v1/programme/${programmId}/teilnahmen/${kindId}`, {
-    status,
-  });
+  aufruf(
+    konto,
+    "PUT",
+    `/api/v1/programme/${programmId}/teilnahmen/${teilnehmendeId}`,
+    {
+      status,
+    },
+  );
 
 // Ein Token pro Konto, angemeldet über die Route wie in der App
 async function token(konto: PersonaKonto) {
@@ -96,32 +101,32 @@ async function token(konto: PersonaKonto) {
 // 2027-10-30 ist ein Samstag
 const waldtag = () =>
   legeProgrammAn(db, {
-    abteilungId: welt.testabteilungId,
-    sichtbarkeit: "eltern",
-    stufen: [welt.stufeAId],
+    einheitId: welt.einheit.jfA,
     titel: "Waldtag",
     tagVon: "2027-10-30",
   });
 
 const empfaenger = () => fcmAttrappe.nachrichten.map((n) => n.token).sort();
 
-describe("Anmelde-Push bei PUT /programme/:id/teilnahmen/:kindId", () => {
-  test("geht an Leitung und SL der Stufe, ohne Kindernamen und nie an fremde Stufen, Eltern oder Admins", async () => {
-    const [eltern, leitung, sl, leitungB, slB, admin] = await Promise.all([
-      person("elternA"),
-      person("leitendeA"),
-      person("slA"),
-      person("leitendeB"),
-      person("slB"),
-      person("admin"),
+describe("Anmelde-Push bei PUT /programme/:id/teilnahmen/:teilnehmendeId", () => {
+  test("geht an Kommando, Stellvertretung und Leitende der Einheit, ohne Namen und nie an andere Einheiten, Eltern oder das Kantonsadmin-Konto", async () => {
+    const [eltern, leitung, sl, stv, slB, admin] = await Promise.all([
+      person("elternJfA"),
+      person("leitendeJfA"),
+      person("kommandoJfA"),
+      person("stellvertretung1JfA"),
+      person("kommandoKfA"),
+      person("kantonsadmin"),
     ]);
-    const [tLeitung, tSl] = await Promise.all([leitung, sl].map(token));
-    await Promise.all([eltern, leitungB, slB, admin].map(token));
+    const [tLeitung, tSl, tStv] = await Promise.all(
+      [leitung, sl, stv].map(token),
+    );
+    await Promise.all([eltern, slB, admin].map(token));
     const p = await waldtag();
 
     expect((await melde(eltern, p.id)).status).toBe(204);
 
-    expect(empfaenger()).toEqual([tLeitung, tSl].sort());
+    expect(empfaenger()).toEqual([tLeitung, tSl, tStv].sort());
     expect(fcmAttrappe.nachrichten).toStrictEqual(
       expect.arrayContaining([
         fcmNachricht(
@@ -137,7 +142,10 @@ describe("Anmelde-Push bei PUT /programme/:id/teilnahmen/:kindId", () => {
   });
 
   test("Abmeldung und Wechsel von «nein» auf «ja» haben je ihren Text", async () => {
-    const [eltern, sl] = await Promise.all([person("elternA"), person("slA")]);
+    const [eltern, sl] = await Promise.all([
+      person("elternJfA"),
+      person("kommandoJfA"),
+    ]);
     await token(sl);
     const p = await waldtag();
 
@@ -151,7 +159,10 @@ describe("Anmelde-Push bei PUT /programme/:id/teilnahmen/:kindId", () => {
   });
 
   test("gleicher Wert löst keinen Push aus und lässt die Antwort bestehen", async () => {
-    const [eltern, sl] = await Promise.all([person("elternA"), person("slA")]);
+    const [eltern, sl] = await Promise.all([
+      person("elternJfA"),
+      person("kommandoJfA"),
+    ]);
     await token(sl);
     const p = await waldtag();
     await melde(eltern, p.id);
@@ -167,24 +178,32 @@ describe("Anmelde-Push bei PUT /programme/:id/teilnahmen/:kindId", () => {
     expect(zeilen).toEqual([{ status: "ja" }]);
   });
 
-  test("die handelnde Person bekommt nichts, die übrige Leitung schon", async () => {
+  test("die handelnde Person bekommt nichts, das übrige Kommando schon", async () => {
     const [leitung, sl] = await Promise.all([
-      person("leitendeA"),
-      person("slA"),
+      person("leitendeJfA"),
+      person("kommandoJfA"),
     ]);
+    // Die Leitende ist zugleich Elternteil einer teilnehmenden Person derselben Einheit
+    await db.insert(schema.teilnehmendeKonto).values({
+      userId: leitung.id!,
+      teilnehmendeId: welt.teilnehmende.jfA2,
+      art: "eltern",
+    });
     const [, tSl] = await Promise.all([leitung, sl].map(token));
     const p = await waldtag();
 
-    expect((await melde(leitung, p.id)).status).toBe(204);
+    expect(
+      (await melde(leitung, p.id, "ja", welt.teilnehmende.jfA2)).status,
+    ).toBe(204);
 
     expect(empfaenger()).toEqual([tSl]);
   });
 
   test("Schalter aus: kein Push; wieder an: Push", async () => {
     const [eltern, sl, leitung] = await Promise.all([
-      person("elternA"),
-      person("slA"),
-      person("leitendeA"),
+      person("elternJfA"),
+      person("kommandoJfA"),
+      person("leitendeJfA"),
     ]);
     const [tSl, tLeitung] = await Promise.all([sl, leitung].map(token));
     const p = await waldtag();
@@ -206,7 +225,10 @@ describe("Anmelde-Push bei PUT /programme/:id/teilnahmen/:kindId", () => {
   });
 
   test("deaktivierte Konten bekommen nichts", async () => {
-    const [eltern, sl] = await Promise.all([person("elternA"), person("slA")]);
+    const [eltern, sl] = await Promise.all([
+      person("elternJfA"),
+      person("kommandoJfA"),
+    ]);
     await token(sl);
     await db
       .update(schema.user)
@@ -221,8 +243,8 @@ describe("Anmelde-Push bei PUT /programme/:id/teilnahmen/:kindId", () => {
 
   test("die eigene Anmeldung der Leitenden löst nichts aus", async () => {
     const [leitung, sl] = await Promise.all([
-      person("leitendeA"),
-      person("slA"),
+      person("leitendeJfA"),
+      person("kommandoJfA"),
     ]);
     await token(sl);
     const p = await waldtag();
@@ -239,7 +261,10 @@ describe("Anmelde-Push bei PUT /programme/:id/teilnahmen/:kindId", () => {
   });
 
   test("ein Ausfall von FCM lässt den Aufruf nicht scheitern, die Antwort bleibt gespeichert", async () => {
-    const [eltern, sl] = await Promise.all([person("elternA"), person("slA")]);
+    const [eltern, sl] = await Promise.all([
+      person("elternJfA"),
+      person("kommandoJfA"),
+    ]);
     await token(sl);
     const p = await waldtag();
     fcmAttrappe.ausfall = true;
@@ -253,18 +278,21 @@ describe("Anmelde-Push bei PUT /programme/:id/teilnahmen/:kindId", () => {
     expect(zeilen).toEqual([{ status: "ja" }]);
   });
 
-  test("abgelehnte Aufrufe (403, 409) lösen nichts aus", async () => {
-    const [eltern, sl] = await Promise.all([person("elternA"), person("slA")]);
+  test("abgelehnte Aufrufe (404, 409) lösen nichts aus", async () => {
+    const [eltern, sl] = await Promise.all([
+      person("elternJfA"),
+      person("kommandoJfA"),
+    ]);
     await token(sl);
     const p = await waldtag();
     const begonnen = await legeProgrammAn(db, {
-      abteilungId: welt.testabteilungId,
-      sichtbarkeit: "eltern",
-      stufen: [welt.stufeAId],
+      einheitId: welt.einheit.jfA,
       beginn: new Date("2020-01-01T10:00:00Z"),
     });
 
-    expect((await melde(eltern, p.id, "ja", welt.kindBId)).status).toBe(403);
+    expect(
+      (await melde(eltern, p.id, "ja", welt.teilnehmende.jfA2)).status,
+    ).toBe(404);
     expect((await melde(eltern, begonnen.id)).status).toBe(409);
 
     expect(fcmAttrappe.nachrichten).toEqual([]);

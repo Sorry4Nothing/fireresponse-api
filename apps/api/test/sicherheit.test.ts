@@ -49,7 +49,7 @@ let welt: Welt;
 let eltern: PersonaKonto;
 beforeAll(async () => {
   welt = await erstelleWelt(db, auth);
-  eltern = await legePersonaAn(welt, "elternA");
+  eltern = await legePersonaAn(welt, "elternJfA");
 });
 afterAll(() => sql.end());
 

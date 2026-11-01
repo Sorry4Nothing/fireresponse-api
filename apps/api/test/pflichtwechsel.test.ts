@@ -79,7 +79,7 @@ function post(
 describe("Sperre, solange mussPasswortAendern gesetzt ist", () => {
   test("GET /api/v1/ich antwortet 200, jede andere /api/v1-Route 403; ohne Flag geht beides", async () => {
     const offen = await legePersonaAn(welt, "mussPasswortAendern");
-    const gewechselt = await legePersonaAn(welt, "elternA");
+    const gewechselt = await legePersonaAn(welt, "elternJfA");
 
     expect(
       (await app.request("/api/v1/ich", { headers: offen.headers })).status,
@@ -192,7 +192,6 @@ describe("Pflichtwechsel über change-password", () => {
         role: "admin",
         data: {
           username: benutzername,
-          abteilungId: welt.testabteilungId,
           ...startpasswortFelder(),
         },
       },

@@ -42,7 +42,7 @@ let port: number;
 let konto: PersonaKonto;
 
 beforeAll(async () => {
-  konto = await legePersonaAn(await erstelleWelt(db, auth), "elternA");
+  konto = await legePersonaAn(await erstelleWelt(db, auth), "elternJfA");
   port = await new Promise<number>((bereit) => {
     server = serve({ fetch: app.fetch, port: 0 }, (info: AddressInfo) =>
       bereit(info.port),

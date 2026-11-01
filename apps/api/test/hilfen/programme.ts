@@ -8,22 +8,18 @@ export interface TestProgramm {
   marke: string;
 }
 
-// Legt ein Programm mit Stufen an; mit tagVon ganztägig, sonst mit Zeit. Daten 2027, damit kein Fenster-Test versehentlich trifft
+// Legt ein Programm einer Einheit an; mit tagVon ganztägig, sonst mit Zeit. Daten 2027, damit kein Fenster-Test versehentlich trifft
 export async function legeProgrammAn(
   db: Db,
   {
-    abteilungId,
-    sichtbarkeit = "intern",
-    stufen = [],
+    einheitId,
     titel = "Testprogramm",
     beginn = new Date("2027-03-06T13:00:00Z"),
     ende,
     tagVon,
     tagBis,
   }: {
-    abteilungId: string;
-    sichtbarkeit?: "intern" | "leitende" | "eltern";
-    stufen?: readonly string[];
+    einheitId: string;
     titel?: string;
     beginn?: Date;
     ende?: Date;
@@ -36,7 +32,7 @@ export async function legeProgrammAn(
   const [zeile] = await db
     .insert(schema.programm)
     .values({
-      abteilungId,
+      einheitId,
       googleEventId: `test-${randomUUID()}`,
       titel,
       ganztaegig,
@@ -48,13 +44,7 @@ export async function legeProgrammAn(
       tagBis: ganztaegig ? (tagBis ?? tagVon) : null,
       googleOrt: "Google-Ort",
       googleBeschreibung: marke,
-      sichtbarkeit,
     })
     .returning({ id: schema.programm.id });
-  if (stufen.length > 0) {
-    await db
-      .insert(schema.programmStufe)
-      .values(stufen.map((stufeId) => ({ programmId: zeile.id, stufeId })));
-  }
   return { id: zeile.id, marke };
 }

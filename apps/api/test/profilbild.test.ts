@@ -99,7 +99,7 @@ const pfadVon = (id: string | null) =>
 
 describe("PUT /api/v1/ich/bild", () => {
   test("speichert das Bild als 256 × 256 JPEG ohne EXIF und Ortsdaten", async () => {
-    const konto = await person("elternA");
+    const konto = await person("elternJfA");
     const mitExif = await sharp(await jpeg())
       .withExif({
         IFD0: { ImageDescription: "GEHEIME-BESCHREIBUNG" },
@@ -125,7 +125,7 @@ describe("PUT /api/v1/ich/bild", () => {
   });
 
   test("PNG mit Transparenz und WebP werden angenommen und als JPEG gespeichert", async () => {
-    const konto = await person("elternA");
+    const konto = await person("elternJfA");
     const png = await sharp({
       create: {
         width: 64,
@@ -149,7 +149,7 @@ describe("PUT /api/v1/ich/bild", () => {
   });
 
   test("ein zweiter Upload ersetzt das Bild: eine Zeile, neuer Pfad", async () => {
-    const konto = await person("elternA");
+    const konto = await person("elternJfA");
     await hochladen(konto, await jpeg());
     const vorher = await profil(konto);
     await new Promise((r) => setTimeout(r, 20));
@@ -170,7 +170,7 @@ describe("PUT /api/v1/ich/bild", () => {
   ])(
     "%s wird nicht gespeichert (415), auch mit image/jpeg als Content-Type",
     async (_name, inhalt) => {
-      const konto = await person("elternA");
+      const konto = await person("elternJfA");
       const res = await hochladen(konto, Buffer.from(inhalt));
       expect(res.status).toBe(415);
       expect(await res.json()).toMatchObject({ code: "BILD_FORMAT" });
@@ -179,7 +179,7 @@ describe("PUT /api/v1/ich/bild", () => {
   );
 
   test("gültige Kennung, aber kein lesbares Bild: 415", async () => {
-    const konto = await person("elternA");
+    const konto = await person("elternJfA");
     const kaputt = Buffer.concat([
       Buffer.from([0xff, 0xd8, 0xff, 0xe0]),
       Buffer.from("kein jpeg, nur der Anfang stimmt"),
@@ -189,7 +189,7 @@ describe("PUT /api/v1/ich/bild", () => {
   });
 
   test("ein Bild mit zu vielen Pixeln wird abgelehnt (Dekompressionsbombe)", async () => {
-    const konto = await person("elternA");
+    const konto = await person("elternJfA");
     // 64 Mio. Pixel, als PNG wenige hundert KB
     const bombe = await sharp({
       create: { width: 8000, height: 8000, channels: 3, background: "#fff" },
@@ -202,7 +202,7 @@ describe("PUT /api/v1/ich/bild", () => {
   });
 
   test("über 5 MB: 413, mit Content-Length schon vor dem Einlesen, ohne beim Lesen des Streams", async () => {
-    const konto = await person("elternA");
+    const konto = await person("elternJfA");
     const gross = Buffer.alloc(BILD_MAX_BYTES + 1, 0xff);
     const mitLaenge = await app.request("/api/v1/ich/bild", {
       method: "PUT",
@@ -220,7 +220,7 @@ describe("PUT /api/v1/ich/bild", () => {
   });
 
   test("die Grenze von 64 KB gilt weiter für alle anderen Routen", async () => {
-    const konto = await person("elternA");
+    const konto = await person("elternJfA");
     const res = await app.request("/api/v1/ich", {
       method: "PATCH",
       headers: { ...konto.headers, "content-type": "application/json" },
@@ -230,21 +230,21 @@ describe("PUT /api/v1/ich/bild", () => {
   });
 
   test("Rate-Limit: ab dem elften Upload in zehn Minuten 429, auch fehlgeschlagene zählen", async () => {
-    const konto = await person("elternA");
+    const konto = await person("elternJfA");
     const status: number[] = [];
     for (let i = 0; i < 11; i++) {
       status.push((await hochladen(konto, Buffer.from("x"))).status);
     }
     expect(status).toEqual([...Array(10).fill(415), 429]);
     // Eine andere Person ist nicht betroffen
-    const andere = await person("elternA");
+    const andere = await person("elternJfA");
     expect((await hochladen(andere, await jpeg())).status).toBe(204);
   });
 });
 
 describe("DELETE /api/v1/ich/bild und Löschen mit dem Konto", () => {
   test("die Person löscht ihr Bild jederzeit; ein zweites Mal ist auch 204", async () => {
-    const konto = await person("elternA");
+    const konto = await person("elternJfA");
     await hochladen(konto, await jpeg());
     expect((await loeschen(konto)).status).toBe(204);
     expect(await zeilen(konto.id)).toHaveLength(0);
@@ -254,7 +254,10 @@ describe("DELETE /api/v1/ich/bild und Löschen mit dem Konto", () => {
   });
 
   test("DELETE trifft nur das eigene Bild", async () => {
-    const [a, b] = await Promise.all([person("elternA"), person("elternA")]);
+    const [a, b] = await Promise.all([
+      person("elternJfA"),
+      person("elternJfA"),
+    ]);
     await hochladen(a, await jpeg());
     await hochladen(b, await jpeg());
     await loeschen(a);
@@ -262,50 +265,8 @@ describe("DELETE /api/v1/ich/bild und Löschen mit dem Konto", () => {
     expect(await zeilen(b.id)).toHaveLength(1);
   });
 
-  test("löscht ein Admin die Person, geht das Bild mit", async () => {
-    const [admin, ziel] = await Promise.all([
-      person("admin"),
-      person("elternA"),
-    ]);
-    await hochladen(ziel, await jpeg());
-    expect(await zeilen(ziel.id)).toHaveLength(1);
-    const res = await app.request(`/api/v1/admin/personen/${ziel.id}`, {
-      method: "DELETE",
-      headers: admin.headers,
-    });
-    expect(res.status).toBe(204);
-    expect(await zeilen(ziel.id)).toHaveLength(0);
-  });
-
-  test("deaktiviert ein Admin die Person, geht das Bild mit; Aktivieren bringt es nicht zurück", async () => {
-    const [admin, ziel, leser] = await Promise.all([
-      person("admin"),
-      person("slA"),
-      person("elternA"),
-    ]);
-    await hochladen(ziel, await jpeg());
-    expect((await holen(leser, ziel.id)).status).toBe(200);
-    const admin_ = (aktion: string) =>
-      app.request(`/api/v1/admin/personen/${ziel.id}/${aktion}`, {
-        method: "POST",
-        headers: admin.headers,
-      });
-    expect((await admin_("deaktivieren")).status).toBe(204);
-    expect(await zeilen(ziel.id)).toHaveLength(0);
-    expect((await holen(leser, ziel.id)).status).toBe(404);
-    expect((await admin_("aktivieren")).status).toBe(204);
-    expect((await holen(leser, ziel.id)).status).toBe(404);
-    // bildUrl ist null: in den Kontakten der Stufe und im eigenen Profil
-    const { kontakte } = (await (
-      await app.request(`/api/v1/stufen/${welt.stufeAId}/kontakte`, {
-        headers: leser.headers,
-      })
-    ).json()) as { kontakte: { id: string; bildUrl: string | null }[] };
-    expect(kontakte.find((k) => k.id === ziel.id)?.bildUrl).toBeNull();
-  });
-
   test("verschwindet das Konto auf anderem Weg (Fremdschlüssel), geht das Bild mit", async () => {
-    const ziel = await person("elternA");
+    const ziel = await person("elternJfA");
     await hochladen(ziel, await jpeg());
     await db.delete(schema.user).where(eq(schema.user.id, ziel.id as string));
     expect(await zeilen(ziel.id)).toHaveLength(0);
@@ -314,7 +275,7 @@ describe("DELETE /api/v1/ich/bild und Löschen mit dem Konto", () => {
 
 describe("Ohne Sitzung", () => {
   test("Hochladen, Löschen und Abrufen verlangen eine Sitzung (401), auch für ein vorhandenes Bild", async () => {
-    const konto = await person("elternA");
+    const konto = await person("elternJfA");
     await hochladen(konto, await jpeg());
     const ohne = await person("ohneLogin");
     expect((await hochladen(ohne, await jpeg())).status).toBe(401);
@@ -329,7 +290,7 @@ describe("Ohne Sitzung", () => {
 
   test("ein deaktiviertes Konto sieht nichts (401)", async () => {
     const [ziel, weg] = await Promise.all([
-      person("elternA"),
+      person("elternJfA"),
       person("deaktiviert"),
     ]);
     await hochladen(ziel, await jpeg());
@@ -339,159 +300,102 @@ describe("Ohne Sitzung", () => {
 
 describe("GET /api/v1/personen/:id/bild: wer es sieht", () => {
   test("Header: private, no-store und nosniff", async () => {
-    const konto = await person("elternA");
+    const konto = await person("elternJfA");
     await hochladen(konto, await jpeg());
     const res = await holen(konto, konto.id);
     expect(res.headers.get("cache-control")).toBe("private, no-store");
     expect(res.headers.get("x-content-type-options")).toBe("nosniff");
     // Auch die Ablehnung trägt no-store
-    const fremd = await person("slB");
+    const fremd = await person("kommandoKfA");
     const nein = await holen(fremd, konto.id);
     expect(nein.status).toBe(404);
     expect(nein.headers.get("cache-control")).toBe("private, no-store");
   });
 
-  test("die SL sehen Eltern ihrer Stufe, Admin und Leitende der Stufe sehen die SL, Fremde nichts", async () => {
-    const [slA, admin, leitendeA, elternA, slB, leitendeB, elternB, demo] =
+  test("das Kommando sieht, wer die Einheit kennt; Fremde nichts", async () => {
+    const [kommando, admin, leitende, eltern, selbst, elternAundB] =
       await Promise.all([
-        person("slA"),
-        person("admin"),
-        person("leitendeA"),
-        person("elternA"),
-        person("slB"),
-        person("leitendeB"),
-        person("elternB"),
-        person("demoEltern"),
+        person("kommandoJfA"),
+        person("kantonsadmin"),
+        person("leitendeJfA"),
+        person("elternJfA"),
+        person("teilnehmendeSelbstJfA"),
+        person("elternAundB"),
       ]);
-    await hochladen(slA, await jpeg());
-    const status = async (konten: PersonaKonto[]) =>
-      Promise.all(konten.map(async (k) => (await holen(k, slA.id)).status));
-    expect(await status([admin, leitendeA, elternA, slA])).toEqual([
-      200, 200, 200, 200,
+    const [kfKommando, bKommando, elternKf] = await Promise.all([
+      person("kommandoKfA"),
+      person("kommandoJfB"),
+      person("elternKfA"),
     ]);
-    expect(await status([slB, leitendeB, elternB, demo])).toEqual([
-      404, 404, 404, 404,
+    await hochladen(kommando, await jpeg());
+    const status = async (konten: PersonaKonto[]) =>
+      Promise.all(
+        konten.map(async (k) => (await holen(k, kommando.id)).status),
+      );
+    expect(
+      await status([kommando, admin, leitende, eltern, selbst, elternAundB]),
+    ).toEqual([200, 200, 200, 200, 200, 200]);
+    expect(await status([kfKommando, bKommando, elternKf])).toEqual([
+      404, 404, 404,
     ]);
     // Unbekannte Person und Person ohne Bild: dieselbe Antwort
     expect(
-      (await holen(elternA, "0198f0a0-0000-7000-8000-000000000000")).status,
+      (await holen(eltern, "0198f0a0-0000-7000-8000-000000000000")).status,
     ).toBe(404);
-    expect((await holen(slB, elternB.id)).status).toBe(404);
-    expect((await holen(elternA, "kein-uuid")).status).toBe(400);
+    expect((await holen(kfKommando, eltern.id)).status).toBe(404);
+    expect((await holen(eltern, "kein-uuid")).status).toBe(400);
   });
 
-  test("Admin sieht das Bild jeder Person der eigenen Abteilung, die Admin einer anderen Abteilung keines", async () => {
-    const [admin, eltern, demoAdmin] = await Promise.all([
-      person("admin"),
-      person("elternA"),
-      person("demoAdmin"),
+  test("Leitende sieht nur, wer selbst eine Rolle in der Einheit hat; Eltern und Teilnehmende sehen nur das Kommando", async () => {
+    const [leitende, kollege, stv, eltern, kfKommando] = await Promise.all([
+      person("leitendeJfA"),
+      person("leitendeJfA"),
+      person("stellvertretung1JfA"),
+      person("elternJfA"),
+      person("kommandoKfA"),
+    ]);
+    await hochladen(leitende, await jpeg());
+    for (const k of [kollege, stv]) {
+      expect((await holen(k, leitende.id)).status).toBe(200);
+    }
+    for (const k of [eltern, kfKommando]) {
+      expect((await holen(k, leitende.id)).status).toBe(404);
+    }
+    // Die Stellvertretung ist Kontakt: Eltern sehen ihr Bild
+    await hochladen(stv, await jpeg());
+    expect((await holen(eltern, stv.id)).status).toBe(200);
+  });
+
+  test("Kantonsadmin sieht das Bild jeder Person, ein Konto ohne Rolle sonst keines", async () => {
+    const [admin, eltern, anderer] = await Promise.all([
+      person("kantonsadmin"),
+      person("elternJfA"),
+      person("elternAundB"),
     ]);
     await hochladen(eltern, await jpeg());
     expect((await holen(admin, eltern.id)).status).toBe(200);
-    expect((await holen(demoAdmin, eltern.id)).status).toBe(404);
-    // Die Liste der Verwaltung trägt den Pfad zum Bild, ohne Bild null
-    const liste = async () =>
-      (
-        (await (
-          await app.request("/api/v1/admin/personen", {
-            headers: admin.headers,
-          })
-        ).json()) as { personen: { id: string; bildUrl: string | null }[] }
-      ).personen.find((p) => p.id === eltern.id)!.bildUrl;
-    expect(await liste()).toMatch(pfadVon(eltern.id));
-    await loeschen(eltern);
-    expect(await liste()).toBeNull();
+    expect((await holen(anderer, eltern.id)).status).toBe(404);
   });
 
-  test("die Kontakte eines Programms zeigen die SL mit Status Ja; wer das Programm sieht, sieht ihr Bild", async () => {
-    const [sl, fremdeSl] = await Promise.all([person("slA"), person("slB")]);
-    await hochladen(sl, await jpeg());
-    expect((await holen(fremdeSl, sl.id)).status).toBe(404);
-    const programm = await legeProgrammAn(db, {
-      abteilungId: welt.testabteilungId,
-      sichtbarkeit: "eltern",
-      stufen: [welt.stufeAId],
-    });
-    const anmelden = (status: "ja" | "nein") =>
-      db
-        .insert(schema.leitungAnmeldung)
-        .values({ programmId: programm.id, userId: sl.id as string, status })
-        .onConflictDoUpdate({
-          target: [
-            schema.leitungAnmeldung.programmId,
-            schema.leitungAnmeldung.userId,
-          ],
-          set: { status },
-        });
-    // Die Kontakte nennen nur den Hauptkontakt je Stufe; weitere SL der Stufe stehen ohne Priorität dahinter
-    await db
-      .update(schema.rolle)
-      .set({ prioritaet: 1 })
-      .where(eq(schema.rolle.userId, sl.id as string));
-    await anmelden("nein");
-    expect((await holen(fremdeSl, sl.id)).status).toBe(404);
-    await anmelden("ja");
-    expect((await holen(fremdeSl, sl.id)).status).toBe(200);
-    const { kontakte } = (await (
-      await app.request(`/api/v1/programme/${programm.id}/kontakte`, {
-        headers: fremdeSl.headers,
-      })
-    ).json()) as { kontakte: { id: string; bildUrl: string | null }[] };
-    expect(kontakte.find((k) => k.id === sl.id)?.bildUrl).toMatch(
-      pfadVon(sl.id),
-    );
-  });
-
-  test("Leitende der Stufe sehen das Bild ihrer Kolleginnen und der SL; die Anmeldungen tragen bildUrl", async () => {
-    const [leitende, kollege, sl, eltern, fremdeSl, fremdeLeitende] =
-      await Promise.all([
-        person("leitendeA"),
-        person("leitendeA"),
-        person("slA"),
-        person("elternA"),
-        person("slB"),
-        person("leitendeB"),
-      ]);
+  test("die Liste der Anmeldungen trägt bildUrl der Leitenden", async () => {
+    const [kommando, leitende] = await Promise.all([
+      person("kommandoJfA"),
+      person("leitendeJfA"),
+    ]);
     await hochladen(leitende, await jpeg());
-    for (const k of [kollege, sl]) {
-      expect((await holen(k, leitende.id)).status).toBe(200);
-    }
-    for (const k of [eltern, fremdeSl, fremdeLeitende]) {
-      expect((await holen(k, leitende.id)).status).toBe(404);
-    }
     const programm = await legeProgrammAn(db, {
-      abteilungId: welt.testabteilungId,
-      sichtbarkeit: "leitende",
-      stufen: [welt.stufeAId],
+      einheitId: welt.einheit.jfA,
     });
-    const bildUrlVon = async (betrachter: PersonaKonto) => {
+    const bildUrlVon = async () => {
       const { leitende: liste } = (await (
         await app.request(`/api/v1/programme/${programm.id}/teilnahmen`, {
-          headers: betrachter.headers,
+          headers: kommando.headers,
         })
       ).json()) as { leitende: { id: string; bildUrl: string | null }[] };
       return liste.find((l) => l.id === leitende.id)?.bildUrl;
     };
-    expect(await bildUrlVon(sl)).toMatch(pfadVon(leitende.id));
+    expect(await bildUrlVon()).toMatch(pfadVon(leitende.id));
     await loeschen(leitende);
-    expect(await bildUrlVon(sl)).toBeNull();
-  });
-});
-
-describe("bildUrl in Kontakten", () => {
-  test("bildUrl bei den Kontakten der Stufe", async () => {
-    const [sl, eltern] = await Promise.all([person("slA"), person("elternA")]);
-    await hochladen(sl, await jpeg());
-    const lies = async () =>
-      (
-        (await (
-          await app.request(`/api/v1/stufen/${welt.stufeAId}/kontakte`, {
-            headers: eltern.headers,
-          })
-        ).json()) as { kontakte: { id: string; bildUrl: string | null }[] }
-      ).kontakte.find((k) => k.id === sl.id);
-    expect((await lies())?.bildUrl).toMatch(pfadVon(sl.id));
-    await loeschen(sl);
-    expect((await lies())?.bildUrl).toBeNull();
+    expect(await bildUrlVon()).toBeNull();
   });
 });

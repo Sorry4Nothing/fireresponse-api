@@ -63,7 +63,7 @@ describe("Angaben für die Stores", () => {
   test.each<[KategorieId, string]>([
     ["konto", "Name"],
     ["telefon", "Phone"],
-    ["kinder", "Name"],
+    ["teilnehmende", "Name"],
   ])("%s steht mit %s im Formular beider Stores", (id, wort) => {
     const k = KATEGORIEN[id];
     expect(k.apple.join(" ") + k.google.join(" ")).toContain(wort);

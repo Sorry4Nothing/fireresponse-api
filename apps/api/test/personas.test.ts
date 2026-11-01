@@ -30,7 +30,6 @@ beforeAll(async () => {
 afterAll(() => Promise.all([sql.end(), db.$client.end()]));
 
 const GRUND = {
-  abteilung_id: expect.any(String),
   username: expect.any(String),
   email: expect.stringMatching(/@example\.org$/),
   role: "user",
@@ -39,46 +38,59 @@ const GRUND = {
   banned: false,
   deaktiviert_am: null,
   two_factor_enabled: false,
+  einwilligung_version: 1,
   rollen: [],
-  kinder: [],
-};
-const TEST = { abteilung: "Testabteilung" };
-// Wie die Review-Konten beginnen die Benutzernamen der Demo-Abteilung mit «demo.»
-const DEMO = {
-  abteilung: "Demo-Abteilung",
-  username: expect.stringMatching(/^demo\./),
+  teilnehmende: [],
 };
 
-// Unabhängig von der Fabrik: Rollen und Kinder nur aus der Abteilung der Person, mit Namen statt IDs
+// Unabhängig von der Fabrik: Rollen und verknüpfte Teilnehmende mit Namen statt IDs
 const ERWARTET: Record<Persona, object | null> = {
-  admin: { ...TEST, role: "admin", two_factor_enabled: true },
-  adminOhneZweitenFaktor: { ...TEST, role: "admin" },
-  slA: { ...TEST, rollen: ["stufenleitung in Stufe A"] },
-  slB: { ...TEST, rollen: ["stufenleitung in Stufe B"] },
-  leitendeA: { ...TEST, rollen: ["leitung in Stufe A"] },
-  leitendeB: { ...TEST, rollen: ["leitung in Stufe B"] },
-  leitendeAElternB: {
-    ...TEST,
-    rollen: ["leitung in Stufe A"],
-    kinder: ["Kind B in Stufe B"],
+  kantonsadmin: { role: "admin", two_factor_enabled: true },
+  kantonsadminOhneZweitenFaktor: { role: "admin" },
+  kommandoJfA: { rollen: ["kommandant in JF A"], two_factor_enabled: true },
+  kommandoKfBOhneZweitenFaktor: { rollen: ["kommandant in KF B"] },
+  stellvertretung1JfA: {
+    rollen: ["stellvertretung in JF A"],
+    two_factor_enabled: true,
   },
-  elternA: { ...TEST, kinder: ["Kind A in Stufe A"] },
-  elternB: { ...TEST, kinder: ["Kind B in Stufe B"] },
+  stellvertretung2JfA: {
+    rollen: ["stellvertretung in JF A"],
+    two_factor_enabled: true,
+  },
+  kommandoKfA: { rollen: ["kommandant in KF A"], two_factor_enabled: true },
+  kommandoJfB: { rollen: ["kommandant in JF B"], two_factor_enabled: true },
+  leitendeJfA: { rollen: ["leitung in JF A"] },
+  leitendeJfAElternKfA: {
+    rollen: ["leitung in JF A"],
+    teilnehmende: ["eltern von Person KfA in KF A"],
+  },
+  elternJfA: { teilnehmende: ["eltern von Person JfA in JF A"] },
+  elternAundB: {
+    teilnehmende: [
+      "eltern von Person JfA in JF A",
+      "eltern von Person JfB in JF B",
+    ],
+  },
+  elternKfA: { teilnehmende: ["eltern von Person KfA in KF A"] },
+  teilnehmendeSelbstJfA: {
+    teilnehmende: ["selbst von Person JfAWechsel in JF A"],
+  },
+  elternNachWechsel: { teilnehmende: ["eltern von Person JfA2 in JF A"] },
+  ohneEinwilligung: {
+    teilnehmende: ["eltern von Person JfA in JF A"],
+    einwilligung_version: null,
+  },
   mussPasswortAendern: {
-    ...TEST,
-    kinder: ["Kind A in Stufe A"],
+    teilnehmende: ["eltern von Person JfA in JF A"],
     muss_passwort_aendern: true,
     startpasswort_gueltig_bis: expect.any(Date),
   },
   deaktiviert: {
-    ...TEST,
-    kinder: ["Kind A in Stufe A"],
+    teilnehmende: ["eltern von Person JfA in JF A"],
     banned: true,
     deaktiviert_am: expect.any(Date),
   },
   ohneLogin: null,
-  demoAdmin: { ...DEMO, role: "admin", two_factor_enabled: true },
-  demoEltern: { ...DEMO, kinder: ["Kind Demo in Demo-Stufe"] },
 };
 
 test.each(PERSONAS)(
@@ -87,18 +99,18 @@ test.each(PERSONAS)(
     const persona = await legePersonaAn(welt, schluessel);
 
     const [zeile = null] = await sql`
-    select a.name as abteilung, u.abteilung_id, u.username, u.email, u.role,
+    select u.username, u.email, u.role, u.einwilligung_version,
       u.muss_passwort_aendern, u.startpasswort_gueltig_bis, u.banned, u.deaktiviert_am, u.two_factor_enabled,
       array(
-        select r.typ || ' in ' || s.name from rolle r join stufe s on s.id = r.stufe_id
-        where r.user_id = u.id and s.abteilung_id = u.abteilung_id
+        select r.typ || ' in ' || e.name from einheit_rolle r join einheit e on e.id = r.einheit_id
+        where r.user_id = u.id
       ) as rollen,
       array(
-        select k.vorname || ' ' || k.nachname || ' in ' || s.name
-        from kind_eltern ke join kind k on k.id = ke.kind_id join stufe s on s.id = k.stufe_id
-        where ke.user_id = u.id and k.abteilung_id = u.abteilung_id and s.abteilung_id = u.abteilung_id
-      ) as kinder
-    from "user" u join abteilung a on a.id = u.abteilung_id
+        select k.art || ' von ' || t.vorname || ' ' || t.nachname || ' in ' || e.name
+        from teilnehmende_konto k join teilnehmende t on t.id = k.teilnehmende_id join einheit e on e.id = t.einheit_id
+        where k.user_id = u.id order by t.nachname
+      ) as teilnehmende
+    from "user" u
     where u.id = ${persona.id}`;
     const erwartet = ERWARTET[schluessel];
     expect(zeile).toEqual(erwartet && { ...GRUND, ...erwartet });
@@ -115,7 +127,6 @@ test.each(PERSONAS)(
           ? expect.stringMatching(start)
           : PASSWORT
         : null,
-      abteilungId: zeile?.abteilung_id ?? null,
       headers: zeile
         ? {
             "expo-origin": APP,

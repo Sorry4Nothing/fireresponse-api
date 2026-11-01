@@ -39,7 +39,7 @@ const fcm: Fcm = {
     return { responses: liste.map(() => ({ success: true })) };
   },
 };
-const abteilungen: string[] = [];
+const einheiten: string[] = [];
 beforeEach(() => {
   nachrichten = [];
 });
@@ -47,45 +47,30 @@ beforeEach(() => {
 afterEach(async () => {
   await db
     .delete(schema.zeitregel)
-    .where(inArray(schema.zeitregel.abteilungId, abteilungen));
-  abteilungen.length = 0;
+    .where(inArray(schema.zeitregel.einheitId, einheiten));
+  einheiten.length = 0;
 });
 
-// Eine eigene Abteilung pro Test: Die Regeln eines Tests dürfen die Programme der anderen nicht treffen
+// Eine eigene Einheit pro Test: Die Regeln eines Tests dürfen die Programme der anderen nicht treffen
 async function neueWelt() {
-  const [abteilung] = await db
-    .insert(schema.abteilung)
-    .values({ name: "Zeitregeln" })
+  const [bezirk] = await db
+    .insert(schema.bezirk)
+    .values({ name: `Zeitregeln ${randomUUID()}` })
     .returning();
-  abteilungen.push(abteilung!.id);
-  const stufen = await db
-    .insert(schema.stufe)
-    .values(
-      ["A", "B"].map((name) => ({
-        abteilungId: abteilung!.id,
-        name,
-        kuerzel: name,
-      })),
-    )
+  const [einheit] = await db
+    .insert(schema.einheit)
+    .values({ bezirkId: bezirk!.id, typ: "jf", name: "Zeitregeln" })
     .returning();
-  const [stufeA, stufeB] = stufen as [
-    (typeof stufen)[number],
-    (typeof stufen)[number],
-  ];
+  einheiten.push(einheit!.id);
 
-  // Ein Elternteil mit Push-Token; die Kinder legt kindVon an
-  async function elternteil(
+  // Ein Konto mit Push-Token; die teilnehmenden Personen legt personVon an
+  async function konto(
     name: string,
     optionen: Partial<typeof schema.user.$inferInsert> = {},
   ) {
-    const [konto] = await db
+    const [k] = await db
       .insert(schema.user)
-      .values({
-        name,
-        email: `${randomUUID()}@example.org`,
-        abteilungId: abteilung!.id,
-        ...optionen,
-      })
+      .values({ name, email: `${randomUUID()}@example.org`, ...optionen })
       .returning();
     const [sitzung] = await db
       .insert(schema.session)
@@ -93,48 +78,44 @@ async function neueWelt() {
         token: randomUUID(),
         expiresAt: new Date(Date.now() + 3_600_000),
         updatedAt: new Date(),
-        userId: konto!.id,
+        userId: k!.id,
       })
       .returning();
     const token = `fcm-${randomUUID()}`;
     await db.insert(schema.pushToken).values({
       sessionId: sitzung!.id,
       token,
-      userId: konto!.id,
+      userId: k!.id,
       plattform: "android",
     });
     tokens.set(token, name);
-    return konto!.id;
+    return k!.id;
   }
 
-  async function kindVon(
+  async function personVon(
     eltern: string[],
-    stufeId: string,
+    einheitId: string = einheit!.id,
     inaktivSeit: Date | null = null,
   ) {
-    const [k] = await db
-      .insert(schema.kind)
-      .values({
-        abteilungId: abteilung!.id,
-        vorname: "Kind",
-        nachname: "Test",
-        stufeId,
-        inaktivSeit,
-      })
+    const [t] = await db
+      .insert(schema.teilnehmende)
+      .values({ einheitId, vorname: "Person", nachname: "Test", inaktivSeit })
       .returning();
-    await db
-      .insert(schema.kindEltern)
-      .values(eltern.map((userId) => ({ kindId: k!.id, userId })));
-    return k!.id;
+    await db.insert(schema.teilnehmendeKonto).values(
+      eltern.map((userId) => ({
+        teilnehmendeId: t!.id,
+        userId,
+        art: "eltern" as const,
+      })),
+    );
+    return t!.id;
   }
 
   const programm = (
     optionen: Partial<Parameters<typeof legeProgrammAn>[1]> = {},
   ) =>
     legeProgrammAn(db, {
-      abteilungId: abteilung!.id,
-      sichtbarkeit: "eltern",
-      stufen: [stufeA.id],
+      einheitId: einheit!.id,
       titel: "Waldtag",
       beginn: BEGINN,
       ...optionen,
@@ -146,8 +127,7 @@ async function neueWelt() {
     const [r] = await db
       .insert(schema.zeitregel)
       .values({
-        abteilungId: abteilung!.id,
-        stufeId: null,
+        einheitId: einheit!.id,
         wochentag: 3,
         uhrzeit: "08:00",
         text: "{Programm} am {Datum}: bitte antworten",
@@ -157,28 +137,19 @@ async function neueWelt() {
     return r!;
   }
 
-  // Die Namen der Eltern, die einen Push bekamen, sortiert
+  // Die Namen der Konten, die einen Push bekamen, sortiert
   const empfaenger = () => nachrichten.map((n) => tokens.get(n.token)!).sort();
 
-  return {
-    abteilung: abteilung!,
-    stufeA,
-    stufeB,
-    elternteil,
-    kindVon,
-    programm,
-    regel,
-    empfaenger,
-  };
+  return { einheit: einheit!, konto, personVon, programm, regel, empfaenger };
 }
 
 const lauf = (jetzt: Date) => sendeFaelligeErinnerungen({ db, fcm }, jetzt);
 
 describe("Erinnerungen", () => {
-  test("nichts vor der Auslösezeit, ab ihr ein Push an Eltern ohne Antwort", async () => {
+  test("nichts vor der Auslösezeit, ab ihr ein Push an Konten ohne Antwort", async () => {
     const w = await neueWelt();
-    const offen = await w.elternteil("offen");
-    await w.kindVon([offen], w.stufeA.id);
+    const offen = await w.konto("offen");
+    await w.personVon([offen]);
     const p = await w.programm();
     await w.regel({ beschreibung: "Bitte {Programm} bis heute beantworten" });
 
@@ -195,60 +166,88 @@ describe("Erinnerungen", () => {
       data: { typ: "programm", id: p.id },
       android: { notification: { channelId: "programme" } },
     });
-    // Weder Kindername noch Nachname im Push
-    expect(JSON.stringify(nachrichten[0])).not.toMatch(/Kind|Test/);
+    // Weder Vorname noch Nachname im Push
+    expect(JSON.stringify(nachrichten[0])).not.toMatch(/Person|Test/);
   });
 
-  test("kein Push an Eltern mit gespeichertem «ja» oder «nein», an inaktive Kinder, andere Stufen und abgeschaltete Konten", async () => {
+  test("kein Push bei gespeichertem «ja» oder «nein», für inaktive Personen, andere Einheiten und abgeschaltete Konten", async () => {
     const w = await neueWelt();
+    const andere = await neueWelt();
     const p = await w.programm();
     await w.regel();
-    const ja = await w.elternteil("ja");
-    const nein = await w.elternteil("nein");
-    const offen = await w.elternteil("offen");
-    const inaktiv = await w.elternteil("inaktiv");
-    const andereStufe = await w.elternteil("andereStufe");
-    const ohnePush = await w.elternteil("ohnePush", { pushProgramme: false });
-    const gesperrt = await w.elternteil("gesperrt", { banned: true });
-    const deaktiviert = await w.elternteil("deaktiviert", {
+    const ja = await w.konto("ja");
+    const nein = await w.konto("nein");
+    const offen = await w.konto("offen");
+    const inaktiv = await w.konto("inaktiv");
+    const andereEinheit = await w.konto("andereEinheit");
+    const ohnePush = await w.konto("ohnePush", { pushProgramme: false });
+    const gesperrt = await w.konto("gesperrt", { banned: true });
+    const deaktiviert = await w.konto("deaktiviert", {
       deaktiviertAm: new Date(),
     });
-    const kinder = {
-      ja: await w.kindVon([ja], w.stufeA.id),
-      nein: await w.kindVon([nein], w.stufeA.id),
+    const personen = {
+      ja: await w.personVon([ja]),
+      nein: await w.personVon([nein]),
     };
     await db.insert(schema.teilnahme).values([
-      { programmId: p.id, kindId: kinder.ja, status: "ja" },
-      { programmId: p.id, kindId: kinder.nein, status: "nein" },
+      { programmId: p.id, teilnehmendeId: personen.ja, status: "ja" },
+      { programmId: p.id, teilnehmendeId: personen.nein, status: "nein" },
     ]);
-    await w.kindVon([offen], w.stufeA.id);
-    await w.kindVon([inaktiv], w.stufeA.id, new Date());
-    await w.kindVon([andereStufe], w.stufeB.id);
-    await w.kindVon([ohnePush], w.stufeA.id);
-    await w.kindVon([gesperrt], w.stufeA.id);
-    await w.kindVon([deaktiviert], w.stufeA.id);
+    await w.personVon([offen]);
+    await w.personVon([inaktiv], w.einheit.id, new Date());
+    await w.personVon([andereEinheit], andere.einheit.id);
+    await w.personVon([ohnePush]);
+    await w.personVon([gesperrt]);
+    await w.personVon([deaktiviert]);
 
     await lauf(AUSLOESUNG);
     expect(w.empfaenger()).toEqual(["offen"]);
   });
 
-  test("Eltern mit mehreren Kindern: ein Push pro Programm, und nur solange ein Kind offen ist", async () => {
+  test("Kommando und Leitende bekommen die Erinnerung, bis sie sich angemeldet haben", async () => {
     const w = await neueWelt();
     const p = await w.programm();
     await w.regel();
-    const zwei = await w.elternteil("zwei");
-    const eins = await w.elternteil("eins");
-    const alle = await w.elternteil("alle");
-    await w.kindVon([zwei], w.stufeA.id);
-    await w.kindVon([zwei], w.stufeA.id);
-    const beantwortet = await w.kindVon([eins], w.stufeA.id);
-    await w.kindVon([eins], w.stufeA.id);
-    const k1 = await w.kindVon([alle], w.stufeA.id);
-    const k2 = await w.kindVon([alle], w.stufeA.id);
+    const kommando = await w.konto("kommando");
+    const stv = await w.konto("stellvertretung");
+    const angemeldet = await w.konto("angemeldet");
+    await db.insert(schema.einheitRolle).values([
+      { userId: kommando, einheitId: w.einheit.id, typ: "kommandant" },
+      {
+        userId: stv,
+        einheitId: w.einheit.id,
+        typ: "stellvertretung",
+        reihenfolge: 1,
+      },
+      { userId: angemeldet, einheitId: w.einheit.id, typ: "leitung" },
+    ]);
+    await db.insert(schema.leitungAnmeldung).values({
+      programmId: p.id,
+      userId: angemeldet,
+      status: "nein",
+    });
+
+    await lauf(AUSLOESUNG);
+    expect(w.empfaenger()).toEqual(["kommando", "stellvertretung"]);
+  });
+
+  test("Eltern mit mehreren Personen: ein Push pro Programm, und nur solange eine Person offen ist", async () => {
+    const w = await neueWelt();
+    const p = await w.programm();
+    await w.regel();
+    const zwei = await w.konto("zwei");
+    const eins = await w.konto("eins");
+    const alle = await w.konto("alle");
+    await w.personVon([zwei]);
+    await w.personVon([zwei]);
+    const beantwortet = await w.personVon([eins]);
+    await w.personVon([eins]);
+    const t1 = await w.personVon([alle]);
+    const t2 = await w.personVon([alle]);
     await db.insert(schema.teilnahme).values(
-      [beantwortet, k1, k2].map((kindId) => ({
+      [beantwortet, t1, t2].map((teilnehmendeId) => ({
         programmId: p.id,
-        kindId,
+        teilnehmendeId,
         status: "ja" as const,
       })),
     );
@@ -259,8 +258,8 @@ describe("Erinnerungen", () => {
 
   test("keine Doppelsendung: weder im nächsten Lauf noch nach einem Neustart noch nach Änderungen an Regel oder Programm", async () => {
     const w = await neueWelt();
-    const eltern = await w.elternteil("offen");
-    await w.kindVon([eltern], w.stufeA.id);
+    const eltern = await w.konto("offen");
+    await w.personVon([eltern]);
     const p = await w.programm();
     const regel = await w.regel();
 
@@ -295,8 +294,8 @@ describe("Erinnerungen", () => {
 
   test("zwei Läufe gleichzeitig senden einmal", async () => {
     const w = await neueWelt();
-    const eltern = await w.elternteil("offen");
-    await w.kindVon([eltern], w.stufeA.id);
+    const eltern = await w.konto("offen");
+    await w.personVon([eltern]);
     await w.programm();
     await w.regel();
 
@@ -322,8 +321,8 @@ describe("Erinnerungen", () => {
 
   test("eine verpasste Erinnerung wird bis Programmbeginn nachgeholt, danach nicht mehr", async () => {
     const w = await neueWelt();
-    const eltern = await w.elternteil("offen");
-    await w.kindVon([eltern], w.stufeA.id);
+    const eltern = await w.konto("offen");
+    await w.personVon([eltern]);
     await w.programm();
     await w.regel();
 
@@ -333,8 +332,8 @@ describe("Erinnerungen", () => {
 
     nachrichten = [];
     const spaet = await neueWelt();
-    const e2 = await spaet.elternteil("offen");
-    await spaet.kindVon([e2], spaet.stufeA.id);
+    const e2 = await spaet.konto("offen");
+    await spaet.personVon([e2]);
     await spaet.programm();
     await spaet.regel();
     await lauf(NACH_BEGINN);
@@ -343,8 +342,8 @@ describe("Erinnerungen", () => {
 
   test("eine Regel, die erst nach der Auslösezeit entsteht, holt nach", async () => {
     const w = await neueWelt();
-    const eltern = await w.elternteil("offen");
-    await w.kindVon([eltern], w.stufeA.id);
+    const eltern = await w.konto("offen");
+    await w.personVon([eltern]);
     await w.programm();
 
     await lauf(new Date("2026-10-29T12:00:00Z"));
@@ -354,52 +353,38 @@ describe("Erinnerungen", () => {
     expect(w.empfaenger()).toEqual(["offen"]);
   });
 
-  test("Regel einer Stufe trifft nur Programme dieser Stufe; Regel für alle trifft jede Stufe des Programms", async () => {
+  test("eine Regel gilt nur für die Programme ihrer Einheit", async () => {
     const w = await neueWelt();
-    const a = await w.elternteil("a");
-    const b = await w.elternteil("b");
-    await w.kindVon([a], w.stufeA.id);
-    await w.kindVon([b], w.stufeB.id);
-    await w.programm({ stufen: [w.stufeA.id] });
-    await w.regel({ stufeId: w.stufeB.id });
+    const fremd = await neueWelt();
+    const a = await w.konto("a");
+    await w.personVon([a]);
+    await w.programm();
+    // Nur die Regel der fremden Einheit: Das Programm von w bleibt still
+    await fremd.regel();
     await lauf(AUSLOESUNG);
     expect(nachrichten).toHaveLength(0);
 
-    await w.regel({ stufeId: null, text: "Alle" });
+    await w.regel({ text: "Eigene" });
     await lauf(AUSLOESUNG);
     expect(w.empfaenger()).toEqual(["a"]);
-
-    // Ein Abteilungsprogramm mit beiden Stufen erreicht beide Eltern, jedes Elternteil einmal je Regel
-    nachrichten = [];
-    await w.programm({
-      stufen: [w.stufeA.id, w.stufeB.id],
-      beginn: new Date("2026-11-07T13:00:00Z"),
-    });
-    await lauf(new Date("2026-11-04T07:00:00Z"));
-    // Die Regel für Stufe B und die Regel für alle: b zweimal, a einmal
-    expect(w.empfaenger()).toEqual(["a", "b", "b"]);
   });
 
-  test("keine Erinnerung für interne, nur für Leitende sichtbare, abgesagte oder begonnene Programme, ausgeschaltete Regeln und fremde Abteilungen", async () => {
+  test("keine Erinnerung für abgesagte oder begonnene Programme, ausgeschaltete Regeln und fremde Einheiten", async () => {
     const w = await neueWelt();
-    const eltern = await w.elternteil("offen");
-    await w.kindVon([eltern], w.stufeA.id);
-    await w.regel();
+    const eltern = await w.konto("offen");
+    await w.personVon([eltern]);
     await w.regel({ aktiv: false, text: "aus" });
-    for (const sichtbarkeit of ["intern", "leitende"] as const) {
-      await w.programm({ sichtbarkeit });
-    }
     const abgesagt = await w.programm();
+    await w.regel();
     await db
       .update(schema.programm)
       .set({ status: "abgesagt" })
       .where(eq(schema.programm.id, abgesagt.id));
     await w.programm({ beginn: new Date("2026-10-28T06:00:00Z") });
-    await w.programm({ stufen: [] });
     const fremd = await neueWelt();
     await fremd.programm();
-    // Eine Regel der fremden Abteilung trifft die Programme dieser Abteilung nicht
-    await fremd.regel({ stufeId: fremd.stufeB.id });
+    // Eine Regel der fremden Einheit trifft die Programme dieser Einheit nicht
+    await fremd.regel();
 
     await lauf(AUSLOESUNG);
     expect(nachrichten).toHaveLength(0);

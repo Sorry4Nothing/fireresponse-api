@@ -41,7 +41,7 @@ let welt: Welt;
 let admin: PersonaKonto;
 beforeAll(async () => {
   welt = await erstelleWelt(db, auth);
-  admin = await legePersonaAn(welt, "admin");
+  admin = await legePersonaAn(welt, "kantonsadmin");
 });
 
 let ausgabe: MockInstance<typeof console.log>;
@@ -70,7 +70,7 @@ describe("GET /api/v1/admin/system", () => {
     expect(daten.datenbank.erreichbar).toBe(true);
     expect(daten.datenbank.pingMs).toBeGreaterThanOrEqual(0);
     expect(daten.datenbank.poolMaximum).toBeGreaterThan(0);
-    // Der Admin selbst ist aktiv; Kinder und Tokens gehören der Testabteilung
+    // Der Admin selbst ist aktiv; Teilnehmende und Tokens zählt die Route über alle Einheiten
     expect(daten.bestand.aktivePersonen).toBeGreaterThanOrEqual(1);
     expect(daten.bestand.pushTokens).toBeGreaterThanOrEqual(0);
   });
@@ -114,14 +114,13 @@ describe("GET /api/v1/admin/system", () => {
 describe("GET /api/v1/admin/system/requests", () => {
   test("zählt Anfragen nach Routenmuster, nie nach konkretem Pfad", async () => {
     const id = randomUUID();
-    // 404 für eine fremde, unbekannte Stufe: ein Fehler mit der ID im Pfad
-    const fehler = await app.request(`/api/v1/admin/stufen/${id}`, {
-      method: "PATCH",
-      headers: { ...admin.headers, "content-type": "application/json" },
-      body: JSON.stringify({ name: "x" }),
-    });
+    // 404 für eine unbekannte Einheit: ein Fehler mit der ID im Pfad
+    const fehler = await hole(
+      admin,
+      `/api/v1/admin/einheiten/${id}/zeitregeln`,
+    );
     expect(fehler.status).toBe(404);
-    expect((await hole(admin, "/api/v1/stufen")).status).toBe(200);
+    expect((await hole(admin, "/api/v1/ich")).status).toBe(200);
 
     const antwort = await hole(admin, "/api/v1/admin/system/requests");
     expect(antwort.status).toBe(200);
@@ -135,12 +134,14 @@ describe("GET /api/v1/admin/system/requests", () => {
     const muster = daten.routen.map(
       (r: { methode: string; route: string }) => `${r.methode} ${r.route}`,
     );
-    expect(muster).toContain("PATCH /api/v1/admin/stufen/:id");
-    expect(muster).toContain("GET /api/v1/stufen");
+    expect(muster).toContain(
+      "GET /api/v1/admin/einheiten/:einheitId/zeitregeln",
+    );
+    expect(muster).toContain("GET /api/v1/ich");
     expect(daten.letzteFehler[0]).toEqual({
       zeit: expect.any(String),
-      methode: "PATCH",
-      route: "/api/v1/admin/stufen/:id",
+      methode: "GET",
+      route: "/api/v1/admin/einheiten/:einheitId/zeitregeln",
       status: 404,
     });
   });
@@ -182,7 +183,7 @@ describe("GET /api/v1/admin/system/requests", () => {
   });
 
   test("Nicht-Admins bekommen 403, ohne Login 401", async () => {
-    const eltern = await legePersonaAn(welt, "elternA");
+    const eltern = await legePersonaAn(welt, "elternJfA");
     const ohne = await legePersonaAn(welt, "ohneLogin");
     for (const pfad of [
       "/api/v1/admin/system",

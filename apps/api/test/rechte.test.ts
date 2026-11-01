@@ -1,5 +1,4 @@
-import { and, eq } from "drizzle-orm";
-import { HTTPException } from "hono/http-exception";
+import { eq } from "drizzle-orm";
 import postgres from "postgres";
 import {
   afterAll,
@@ -15,7 +14,12 @@ import {
 import { erstelleApp } from "../src/app.js";
 import { erstelleDb } from "../src/db/client.js";
 import * as schema from "../src/db/schema.js";
-import { darfZuordnen, hatRolle, type Person } from "../src/rechte.js";
+import {
+  einheitenFuer,
+  pruefeEinheit,
+  type Person,
+  type Zweck,
+} from "../src/rechte.js";
 import { ladeSeiten } from "../src/seiten.js";
 import { bereiteAuthTestsVor, erstelleTestAuth } from "./hilfen/auth.js";
 import { API_URL } from "./hilfen/datenbank.js";
@@ -23,6 +27,7 @@ import {
   erstelleWelt,
   legePersonaAn,
   PERSONAS,
+  type EinheitKey,
   type Persona,
   type PersonaKonto,
   type Welt,
@@ -35,33 +40,61 @@ const db = erstelleDb(sql);
 const auth = erstelleTestAuth(db);
 afterAll(() => sql.end());
 
-// Testrouten wie eine spätere Objekt-Route: erst der Abteilungsfilter in SQL (404), dann das Recht (403)
+// Testroute wie eine spätere Objekt-Route: erst die Einheit prüfen (404 für Fremde), dann das Recht für den Zweck (403)
 const app = erstelleApp({
   appMinVersion: "1.2.0",
   sql,
   db,
   auth,
   seiten: ladeSeiten(),
-})
-  .get("/api/v1/test/stufen/:id", async (c) => {
-    const person = c.get("person");
-    const [stufe] = await db
-      .select({ id: schema.stufe.id })
-      .from(schema.stufe)
-      .where(
-        and(
-          eq(schema.stufe.id, c.req.param("id")),
-          eq(schema.stufe.abteilungId, person.abteilungId),
-        ),
-      );
-    if (!stufe) throw new HTTPException(404);
-    if (!hatRolle(person, stufe.id, "leitung")) throw new HTTPException(403);
-    return c.json({ id: stufe.id });
-  })
-  .get("/api/v1/test/person", (c) => c.json(c.get("person")));
+}).get("/api/v1/test/einheiten/:id/:zweck", async (c) => {
+  const person = c.get("person");
+  await pruefeEinheit(
+    db,
+    person,
+    c.req.param("id"),
+    c.req.param("zweck") as Zweck,
+  );
+  return c.json({ id: c.req.param("id") });
+});
+
+// Jede Anfrage schriebe sonst eine Log-Zeile in die Testausgabe
+let ausgabe: MockInstance<typeof console.log>;
+beforeEach(() => {
+  ausgabe = vi.spyOn(console, "log").mockImplementation(() => {});
+});
+afterEach(() => ausgabe.mockRestore());
 
 let welt: Welt;
 let konten: Record<Persona, PersonaKonto>;
+let personen: Record<Persona, Person | null>;
+
+// Die Person, wie die Middleware sie aus der Sitzung baut, ohne die Route zu kennen
+async function personVon(konto: PersonaKonto): Promise<Person> {
+  const sitzung = await auth.api.getSession({ headers: konto.headers });
+  const id = sitzung!.user.id;
+  const rollen = await db
+    .select()
+    .from(schema.einheitRolle)
+    .where(eq(schema.einheitRolle.userId, id));
+  const konten = await db
+    .select({ einheitId: schema.teilnehmende.einheitId })
+    .from(schema.teilnehmendeKonto)
+    .innerJoin(
+      schema.teilnehmende,
+      eq(schema.teilnehmende.id, schema.teilnehmendeKonto.teilnehmendeId),
+    )
+    .where(eq(schema.teilnehmendeKonto.userId, id));
+  return {
+    id,
+    kantonsadmin: sitzung!.user.role === "admin",
+    zweiterFaktor: false,
+    einwilligung: true,
+    einheiten: rollen.map((r) => ({ einheitId: r.einheitId, typ: r.typ })),
+    teilnehmendeEinheiten: konten.map((k) => k.einheitId),
+  };
+}
+
 beforeAll(async () => {
   welt = await erstelleWelt(db, auth);
   konten = Object.fromEntries(
@@ -69,231 +102,188 @@ beforeAll(async () => {
       PERSONAS.map(async (p) => [p, await legePersonaAn(welt, p)]),
     ),
   ) as Record<Persona, PersonaKonto>;
+  personen = Object.fromEntries(
+    await Promise.all(
+      PERSONAS.map(async (p) => [
+        p,
+        p === "ohneLogin" || p === "deaktiviert"
+          ? null
+          : await personVon(konten[p]),
+      ]),
+    ),
+  ) as Record<Persona, Person | null>;
 });
 
-// Jede Anfrage schreibt sonst eine Log-Zeile in die Testausgabe
-let ausgabe: MockInstance<typeof console.log>;
-beforeEach(() => {
-  ausgabe = vi.spyOn(console, "log").mockImplementation(() => {});
-});
-afterEach(() => ausgabe.mockRestore());
+const ALLE: EinheitKey[] = ["jfA", "kfA", "jfB", "kfB"];
 
-// 200 nur für Leitung oder SL der Stufe; Admins haben keine Stufenrolle (403), Demo-Personas sehen fremde Objekte nicht (404)
-const ERWARTET: Record<Persona, { a: number; b: number }> = {
-  admin: { a: 403, b: 403 },
-  adminOhneZweitenFaktor: { a: 403, b: 403 },
-  slA: { a: 200, b: 403 },
-  slB: { a: 403, b: 200 },
-  leitendeA: { a: 200, b: 403 },
-  leitendeB: { a: 403, b: 200 },
-  leitendeAElternB: { a: 200, b: 403 },
-  elternA: { a: 403, b: 403 },
-  elternB: { a: 403, b: 403 },
-  mussPasswortAendern: { a: 403, b: 403 },
-  deaktiviert: { a: 401, b: 401 },
-  ohneLogin: { a: 401, b: 401 },
-  demoAdmin: { a: 404, b: 404 },
-  demoEltern: { a: 404, b: 404 },
-};
+// Literale Erwartung je Persona und Zweck, nie aus rechte.ts berechnet. Nicht eingetragene Zwecke ergeben eine leere Liste
+const ERWARTET: Partial<Record<Persona, Partial<Record<Zweck, EinheitKey[]>>>> =
+  {
+    kantonsadmin: {
+      lesen: ALLE,
+      verwalten: ALLE,
+      stellvertretungen: ALLE,
+    },
+    kommandoJfA: {
+      lesen: ["jfA"],
+      antworten: ["jfA"],
+      verwalten: ["jfA"],
+      stellvertretungen: ["jfA"],
+    },
+    stellvertretung1JfA: {
+      lesen: ["jfA"],
+      antworten: ["jfA"],
+      verwalten: ["jfA"],
+    },
+    stellvertretung2JfA: {
+      lesen: ["jfA"],
+      antworten: ["jfA"],
+      verwalten: ["jfA"],
+    },
+    kommandoKfA: {
+      lesen: ["kfA"],
+      antworten: ["kfA"],
+      verwalten: ["kfA"],
+      stellvertretungen: ["kfA"],
+    },
+    kommandoJfB: {
+      lesen: ["jfB"],
+      antworten: ["jfB"],
+      verwalten: ["jfB"],
+      stellvertretungen: ["jfB"],
+    },
+    leitendeJfA: { lesen: ["jfA"], antworten: ["jfA"] },
+    leitendeJfAElternKfA: { lesen: ["jfA", "kfA"], antworten: ["jfA"] },
+    elternJfA: { lesen: ["jfA"] },
+    elternAundB: { lesen: ["jfA", "jfB"] },
+    elternKfA: { lesen: ["kfA"] },
+    teilnehmendeSelbstJfA: { lesen: ["jfA"] },
+    elternNachWechsel: { lesen: ["jfA"] },
+  };
 
-describe("GET /api/v1/test/stufen/:id für Stufe A und B", () => {
-  test.each(PERSONAS)("%s", async (persona) => {
-    const { headers } = konten[persona];
-    const [a, b] = await Promise.all([
-      app.request(`/api/v1/test/stufen/${welt.stufeAId}`, { headers }),
-      app.request(`/api/v1/test/stufen/${welt.stufeBId}`, { headers }),
-    ]);
-    expect({ a: a.status, b: b.status }).toEqual(ERWARTET[persona]);
-  });
+const ZWECKE: Zweck[] = [
+  "lesen",
+  "antworten",
+  "verwalten",
+  "stellvertretungen",
+];
 
-  test("401, 403 und 404 im einheitlichen Fehlerformat", async () => {
-    const faelle = [
-      [
-        konten.ohneLogin,
-        { code: "NICHT_ANGEMELDET", message: "Nicht angemeldet" },
-      ],
-      [
-        konten.elternA,
-        { code: "KEINE_BERECHTIGUNG", message: "Keine Berechtigung" },
-      ],
-      [
-        konten.demoEltern,
-        { code: "NICHT_GEFUNDEN", message: "Nicht gefunden" },
-      ],
-    ] as const;
-    for (const [konto, body] of faelle) {
-      const res = await app.request(`/api/v1/test/stufen/${welt.stufeAId}`, {
-        headers: konto.headers,
-      });
-      expect(await res.json()).toEqual(body);
+describe("einheitenFuer", () => {
+  const mitPerson = PERSONAS.filter(
+    (p) =>
+      p !== "ohneLogin" &&
+      p !== "deaktiviert" &&
+      p !== "ohneEinwilligung" &&
+      p !== "mussPasswortAendern" &&
+      p !== "kantonsadminOhneZweitenFaktor" &&
+      p !== "kommandoKfBOhneZweitenFaktor",
+  );
+
+  test.each(mitPerson)("%s", async (persona) => {
+    for (const zweck of ZWECKE) {
+      const erwartet = (ERWARTET[persona]?.[zweck] ?? []).map(
+        (k) => welt.einheit[k],
+      );
+      const ist = (await einheitenFuer(db, personen[persona]!, zweck)).filter(
+        // Das Kantonsadmin-Konto sieht alle Einheiten der Datenbank, auch die anderer Testdateien
+        (id) => Object.values(welt.einheit).includes(id),
+      );
+      expect([...ist].sort(), `${persona} ${zweck}`).toEqual(
+        [...erwartet].sort(),
+      );
     }
   });
 });
 
+describe("pruefeEinheit: 404 für Fremde, 403 für Sichtbare ohne Recht", () => {
+  const anfrage = (persona: Persona, einheit: EinheitKey, zweck: Zweck) =>
+    app.request(`/api/v1/test/einheiten/${welt.einheit[einheit]}/${zweck}`, {
+      headers: konten[persona].headers,
+    });
+
+  test.each([
+    ["kommandoJfA", "jfA", "verwalten", 200],
+    ["kommandoJfA", "jfA", "stellvertretungen", 200],
+    ["stellvertretung1JfA", "jfA", "verwalten", 200],
+    ["stellvertretung1JfA", "jfA", "stellvertretungen", 403],
+    ["leitendeJfA", "jfA", "lesen", 200],
+    ["leitendeJfA", "jfA", "verwalten", 403],
+    ["elternJfA", "jfA", "lesen", 200],
+    ["elternJfA", "jfA", "antworten", 403],
+    ["kantonsadmin", "kfB", "verwalten", 200],
+    ["kantonsadmin", "kfB", "antworten", 403],
+    // Fremde Einheit desselben Bezirks und fremder Bezirk: unsichtbar
+    ["kommandoJfA", "kfA", "lesen", 404],
+    ["kommandoJfA", "kfA", "verwalten", 404],
+    ["kommandoJfA", "jfB", "lesen", 404],
+    ["elternJfA", "kfA", "lesen", 404],
+    ["elternNachWechsel", "jfB", "lesen", 404],
+  ] as const)(
+    "%s in %s für %s: %i",
+    async (persona, einheit, zweck, status) => {
+      expect((await anfrage(persona, einheit, zweck)).status).toBe(status);
+    },
+  );
+
+  test("ohne Sitzung 401, deaktiviert 401, im einheitlichen Fehlerformat", async () => {
+    for (const persona of ["ohneLogin", "deaktiviert"] as const) {
+      const antwort = await anfrage(persona, "jfA", "lesen");
+      expect(antwort.status).toBe(401);
+      expect(await antwort.json()).toEqual({
+        code: "NICHT_ANGEMELDET",
+        message: "Nicht angemeldet",
+      });
+    }
+    const verboten = await anfrage("leitendeJfA", "jfA", "verwalten");
+    expect(await verboten.json()).toEqual({
+      code: "KEINE_BERECHTIGUNG",
+      message: "Keine Berechtigung",
+    });
+    const fremd = await anfrage("kommandoJfA", "kfA", "lesen");
+    expect(await fremd.json()).toEqual({
+      code: "NICHT_GEFUNDEN",
+      message: "Nicht gefunden",
+    });
+  });
+});
+
 describe("person aus der Sitzung", () => {
-  test("slA: id, Abteilung, admin und Rollen wie angelegt", async () => {
-    const konto = konten.slA;
-    const res = await app.request("/api/v1/test/person", {
-      headers: konto.headers,
-    });
-    expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({
-      id: konto.id,
-      abteilungId: welt.testabteilungId,
-      admin: false,
-      zweiterFaktor: false,
-      rollen: [{ stufeId: welt.stufeAId, typ: "stufenleitung" }],
-    });
-  });
-
-  test("eine Rolle in einer Stufe der fremden Abteilung fehlt in den Rollen", async () => {
-    // Eigene Persona: Die Datei teilt sich eine Welt, die Zeile bliebe sonst stehen
-    const konto = await legePersonaAn(welt, "slA");
-    await db.insert(schema.rolle).values({
-      userId: konto.id as string,
-      stufeId: welt.demoStufeId,
-      typ: "stufenleitung",
-    });
-    const res = await app.request("/api/v1/test/person", {
-      headers: konto.headers,
-    });
-    expect(res.status).toBe(200);
-    expect(((await res.json()) as Person).rollen).toEqual([
-      { stufeId: welt.stufeAId, typ: "stufenleitung" },
-    ]);
-  });
-
   test("banned mit noch bestehender Sitzung: 401", async () => {
-    const konto = await legePersonaAn(welt, "elternA");
+    const konto = await legePersonaAn(welt, "elternJfA");
+    expect(
+      (
+        await app.request(`/api/v1/test/einheiten/${welt.einheit.jfA}/lesen`, {
+          headers: konto.headers,
+        })
+      ).status,
+    ).toBe(200);
     await db
       .update(schema.user)
       .set({ banned: true })
-      .where(eq(schema.user.id, konto.id as string));
-    const res = await app.request("/api/v1/test/person", {
-      headers: konto.headers,
-    });
-    expect(res.status).toBe(401);
-    expect(await res.json()).toEqual({
-      code: "NICHT_ANGEMELDET",
-      message: "Nicht angemeldet",
-    });
+      .where(eq(schema.user.id, konto.id!));
+    expect(
+      (
+        await app.request(`/api/v1/test/einheiten/${welt.einheit.jfA}/lesen`, {
+          headers: konto.headers,
+        })
+      ).status,
+    ).toBe(401);
   });
-});
 
-describe("hatRolle", () => {
-  const person: Person = {
-    id: "person-1",
-    abteilungId: "abteilung-1",
-    admin: false,
-    zweiterFaktor: false,
-    rollen: [
-      { stufeId: "a", typ: "leitung" },
-      { stufeId: "b", typ: "stufenleitung" },
-    ],
-  };
-  test.each([
-    ["a", "leitung", true],
-    ["a", "stufenleitung", false],
-    ["b", "leitung", true],
-    ["b", "stufenleitung", true],
-    ["c", "leitung", false],
-    ["c", "stufenleitung", false],
-  ] as const)("Stufe %s, verlangt %s: %s", (stufeId, typ, erwartet) => {
-    expect(hatRolle(person, stufeId, typ)).toBe(erwartet);
-  });
-});
-
-describe("darfZuordnen", () => {
-  const basis = {
-    id: "person-1",
-    abteilungId: "abteilung-1",
-    admin: false,
-    zweiterFaktor: false,
-  };
-  const admin: Person = { ...basis, admin: true, rollen: [] };
-  const slA: Person = {
-    ...basis,
-    rollen: [{ stufeId: "a", typ: "stufenleitung" }],
-  };
-  const leitungA: Person = {
-    ...basis,
-    rollen: [{ stufeId: "a", typ: "leitung" }],
-  };
-  const eltern: Person = { ...basis, rollen: [] };
-  test.each([
-    [
-      "Admin ändert Stufen und Sichtbarkeit beliebig",
-      admin,
-      { vorher: ["a", "b"], nachher: [], sichtbarkeitAendert: true },
-      true,
-    ],
-    [
-      "SL A fügt die eigene Stufe hinzu",
-      slA,
-      { vorher: [], nachher: ["a"], sichtbarkeitAendert: false },
-      true,
-    ],
-    [
-      "SL A fügt die eigene Stufe einem Programm der Stufe B hinzu",
-      slA,
-      { vorher: ["b"], nachher: ["a", "b"], sichtbarkeitAendert: false },
-      true,
-    ],
-    [
-      "SL A entfernt die eigene Stufe",
-      slA,
-      { vorher: ["a", "b"], nachher: ["b"], sichtbarkeitAendert: false },
-      true,
-    ],
-    [
-      "SL A entfernt die fremde Stufe nicht",
-      slA,
-      { vorher: ["a", "b"], nachher: ["a"], sichtbarkeitAendert: false },
-      false,
-    ],
-    [
-      "SL A fügt keine fremde Stufe hinzu",
-      slA,
-      { vorher: [], nachher: ["b"], sichtbarkeitAendert: false },
-      false,
-    ],
-    [
-      "SL A ändert die Sichtbarkeit, solange nur die eigene Stufe beteiligt ist",
-      slA,
-      { vorher: ["a"], nachher: ["a"], sichtbarkeitAendert: true },
-      true,
-    ],
-    [
-      "SL A ordnet ein freies Programm zu und ändert die Sichtbarkeit",
-      slA,
-      { vorher: [], nachher: ["a"], sichtbarkeitAendert: true },
-      true,
-    ],
-    [
-      "SL A ändert die Sichtbarkeit nicht, wenn auch Stufe B beteiligt ist",
-      slA,
-      { vorher: ["a", "b"], nachher: ["a", "b"], sichtbarkeitAendert: true },
-      false,
-    ],
-    [
-      "No-op einer SL",
-      slA,
-      { vorher: ["b"], nachher: ["b"], sichtbarkeitAendert: false },
-      true,
-    ],
-    [
-      "No-op einer Leitung: Leitende ordnen nie zu",
-      leitungA,
-      { vorher: ["a"], nachher: ["a"], sichtbarkeitAendert: false },
-      false,
-    ],
-    [
-      "No-op von Eltern: Eltern ordnen nie zu",
-      eltern,
-      { vorher: ["a"], nachher: ["a"], sichtbarkeitAendert: false },
-      false,
-    ],
-  ] as const)("%s", (_titel, person, eingabe, erwartet) => {
-    expect(darfZuordnen(person, eingabe)).toBe(erwartet);
+  test("eine inaktive teilnehmende Person gibt keinen Zugang zur Einheit", async () => {
+    const konto = await legePersonaAn(welt, "elternKfA");
+    await db
+      .update(schema.teilnehmende)
+      .set({ inaktivSeit: new Date() })
+      .where(eq(schema.teilnehmende.id, welt.teilnehmende.kfA));
+    const antwort = await app.request(
+      `/api/v1/test/einheiten/${welt.einheit.kfA}/lesen`,
+      { headers: konto.headers },
+    );
+    expect(antwort.status).toBe(404);
+    await db
+      .update(schema.teilnehmende)
+      .set({ inaktivSeit: null })
+      .where(eq(schema.teilnehmende.id, welt.teilnehmende.kfA));
   });
 });

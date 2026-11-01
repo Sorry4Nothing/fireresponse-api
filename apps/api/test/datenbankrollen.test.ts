@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import postgres from "postgres";
 import { afterAll, expect, test } from "vitest";
 import { API_URL } from "./hilfen/datenbank.js";
@@ -8,11 +9,11 @@ afterAll(() => sql.end());
 
 test("die API-Rolle ergänzt und liest audit_log, kann Einträge aber weder ändern noch löschen", async () => {
   await zurueckgerollt(sql, async (tx) => {
-    const [abteilung] =
-      await tx`insert into abteilung (name) values ('Testabteilung') returning id`;
+    const [bezirk] =
+      await tx`insert into bezirk (name) values (${`Bezirk ${randomUUID()}`}) returning id`;
     const [eintrag] = await tx`
-      insert into audit_log (abteilung_id, akteur_id, aktion, ziel_typ, ziel_id)
-      values (${abteilung.id}, 'cli', 'test', 'abteilung', ${abteilung.id})
+      insert into audit_log (akteur_id, aktion, ziel_typ, ziel_id)
+      values ('cli', 'test', 'bezirk', ${bezirk.id})
       returning id`;
 
     await scheitert(
@@ -34,21 +35,17 @@ test("die API-Rolle ergänzt und liest audit_log, kann Einträge aber weder änd
   });
 });
 
-test("die API-Rolle benennt Stufen um und löscht sie", async () => {
+test("die API-Rolle benennt Bezirke um und löscht sie", async () => {
   await zurueckgerollt(sql, async (tx) => {
-    const [abteilung] =
-      await tx`insert into abteilung (name) values ('Testabteilung') returning id`;
-    const [stufe] = await tx`
-      insert into stufe (abteilung_id, name, kuerzel)
-      values (${abteilung.id}, 'Teststufe', 'TS')
-      returning id`;
+    const [bezirk] =
+      await tx`insert into bezirk (name) values (${`Bezirk ${randomUUID()}`}) returning id`;
 
-    await tx`update stufe set name = 'Umbenannt' where id = ${stufe.id}`;
-    expect(await tx`select name from stufe where id = ${stufe.id}`).toEqual([
+    await tx`update bezirk set name = 'Umbenannt' where id = ${bezirk.id}`;
+    expect(await tx`select name from bezirk where id = ${bezirk.id}`).toEqual([
       { name: "Umbenannt" },
     ]);
-    await tx`delete from stufe where id = ${stufe.id}`;
-    expect(await tx`select id from stufe where id = ${stufe.id}`).toEqual([]);
+    await tx`delete from bezirk where id = ${bezirk.id}`;
+    expect(await tx`select id from bezirk where id = ${bezirk.id}`).toEqual([]);
   });
 });
 

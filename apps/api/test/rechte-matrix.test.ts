@@ -64,9 +64,9 @@ interface Zeile {
   body?: (konto: PersonaKonto) => Record<string, unknown>;
   // Statt body: Der Body ist das Bild selbst (Profilbild-Upload)
   bild?: true;
-  // Für Zeilen, die die Sitzungen der geteilten Personas beenden würden
+  // Für Zeilen, die die Sitzungen der geteilten Personas beenden oder ihre Daten ändern würden: eigene Personas in einer eigenen Welt
   frischePersonas?: true;
-  // Pflicht für jede Route mit Pfad-Parameter: ein Objekt der Testabteilung
+  // Pflicht für jede Route mit Pfad-Parameter: ein Objekt der Welt
   url?: (welt: Welt) => string;
   // Statt url, wenn jede Anfrage ihr Ziel verbraucht (DELETE): eine frische URL pro Persona
   urlJeAnfrage?: () => Promise<string>;
@@ -77,6 +77,48 @@ const alle = (status: number) =>
     Persona,
     number
   >;
+
+// Die Standardsperren jeder Route unter /api/v1 ausser den Ausnahmen: ohne Sitzung und deaktiviert 401, Pflichtwechsel und fehlende Einwilligung 403
+const SPERREN = {
+  mussPasswortAendern: 403,
+  ohneEinwilligung: 403,
+  deaktiviert: 401,
+  ohneLogin: 401,
+} as const;
+
+// Alle, die ein Programm von JF A sehen (Kommando, Leitende, Eltern, Teilnehmende, Kantonsadmin), und die, die es nicht sehen (404)
+const SEHEN_JF_A = {
+  kantonsadmin: 200,
+  kantonsadminOhneZweitenFaktor: 200,
+  kommandoJfA: 200,
+  stellvertretung1JfA: 200,
+  stellvertretung2JfA: 200,
+  leitendeJfA: 200,
+  leitendeJfAElternKfA: 200,
+  elternJfA: 200,
+  elternAundB: 200,
+  teilnehmendeSelbstJfA: 200,
+  elternNachWechsel: 200,
+  kommandoKfBOhneZweitenFaktor: 404,
+  kommandoKfA: 404,
+  kommandoJfB: 404,
+  elternKfA: 404,
+} as const;
+
+// Ein Satz für die Routen der Verwaltung einer Einheit (JF A): Kantonsadmin, Kommandant und Stellvertretungen dürfen. Ohne zweiten Faktor sperrt die Middleware jedes Konto mit Verwaltungsrolle (403, auch das Kommando in der App); Leitende und Eltern der Einheit sehen sie, dürfen aber nichts (403); wer die Einheit nicht sieht, bekommt 404
+const VERWALTEN_JF_A = (erlaubt: number) =>
+  ({
+    ...alle(403),
+    kantonsadmin: erlaubt,
+    kommandoJfA: erlaubt,
+    stellvertretung1JfA: erlaubt,
+    stellvertretung2JfA: erlaubt,
+    kommandoKfA: 404,
+    kommandoJfB: 404,
+    elternKfA: 404,
+    deaktiviert: 401,
+    ohneLogin: 401,
+  }) as Record<Persona, number>;
 
 const MATRIX: Record<string, Zeile> = {
   "GET /health": { erwartet: alle(200) },
@@ -92,14 +134,8 @@ const MATRIX: Record<string, Zeile> = {
   "GET /admin/dom.js": { erwartet: alle(200) },
   "GET /admin/favicon.svg": { erwartet: alle(200) },
   "GET /admin/hintergrund.svg": { erwartet: alle(200) },
-  "GET /admin/kinder.js": { erwartet: alle(200) },
-  "GET /admin/personen.js": { erwartet: alle(200) },
-  "GET /admin/stufen.js": { erwartet: alle(200) },
   "GET /admin/system.js": { erwartet: alle(200) },
   "GET /admin/uebersicht.js": { erwartet: alle(200) },
-  "GET /admin/zeitregeln.js": { erwartet: alle(200) },
-  "GET /admin/csv.js": { erwartet: alle(200) },
-  "GET /admin/import.js": { erwartet: alle(200) },
   "GET /.well-known/apple-app-site-association": { erwartet: alle(200) },
   "GET /.well-known/assetlinks.json": { erwartet: alle(200) },
   "POST /api/auth/sign-in/username": {
@@ -128,13 +164,17 @@ const MATRIX: Record<string, Zeile> = {
     frischePersonas: true,
     erwartet: { ...alle(200), deaktiviert: 401, ohneLogin: 401 },
   },
+  // Wer den zweiten Faktor eingerichtet hat, bekommt bei falschem Code 401, alle anderen 400
   "POST /api/auth/two-factor/verify-totp": {
-    // Falscher Code; mit Sitzung zählt better-auth keinen Fehlversuch, Sperre und Versuchsbudget gelten nur der Anmeldung
     body: () => ({ code: "000000" }),
     erwartet: {
       ...alle(400),
-      admin: 401,
-      demoAdmin: 401,
+      kantonsadmin: 401,
+      kommandoJfA: 401,
+      stellvertretung1JfA: 401,
+      stellvertretung2JfA: 401,
+      kommandoKfA: 401,
+      kommandoJfB: 401,
       deaktiviert: 401,
       ohneLogin: 401,
     },
@@ -143,162 +183,97 @@ const MATRIX: Record<string, Zeile> = {
     body: () => ({ code: "falsch-falsch" }),
     erwartet: {
       ...alle(400),
-      admin: 401,
-      demoAdmin: 401,
+      kantonsadmin: 401,
+      kommandoJfA: 401,
+      stellvertretung1JfA: 401,
+      stellvertretung2JfA: 401,
+      kommandoKfA: 401,
+      kommandoJfB: 401,
       deaktiviert: 401,
       ohneLogin: 401,
     },
   },
+  // Einrichten dürfen heute nur Kantonsadmins; das Kommando bekommt den Zugang mit E2 (#16)
   "POST /api/auth/two-factor/enable": {
     body: () => ({ password: FALSCH }),
     erwartet: {
       ...alle(404),
-      admin: 400,
-      adminOhneZweitenFaktor: 400,
-      demoAdmin: 400,
+      kantonsadmin: 400,
+      kantonsadminOhneZweitenFaktor: 400,
     },
   },
-  // Die Felder je Rolle prüft test/ich.test.ts; GET /ich bleibt als einzige /api/v1-Route auch unter dem Pflichtwechsel offen (#15)
+  // Die Felder je Rolle prüft test/ich.test.ts; GET /ich bleibt neben der Einwilligung die einzige /api/v1-Route, die auch unter dem Pflichtwechsel und ohne Einwilligung offen ist
   "GET /api/v1/ich": {
     erwartet: { ...alle(200), deaktiviert: 401, ohneLogin: 401 },
-  },
-  "POST /api/v1/ich/datenschutz": {
-    // Schreibt datenschutz_gelesen_am, darum eigene Personas
-    frischePersonas: true,
-    erwartet: {
-      ...alle(204),
-      mussPasswortAendern: 403,
-      deaktiviert: 401,
-      ohneLogin: 401,
-    },
   },
   "PATCH /api/v1/ich": {
     // Schreibt push_anmeldungen, darum eigene Personas; die Felder prüft test/ich.test.ts
     frischePersonas: true,
     body: () => ({ pushAnmeldungen: false }),
-    erwartet: {
-      ...alle(204),
-      mussPasswortAendern: 403,
-      deaktiviert: 401,
-      ohneLogin: 401,
-    },
+    erwartet: { ...alle(204), ...SPERREN },
   },
-  // Die Felder je Rolle prüft test/programme.test.ts, die Zuordnungsregeln test/zuordnung.test.ts; hier zählt der Status.
-  // adminOhneZweitenFaktor wie admin: #23 sperrt nur /api/v1/admin/*. mussPasswortAendern: #15 sperrt das Konto auf allen Routen ausser GET /api/v1/ich
+  // Die Einwilligung prüft test/ich.test.ts; sie bleibt unter dem Pflichtwechsel gesperrt, ohne gültige Einwilligung aber offen
+  "GET /api/v1/einwilligung": {
+    erwartet: { ...alle(200), ...SPERREN, ohneEinwilligung: 200 },
+  },
+  "PUT /api/v1/einwilligung": {
+    frischePersonas: true,
+    erwartet: { ...alle(204), ...SPERREN, ohneEinwilligung: 204 },
+  },
+  // Sichtbar ist ein Programm für Kommando und Leitende der Einheit, für Eltern und Teilnehmende mit aktiver Person darin und für das Konto des Kantonsadmins (test/programme.test.ts). Die Sperre ohne zweiten Faktor gilt nur unter /api/v1/admin/*
   "GET /api/v1/programme": {
     // Ohne Fenster antwortet die Route 400, darum eine URL trotz fehlendem Pfad-Parameter
     url: () => "/api/v1/programme?von=2027-01-01&bis=2027-12-31",
-    erwartet: {
-      ...alle(200),
-      mussPasswortAendern: 403,
-      deaktiviert: 401,
-      ohneLogin: 401,
-    },
+    erwartet: { ...alle(200), ...SPERREN },
   },
   "GET /api/v1/programme/:id": {
     url: () => `/api/v1/programme/${programmId}`,
-    erwartet: {
-      ...alle(200),
-      mussPasswortAendern: 403,
-      leitendeB: 404,
-      elternB: 404,
-      deaktiviert: 401,
-      ohneLogin: 401,
-      demoAdmin: 404,
-      demoEltern: 404,
-    },
+    erwartet: { ...SEHEN_JF_A, ...SPERREN },
   },
-  // Kontakte (#39): Namen der SL für alle, die das Programm sehen; die Nummer gibt es nur Eltern mit aktivem Kind in der Stufe der SL (test/kontakte.test.ts). Antworten tragen Cache-Control: no-store
-  "GET /api/v1/programme/:id/kontakte": {
-    url: () => `/api/v1/programme/${programmId}/kontakte`,
-    erwartet: {
-      ...alle(200),
-      mussPasswortAendern: 403,
-      leitendeB: 404,
-      elternB: 404,
-      deaktiviert: 401,
-      ohneLogin: 401,
-      demoAdmin: 404,
-      demoEltern: 404,
-    },
-  },
-  "PUT /api/v1/programme/:id/zuordnung": {
-    url: () => `/api/v1/programme/${programmId}/zuordnung`,
-    // Der aktuelle Stand als No-op: Der Matrix-Lauf verändert nichts
-    body: () => ({ stufen: [welt.stufeAId], sichtbarkeit: "eltern" }),
-    erwartet: {
-      ...alle(204),
-      leitendeA: 403,
-      leitendeAElternB: 403,
-      elternA: 403,
-      mussPasswortAendern: 403,
-      leitendeB: 404,
-      elternB: 404,
-      deaktiviert: 401,
-      ohneLogin: 401,
-      demoAdmin: 404,
-      demoEltern: 404,
-    },
-  },
-  "PUT /api/v1/programme/:id/teilnahmen/:kindId": {
-    url: () => `/api/v1/programme/${programmId}/teilnahmen/${welt.kindAId}`,
-    // Immer dieselbe Antwort: Der Matrix-Lauf überschreibt sie nur mit sich selbst
-    body: () => ({ status: "ja" }),
-    // Zuständig sind Admins, die Leitung der Stufe des Kindes (SL eingeschlossen) und die Eltern des Kindes; slB sieht das Programm, ist aber für Stufe A nicht zuständig
-    erwartet: {
-      ...alle(204),
-      slB: 403,
-      mussPasswortAendern: 403,
-      leitendeB: 404,
-      elternB: 404,
-      deaktiviert: 401,
-      ohneLogin: 401,
-      demoAdmin: 404,
-      demoEltern: 404,
-    },
-  },
-  // Übersicht (#38): Admin sowie Leitung und SL der Stufe sehen die Liste, Eltern ihr Kind; slB sieht das Programm, hat aber kein Recht darauf. Die Inhalte je Rolle prüft test/teilnahmen-uebersicht.test.ts
+  // Kommando und Leitende der Einheit sowie das Konto des Kantonsadmins sehen alle, Eltern und Teilnehmende ihre eigenen Personen (test/anmeldung.test.ts)
   "GET /api/v1/programme/:id/teilnahmen": {
     url: () => `/api/v1/programme/${programmId}/teilnahmen`,
-    erwartet: {
-      ...alle(200),
-      slB: 403,
-      mussPasswortAendern: 403,
-      leitendeB: 404,
-      elternB: 404,
-      deaktiviert: 401,
-      ohneLogin: 401,
-      demoAdmin: 404,
-      demoEltern: 404,
-    },
+    erwartet: { ...SEHEN_JF_A, ...SPERREN },
   },
-  // Eigenes Programm mit Beginn in einem Jahr: Das von programmId hat am 6. März 2027 begonnen, ab dann wäre jedes 204 ein 409. Admin und SL anderer Stufen sehen es, haben aber kein Recht
-  "PUT /api/v1/programme/:id/leitung": {
-    url: () => `/api/v1/programme/${leitungProgrammId}/leitung`,
+  // Es antwortet nur, wer mit der Person verknüpft ist (Eltern oder selbst); alle anderen, auch Kommando und Kantonsadmin, bekommen 404, auch für Personen derselben Einheit. Nach dem Wechsel aufs Kind-Konto verlieren die früheren Eltern den Zugriff (404). Eigenes, offenes Programm: Das von programmId hat am 6. März 2027 begonnen, ab dann wäre jedes 204 ein 409
+  "PUT /api/v1/programme/:id/teilnahmen/:teilnehmendeId": {
+    url: () =>
+      `/api/v1/programme/${offenProgrammId}/teilnahmen/${welt.teilnehmende.jfA}`,
+    // Immer dieselbe Antwort: Der Matrix-Lauf überschreibt sie nur mit sich selbst
     body: () => ({ status: "ja" }),
     erwartet: {
-      ...alle(204),
-      admin: 403,
-      adminOhneZweitenFaktor: 403,
-      slB: 403,
-      elternA: 403,
-      mussPasswortAendern: 403,
-      leitendeB: 404,
-      elternB: 404,
-      deaktiviert: 401,
-      ohneLogin: 401,
-      demoAdmin: 404,
-      demoEltern: 404,
+      ...alle(404),
+      elternJfA: 204,
+      elternAundB: 204,
+      leitendeJfAElternKfA: 404,
+      ...SPERREN,
     },
   },
-  // Verwaltung (#18): nur Admins, und ohne zweiten Faktor sperrt die Middleware (#23) jede Admin-Route mit 403. Status in test/admin-personen.test.ts begründet
-  // Betriebszahlen (#143): nur Admins, wie die übrigen Admin-Routen; Inhalt in test/admin-system.test.ts
+  // Nur Kommando, Stellvertretungen und Leitende der Einheit melden sich selbst an; das Konto des Kantonsadmins sowie Eltern und Teilnehmende sehen das Programm, haben aber kein Recht (403)
+  "PUT /api/v1/programme/:id/leitung": {
+    url: () => `/api/v1/programme/${offenProgrammId}/leitung`,
+    body: () => ({ status: "ja" }),
+    erwartet: {
+      ...alle(404),
+      kantonsadmin: 403,
+      kantonsadminOhneZweitenFaktor: 403,
+      kommandoJfA: 204,
+      stellvertretung1JfA: 204,
+      stellvertretung2JfA: 204,
+      leitendeJfA: 204,
+      leitendeJfAElternKfA: 204,
+      elternJfA: 403,
+      elternAundB: 403,
+      teilnehmendeSelbstJfA: 403,
+      elternNachWechsel: 403,
+      ...SPERREN,
+    },
+  },
+  // Betriebszahlen (#143): nur das Konto des Kantonsadmins mit zweitem Faktor; Inhalt in test/admin-system.test.ts
   "GET /api/v1/admin/system": {
     erwartet: {
       ...alle(403),
-      admin: 200,
-      adminOhneZweitenFaktor: 403,
-      demoAdmin: 200,
+      kantonsadmin: 200,
       deaktiviert: 401,
       ohneLogin: 401,
     },
@@ -306,378 +281,60 @@ const MATRIX: Record<string, Zeile> = {
   "GET /api/v1/admin/system/requests": {
     erwartet: {
       ...alle(403),
-      admin: 200,
-      adminOhneZweitenFaktor: 403,
-      demoAdmin: 200,
+      kantonsadmin: 200,
       deaktiviert: 401,
       ohneLogin: 401,
     },
   },
-  "GET /api/v1/admin/personen": {
-    erwartet: {
-      ...alle(403),
-      admin: 200,
-      adminOhneZweitenFaktor: 403,
-      demoAdmin: 200,
-      deaktiviert: 401,
-      ohneLogin: 401,
-    },
-  },
-  "POST /api/v1/admin/personen": {
-    // Eigener Benutzername pro Persona; leere Listen, weil Testabteilungs-IDs dem demoAdmin 400 gäben
+  // Übergabe: nur das Konto des Kantonsadmins. Der Body nennt die heutige Kommandantin: Eine echte Übergabe würde die Personas der Matrix umbauen, also antwortet die Route für den Kantonsadmin 409 GLEICHE_PERSON, nachdem alle Prüfungen bestanden sind. Status in test/kommando.test.ts begründet
+  "POST /api/v1/admin/einheiten/:einheitId/kommando": {
+    url: (w) => `/api/v1/admin/einheiten/${w.einheit.jfA}/kommando`,
     body: () => ({
-      vorname: "Matrix",
-      nachname: "Person",
-      benutzername: `matrix.${randomUUID().slice(0, 8)}`,
-      admin: false,
-      rollen: [],
-      elternteilVon: [],
+      neuerKommandantId: standard.kommandoJfA.id,
+      bisherigeRolle: { typ: "keine" },
     }),
-    erwartet: {
-      ...alle(403),
-      admin: 201,
-      adminOhneZweitenFaktor: 403,
-      demoAdmin: 201,
-      deaktiviert: 401,
-      ohneLogin: 401,
-    },
+    erwartet: { ...VERWALTEN_JF_A(403), kantonsadmin: 409 },
   },
-  "PATCH /api/v1/admin/personen/:id": {
-    url: () => `/api/v1/admin/personen/${patchZielId}`,
-    body: () => ({ name: "Matrix Person" }),
-    erwartet: {
-      ...alle(403),
-      admin: 204,
-      adminOhneZweitenFaktor: 403,
-      deaktiviert: 401,
-      ohneLogin: 401,
-      demoAdmin: 404,
-      demoEltern: 404,
-    },
+  "GET /api/v1/admin/einheiten/:einheitId/zeitregeln": {
+    url: (w) => `/api/v1/admin/einheiten/${w.einheit.jfA}/zeitregeln`,
+    erwartet: VERWALTEN_JF_A(200),
   },
-  "POST /api/v1/admin/personen/:id/startpasswort": {
-    url: () => `/api/v1/admin/personen/${startpasswortZielId}/startpasswort`,
-    erwartet: {
-      ...alle(403),
-      admin: 200,
-      adminOhneZweitenFaktor: 403,
-      deaktiviert: 401,
-      ohneLogin: 401,
-      demoAdmin: 404,
-      demoEltern: 404,
-    },
-  },
-  "POST /api/v1/admin/personen/:id/deaktivieren": {
-    url: () => `/api/v1/admin/personen/${deaktivierenZielId}/deaktivieren`,
-    erwartet: {
-      ...alle(403),
-      admin: 204,
-      adminOhneZweitenFaktor: 403,
-      deaktiviert: 401,
-      ohneLogin: 401,
-      demoAdmin: 404,
-      demoEltern: 404,
-    },
-  },
-  "POST /api/v1/admin/personen/:id/aktivieren": {
-    url: () => `/api/v1/admin/personen/${aktivierenZielId}/aktivieren`,
-    erwartet: {
-      ...alle(403),
-      admin: 204,
-      adminOhneZweitenFaktor: 403,
-      deaktiviert: 401,
-      ohneLogin: 401,
-      demoAdmin: 404,
-      demoEltern: 404,
-    },
-  },
-  "POST /api/v1/admin/personen/:id/zweiter-faktor-zuruecksetzen": {
-    // Jede Anfrage setzt den Faktor ihres Ziels zurück; ein Ziel mit Faktor je Anfrage
-    urlJeAnfrage: async () =>
-      `/api/v1/admin/personen/${await wegwerfPersonId(true)}/zweiter-faktor-zuruecksetzen`,
-    erwartet: {
-      ...alle(403),
-      admin: 204,
-      adminOhneZweitenFaktor: 403,
-      deaktiviert: 401,
-      ohneLogin: 401,
-      demoAdmin: 404,
-      demoEltern: 404,
-    },
-  },
-  "DELETE /api/v1/admin/personen/:id": {
-    // Jede Anfrage löscht ihr Ziel; eine feste URL nähme es allen nach dem ersten Admin weg
-    urlJeAnfrage: async () =>
-      `/api/v1/admin/personen/${await wegwerfPersonId()}`,
-    erwartet: {
-      ...alle(403),
-      admin: 204,
-      adminOhneZweitenFaktor: 403,
-      deaktiviert: 401,
-      ohneLogin: 401,
-      demoAdmin: 404,
-      demoEltern: 404,
-    },
-  },
-  // Stufen und Kinder (#19): GET /stufen liest jede Person mit Sitzung, die übrigen Routen nur Admins. PATCH-Bodies mit den aktuellen Werten, damit der Lauf nichts verändert; Status in test/admin-stufen.test.ts und test/admin-kinder.test.ts begründet
-  "GET /api/v1/stufen": {
-    erwartet: {
-      ...alle(200),
-      mussPasswortAendern: 403,
-      deaktiviert: 401,
-      ohneLogin: 401,
-    },
-  },
-  // Kontakte der Stufe (#39): Admin, Leitende und SL der Stufe sowie Eltern mit aktivem Kind darin; alle anderen und fremde Abteilungen sehen die Stufe nicht
-  "GET /api/v1/stufen/:id/kontakte": {
-    url: () => `/api/v1/stufen/${welt.stufeAId}/kontakte`,
-    erwartet: {
-      ...alle(200),
-      slB: 404,
-      leitendeB: 404,
-      elternB: 404,
-      mussPasswortAendern: 403,
-      deaktiviert: 401,
-      ohneLogin: 401,
-      demoAdmin: 404,
-      demoEltern: 404,
-    },
-  },
-  // Profilbild (#173): Jede Person mit Sitzung lädt ihr eigenes hoch und löscht es; nur die Person selbst, nie eine andere. Typ, Grösse und Rate-Limit prüft test/profilbild.test.ts. Das Bild einer Person sieht, wer ihren Namen ohnehin sieht; die Wege dahin ebenfalls dort
-  "PUT /api/v1/ich/bild": {
-    bild: true,
-    erwartet: {
-      ...alle(204),
-      mussPasswortAendern: 403,
-      deaktiviert: 401,
-      ohneLogin: 401,
-    },
-  },
-  "DELETE /api/v1/ich/bild": {
-    // Löscht das Bild der Persona; slA und Co. behalten ihres für die Zeile darunter
-    frischePersonas: true,
-    erwartet: {
-      ...alle(204),
-      mussPasswortAendern: 403,
-      deaktiviert: 401,
-      ohneLogin: 401,
-    },
-  },
-  // Ziel ist eine SL der Stufe A ohne Abmeldung: Es bleiben die Kontakte der Stufe (Admin, Leitende und SL der Stufe, Eltern mit aktivem Kind darin) und die Kontakte der Programme der Stufe A (slB: Eine SL sieht jedes Programm, und «offen» bleibt Kontakt)
-  "GET /api/v1/personen/:id/bild": {
-    url: () => `/api/v1/personen/${bildZielId}/bild`,
-    erwartet: {
-      ...alle(200),
-      leitendeB: 404,
-      elternB: 404,
-      mussPasswortAendern: 403,
-      deaktiviert: 401,
-      ohneLogin: 401,
-      demoAdmin: 404,
-      demoEltern: 404,
-    },
-  },
-  "POST /api/v1/admin/stufen": {
-    // Jeder Aufruf braucht einen eigenen Namen: In einer Abteilung ist er eindeutig
-    body: () => ({ name: `Matrix Stufe ${++stufenZaehler}`, kuerzel: "M" }),
-    erwartet: {
-      ...alle(403),
-      admin: 201,
-      adminOhneZweitenFaktor: 403,
-      demoAdmin: 201,
-      deaktiviert: 401,
-      ohneLogin: 401,
-    },
-  },
-  "PATCH /api/v1/admin/stufen/:id": {
-    url: () => `/api/v1/admin/stufen/${patchStufeId}`,
-    body: () => ({ name: `Matrix Stufe ${++stufenZaehler}`, kuerzel: "M" }),
-    erwartet: {
-      ...alle(403),
-      admin: 204,
-      adminOhneZweitenFaktor: 403,
-      deaktiviert: 401,
-      ohneLogin: 401,
-      demoAdmin: 404,
-      demoEltern: 404,
-    },
-  },
-  // Reihenfolge der SL einer Stufe (#287): nur Admins; Wirkung und Fehler in test/admin-stufen.test.ts
-  "PUT /api/v1/admin/stufen/:id/stufenleitung": {
-    url: () => `/api/v1/admin/stufen/${patchStufeId}/stufenleitung`,
-    body: () => ({ ids: [] }),
-    erwartet: {
-      ...alle(403),
-      admin: 204,
-      adminOhneZweitenFaktor: 403,
-      deaktiviert: 401,
-      ohneLogin: 401,
-      demoAdmin: 404,
-      demoEltern: 404,
-    },
-  },
-  "DELETE /api/v1/admin/stufen/:id": {
-    // Jede Anfrage löscht ihr Ziel; die Antworten für Eltern und SL (403) lassen es stehen
-    urlJeAnfrage: async () => `/api/v1/admin/stufen/${await wegwerfStufeId()}`,
-    erwartet: {
-      ...alle(403),
-      admin: 204,
-      adminOhneZweitenFaktor: 403,
-      deaktiviert: 401,
-      ohneLogin: 401,
-      demoAdmin: 404,
-      demoEltern: 404,
-    },
-  },
-  "GET /api/v1/admin/kinder": {
-    erwartet: {
-      ...alle(403),
-      admin: 200,
-      adminOhneZweitenFaktor: 403,
-      demoAdmin: 200,
-      deaktiviert: 401,
-      ohneLogin: 401,
-    },
-  },
-  "POST /api/v1/admin/kinder": {
-    // Die Stufe der eigenen Abteilung: Mit einer fremden gäbe der Demo-Admin 400
-    body: (konto) => ({
-      vorname: "Matrix",
-      nachname: "Kind",
-      stufeId:
-        konto.abteilungId === welt.demoAbteilungId
-          ? welt.demoStufeId
-          : welt.stufeAId,
-    }),
-    erwartet: {
-      ...alle(403),
-      admin: 201,
-      adminOhneZweitenFaktor: 403,
-      demoAdmin: 201,
-      deaktiviert: 401,
-      ohneLogin: 401,
-    },
-  },
-  // Je Persona eine eigene Zeile mit zufälligem Namen; nur Kinder, damit kein Konto (scrypt) entsteht
-  "POST /api/v1/admin/import/vorschau": {
-    body: (konto) => ({
-      stufeId:
-        konto.abteilungId === welt.demoAbteilungId
-          ? welt.demoStufeId
-          : welt.stufeAId,
-      zeilen: [{ vorname: "Matrix", nachname: randomUUID(), art: "kind" }],
-    }),
-    erwartet: {
-      ...alle(403),
-      admin: 200,
-      adminOhneZweitenFaktor: 403,
-      demoAdmin: 200,
-      deaktiviert: 401,
-      ohneLogin: 401,
-    },
-  },
-  "POST /api/v1/admin/import": {
-    body: (konto) => ({
-      stufeId:
-        konto.abteilungId === welt.demoAbteilungId
-          ? welt.demoStufeId
-          : welt.stufeAId,
-      zeilen: [{ vorname: "Matrix", nachname: randomUUID(), art: "kind" }],
-    }),
-    erwartet: {
-      ...alle(403),
-      admin: 201,
-      adminOhneZweitenFaktor: 403,
-      demoAdmin: 201,
-      deaktiviert: 401,
-      ohneLogin: 401,
-    },
-  },
-  "PATCH /api/v1/admin/kinder/:id": {
-    url: () => `/api/v1/admin/kinder/${patchKindId}`,
-    // Ohne eltern: Die Liste von Kind A hinge von den angelegten Personas ab
+  "POST /api/v1/admin/einheiten/:einheitId/zeitregeln": {
+    url: (w) => `/api/v1/admin/einheiten/${w.einheit.jfA}/zeitregeln`,
     body: () => ({
-      vorname: "Matrix",
-      nachname: "Kind",
-      stufeId: welt.stufeAId,
-      aktiv: true,
-    }),
-    erwartet: {
-      ...alle(403),
-      admin: 204,
-      adminOhneZweitenFaktor: 403,
-      deaktiviert: 401,
-      ohneLogin: 401,
-      demoAdmin: 404,
-      demoEltern: 404,
-    },
-  },
-  "DELETE /api/v1/admin/kinder/:id": {
-    // Jede Anfrage löscht ihr Ziel
-    urlJeAnfrage: async () => `/api/v1/admin/kinder/${await wegwerfKindId()}`,
-    erwartet: {
-      ...alle(403),
-      admin: 204,
-      adminOhneZweitenFaktor: 403,
-      deaktiviert: 401,
-      ohneLogin: 401,
-      demoAdmin: 404,
-      demoEltern: 404,
-    },
-  },
-  "GET /api/v1/admin/zeitregeln": {
-    erwartet: {
-      ...alle(403),
-      admin: 200,
-      adminOhneZweitenFaktor: 403,
-      demoAdmin: 200,
-      deaktiviert: 401,
-      ohneLogin: 401,
-    },
-  },
-  "POST /api/v1/admin/zeitregeln": {
-    body: () => ({
-      stufeId: null,
       wochentag: 3,
       uhrzeit: "08:00",
-      text: "{Programm} am {Datum}",
-      aktiv: true,
+      text: "Matrix",
+      aktiv: false,
     }),
-    erwartet: {
-      ...alle(403),
-      admin: 201,
-      adminOhneZweitenFaktor: 403,
-      demoAdmin: 201,
-      deaktiviert: 401,
-      ohneLogin: 401,
-    },
+    erwartet: VERWALTEN_JF_A(201),
   },
-  "PATCH /api/v1/admin/zeitregeln/:id": {
-    url: () => `/api/v1/admin/zeitregeln/${patchRegelId}`,
-    body: () => ({ uhrzeit: "09:30" }),
-    erwartet: {
-      ...alle(403),
-      admin: 204,
-      adminOhneZweitenFaktor: 403,
-      deaktiviert: 401,
-      ohneLogin: 401,
-      demoAdmin: 404,
-      demoEltern: 404,
-    },
+  "PATCH /api/v1/admin/einheiten/:einheitId/zeitregeln/:id": {
+    url: (w) =>
+      `/api/v1/admin/einheiten/${w.einheit.jfA}/zeitregeln/${patchRegelId}`,
+    body: () => ({ aktiv: false }),
+    erwartet: VERWALTEN_JF_A(204),
   },
-  "DELETE /api/v1/admin/zeitregeln/:id": {
-    // Jede Anfrage löscht ihr Ziel
+  "DELETE /api/v1/admin/einheiten/:einheitId/zeitregeln/:id": {
+    // Jede Anfrage verbraucht ihre Regel: eine frische pro Persona
     urlJeAnfrage: async () =>
-      `/api/v1/admin/zeitregeln/${await wegwerfRegelId()}`,
-    erwartet: {
-      ...alle(403),
-      admin: 204,
-      adminOhneZweitenFaktor: 403,
-      deaktiviert: 401,
-      ohneLogin: 401,
-      demoAdmin: 404,
-      demoEltern: 404,
-    },
+      `/api/v1/admin/einheiten/${welt.einheit.jfA}/zeitregeln/${await wegwerfRegelId()}`,
+    erwartet: VERWALTEN_JF_A(204),
+  },
+  // Profilbild (#173): Jede Person mit Sitzung lädt ihr eigenes hoch und löscht es; nur die Person selbst, nie eine andere. Typ, Grösse und Rate-Limit prüft test/profilbild.test.ts
+  "PUT /api/v1/ich/bild": {
+    bild: true,
+    erwartet: { ...alle(204), ...SPERREN },
+  },
+  "DELETE /api/v1/ich/bild": {
+    // Löscht das Bild der Persona; die Personas der Zeile darunter behalten ihres, darum eigene
+    frischePersonas: true,
+    erwartet: { ...alle(204), ...SPERREN },
+  },
+  // Ziel ist eine Stellvertretung von JF A mit Bild, also ein Kontakt der Einheit: Es sehen sie das Kantonsadmin-Konto, Kommando und Leitende der Einheit und Eltern und Teilnehmende darin (test/profilbild.test.ts)
+  "GET /api/v1/personen/:id/bild": {
+    url: () => `/api/v1/personen/${bildZielId}/bild`,
+    erwartet: { ...SEHEN_JF_A, ...SPERREN },
   },
   "PUT /api/v1/push-token": {
     // Eigenes Token pro Persona: Die Zeile schreibt nur auf die eigene Sitzung, darum keine frischen Personas
@@ -685,83 +342,23 @@ const MATRIX: Record<string, Zeile> = {
       token: `fcm-test-token-${konto.benutzername ?? "ohne-login"}`,
       plattform: "ios",
     }),
-    erwartet: {
-      ...alle(204),
-      mussPasswortAendern: 403,
-      deaktiviert: 401,
-      ohneLogin: 401,
-    },
+    erwartet: { ...alle(204), ...SPERREN },
   },
 };
 
 let welt: Welt;
 let standard: Record<Persona, PersonaKonto>;
 let programmId: string;
-let leitungProgrammId: string;
-let patchZielId: string;
-let startpasswortZielId: string;
-let deaktivierenZielId: string;
-let aktivierenZielId: string;
-let patchStufeId: string;
-let stufenZaehler = 0;
-let patchKindId: string;
+let offenProgrammId: string;
 let patchRegelId: string;
 let bildZielId: string;
 let testBild: Buffer;
-
-// Wegwerf-Person der Testabteilung, direkt eingefügt (ohne Passwort): Die :id-Zeilen brauchen nur die Zeile; wer einen zweiten Faktor braucht, bekommt das Flag und eine Zeile in two_factor
-async function wegwerfPersonId(zweiterFaktor = false) {
-  const [zeile] = await welt.db
-    .insert(schema.user)
-    .values({
-      name: "Wegwerf Person",
-      email: `${randomUUID()}@example.org`,
-      username: `wegwerf.${randomUUID().slice(0, 8)}`,
-      abteilungId: welt.testabteilungId,
-      mussPasswortAendern: false,
-      twoFactorEnabled: zweiterFaktor,
-    })
-    .returning({ id: schema.user.id });
-  if (zweiterFaktor) {
-    await welt.db
-      .insert(schema.twoFactor)
-      .values({ userId: zeile.id, secret: "x", backupCodes: "x" });
-  }
-  return zeile.id;
-}
-
-// Wegwerf-Stufe der Testabteilung ohne Kinder und Leitung: Die Löschroute darf sie wegnehmen
-async function wegwerfStufeId() {
-  const [zeile] = await welt.db
-    .insert(schema.stufe)
-    .values({
-      abteilungId: welt.testabteilungId,
-      name: `Wegwerf Stufe ${randomUUID()}`,
-      kuerzel: "W",
-    })
-    .returning({ id: schema.stufe.id });
-  return zeile.id;
-}
-
-// Wegwerf-Kind der Testabteilung, direkt eingefügt; die Matrix-Zeilen fassen nie Kind A und B der Welt an
-async function wegwerfKindId() {
-  const [zeile] = await welt.db
-    .insert(schema.kind)
-    .values({
-      abteilungId: welt.testabteilungId,
-      vorname: "Wegwerf",
-      nachname: "Kind",
-      stufeId: welt.stufeAId,
-    })
-    .returning({ id: schema.kind.id });
-  return zeile.id;
-}
 
 async function wegwerfRegelId() {
   const [zeile] = await welt.db
     .insert(schema.zeitregel)
     .values({
-      abteilungId: welt.testabteilungId,
+      einheitId: welt.einheit.jfA,
       wochentag: 3,
       uhrzeit: "08:00",
       text: "Wegwerf",
@@ -772,64 +369,51 @@ async function wegwerfRegelId() {
 }
 
 // Promise.all geht: Die Fabrik teilt keinen veränderlichen Zustand (zufällige Namen, eigene Inserts)
-async function personasAnlegen() {
+async function personasAnlegen(w: Welt) {
   return Object.fromEntries(
     await Promise.all(
-      PERSONAS.map(async (p) => [p, await legePersonaAn(welt, p)]),
+      PERSONAS.map(async (p) => [p, await legePersonaAn(w, p)]),
     ),
   ) as Record<Persona, PersonaKonto>;
 }
 
 beforeAll(async () => {
   welt = await erstelleWelt(db, auth);
-  standard = await personasAnlegen();
-  // Ein Programm der Testabteilung für die Objekt-Routen, sichtbar bis zu den Eltern der Stufe A
-  const programm = await legeProgrammAn(db, {
-    abteilungId: welt.testabteilungId,
-    sichtbarkeit: "eltern",
-    stufen: [welt.stufeAId],
-  });
-  programmId = programm.id;
-  leitungProgrammId = (
+  standard = await personasAnlegen(welt);
+  // Programme von JF A für die Objekt-Routen: eines mit Beginn im März 2027, eines in einem Jahr (offen für Anmeldungen)
+  programmId = (await legeProgrammAn(db, { einheitId: welt.einheit.jfA })).id;
+  offenProgrammId = (
     await legeProgrammAn(db, {
-      abteilungId: welt.testabteilungId,
-      sichtbarkeit: "eltern",
-      stufen: [welt.stufeAId],
+      einheitId: welt.einheit.jfA,
       beginn: new Date(Date.now() + 365 * 86_400_000),
     })
   ).id;
-  [patchZielId, startpasswortZielId, deaktivierenZielId, aktivierenZielId] =
-    await Promise.all([
-      wegwerfPersonId(),
-      wegwerfPersonId(),
-      wegwerfPersonId(),
-      wegwerfPersonId(),
-    ]);
-  patchKindId = await wegwerfKindId();
   patchRegelId = await wegwerfRegelId();
   testBild = await sharp({
     create: { width: 64, height: 64, channels: 3, background: "#3366cc" },
   })
     .jpeg()
     .toBuffer();
-  bildZielId = await wegwerfPersonId();
-  await db.insert(schema.rolle).values({
+  // Wegwerf-Person als Stellvertretung Nr. 9 von JF A, direkt eingefügt (ohne Passwort), mit Bild
+  const [zeile] = await db
+    .insert(schema.user)
+    .values({
+      name: "Wegwerf Person",
+      email: `${randomUUID()}@example.org`,
+      username: `wegwerf.${randomUUID().slice(0, 8)}`,
+      mussPasswortAendern: false,
+    })
+    .returning({ id: schema.user.id });
+  bildZielId = zeile.id;
+  await db.insert(schema.einheitRolle).values({
     userId: bildZielId,
-    stufeId: welt.stufeAId,
-    typ: "stufenleitung",
+    einheitId: welt.einheit.jfA,
+    typ: "stellvertretung",
+    reihenfolge: 9,
   });
   await db
     .insert(schema.profilbild)
     .values({ userId: bildZielId, inhalt: testBild });
-  const [patchStufe] = await db
-    .insert(schema.stufe)
-    .values({
-      abteilungId: welt.testabteilungId,
-      name: "Matrix Stufe",
-      kuerzel: "M",
-    })
-    .returning({ id: schema.stufe.id });
-  patchStufeId = patchStufe.id;
 });
 
 // Rund 1 500 Anfragen schrieben sonst je eine Log-Zeile und begrüben jeden Fehler
@@ -874,51 +458,80 @@ describe("Vollständigkeit", () => {
     expect(ohneZeile(mitExtra)).toEqual(["GET /api/v1/ohne-eintrag"]);
   });
 
-  // Bedrohung 9: Demo-Personas sehen kein Objekt der echten Abteilung; bindet jede künftige Objekt-Route. Bewusst eine Schleife: Ein leeres test.each ergäbe gar keinen Test
-  test("jede Zeile mit Pfad-Parameter nennt eine URL und erwartet 404 für die Demo-Personas", () => {
+  // Mandantentrennung: Wer die Einheit nicht kennt (anderer Bezirk, andere Art), sieht kein Objekt dieser Einheit; bindet jede künftige Objekt-Route. Bewusst eine Schleife: Ein leeres test.each ergäbe gar keinen Test
+  test("jede Zeile mit Pfad-Parameter nennt eine URL und erwartet 404 für das Kommando von KF A, von JF B und die Eltern von KF A", () => {
     for (const [schluessel, zeile] of Object.entries(MATRIX)) {
       if (!schluessel.includes(":")) continue;
       expect(zeile.url ?? zeile.urlJeAnfrage, schluessel).toBeDefined();
-      expect(zeile.erwartet.demoAdmin, schluessel).toBe(404);
-      expect(zeile.erwartet.demoEltern, schluessel).toBe(404);
+      // Routen der eigenen Person und der Verwaltung ohne Objekt der Einheit ausgenommen
+      if (schluessel.includes("/admin/system")) continue;
+      for (const persona of [
+        "kommandoKfA",
+        "kommandoJfB",
+        "elternKfA",
+      ] as const) {
+        expect(zeile.erwartet[persona], `${schluessel} ${persona}`).toBe(404);
+      }
+    }
+  });
+
+  test("keine Antwort einer Route erlaubt, dass die App eine Einheit mitschickt", () => {
+    // Die App schickt nie eine Einheit mit: Kein Body-Feld der Matrix heisst einheitId
+    for (const [schluessel, zeile] of Object.entries(MATRIX)) {
+      if (!zeile.body) continue;
+      const platzhalter = { benutzername: "x", passwort: "y" } as PersonaKonto;
+      expect(Object.keys(zeile.body(platzhalter)), schluessel).not.toContain(
+        "einheitId",
+      );
     }
   });
 });
 
 describe("Sperre ohne zweiten Faktor (#23)", () => {
   // Bewusst eine Schleife: Jede künftige Admin-Route erbt die Regel; ein leeres test.each ergäbe gar keinen Test
-  test("jede Admin-Route erwartet für «Admin ohne zweiten Faktor» 403", () => {
+  test("jede Admin-Route erwartet für Kantonsadmin und Kommando ohne zweiten Faktor 403", () => {
     let n = 0;
     for (const [schluessel, zeile] of Object.entries(MATRIX)) {
       if (!schluessel.split(" ")[1].startsWith("/api/v1/admin/")) continue;
       n++;
-      expect(zeile.erwartet.adminOhneZweitenFaktor, schluessel).toBe(403);
+      expect(zeile.erwartet.kantonsadminOhneZweitenFaktor, schluessel).toBe(
+        403,
+      );
+      expect(zeile.erwartet.kommandoKfBOhneZweitenFaktor, schluessel).toBe(403);
     }
     expect(n).toBeGreaterThan(0);
   });
 
-  test("der Admin ohne Faktor bekommt ZWEITER_FAKTOR_FEHLT, alle anderen den Status der Route", async () => {
-    const anfrageAn = (persona: Persona) =>
-      app.request("/api/v1/admin/personen", {
-        headers: standard[persona].headers,
+  test("Konten mit Verwaltungsrolle ohne Faktor bekommen ZWEITER_FAKTOR_FEHLT, alle anderen den Status der Route", async () => {
+    const pfad = `/api/v1/admin/einheiten/${welt.einheit.jfA}/zeitregeln`;
+    const anfrageAn = (persona: Persona, url = pfad) =>
+      app.request(url, { headers: standard[persona].headers });
+    for (const persona of [
+      "kantonsadminOhneZweitenFaktor",
+      "kommandoKfBOhneZweitenFaktor",
+    ] as const) {
+      const ohne = await anfrageAn(persona);
+      expect(ohne.status, persona).toBe(403);
+      expect(await ohne.json(), persona).toEqual({
+        code: "ZWEITER_FAKTOR_FEHLT",
+        message: "Für die Verwaltung braucht es zuerst einen zweiten Faktor.",
       });
-    const ohne = await anfrageAn("adminOhneZweitenFaktor");
-    expect(ohne.status).toBe(403);
-    expect(await ohne.json()).toEqual({
-      code: "ZWEITER_FAKTOR_FEHLT",
-      message: "Für die Verwaltung braucht es zuerst einen zweiten Faktor.",
-    });
-    const eltern = await anfrageAn("elternA");
+    }
+    const eltern = await anfrageAn("elternJfA");
     expect(eltern.status).toBe(403);
     expect(await eltern.json()).toMatchObject({ code: "KEINE_BERECHTIGUNG" });
-    expect((await anfrageAn("admin")).status).toBe(200);
+    expect((await anfrageAn("kommandoJfA")).status).toBe(200);
+    expect((await anfrageAn("kantonsadmin")).status).toBe(200);
   });
 });
 
 describe("Matrix: jede Route mal jede Persona", () => {
   test.each(Object.entries(MATRIX))("%s", async (schluessel, zeile) => {
     const [methode, pfad] = schluessel.split(" ");
-    const eigene = zeile.frischePersonas ? await personasAnlegen() : standard;
+    // Eigene Personas in einer eigenen Welt: Kommandant und Positionen gibt es je Einheit nur einmal
+    const eigene = zeile.frischePersonas
+      ? await personasAnlegen(await erstelleWelt(db, auth))
+      : standard;
     const festeUrl = zeile.url?.(welt) ?? pfad;
     const ergebnis: Partial<Record<Persona, number>> = {};
     for (const persona of PERSONAS) {
@@ -980,20 +593,23 @@ describe.runIf(process.env.POSTMAN_EXPORT)("Postman-Export", () => {
     const ordner = new URL("../.postman-lokal/", import.meta.url);
     await mkdir(ordner, { recursive: true });
     const ids: Record<string, string> = {
+      bezirkAId: welt.bezirkAId,
+      bezirkBId: welt.bezirkBId,
+      rangId: welt.rangId,
       ...Object.fromEntries(
-        Object.entries(welt).filter(([, v]) => typeof v === "string"),
+        Object.entries(welt.einheit).map(([k, v]) => [`einheit_${k}`, v]),
+      ),
+      ...Object.fromEntries(
+        Object.entries(welt.teilnehmende).map(([k, v]) => [
+          `teilnehmende_${k}`,
+          v,
+        ]),
       ),
       programmId,
-      leitungProgrammId,
-      patchZielId,
-      startpasswortZielId,
-      deaktivierenZielId,
-      aktivierenZielId,
-      patchStufeId,
-      patchKindId,
+      offenProgrammId,
       patchRegelId,
       bildZielId,
-      elternAUserId: standard.elternA.id!,
+      elternJfAUserId: standard.elternJfA.id!,
     };
     const ersetze = (text: string) =>
       Object.entries(ids).reduce(
@@ -1019,19 +635,19 @@ describe.runIf(process.env.POSTMAN_EXPORT)("Postman-Export", () => {
       n,
     }));
     for (const z of zeilen.filter((z) => z.zielJeAnfrage)) {
-      z.pfad = (await MATRIX[z.schluessel].urlJeAnfrage!()).replace(
+      z.pfad = ersetze(await MATRIX[z.schluessel].urlJeAnfrage!()).replace(
         uuid,
         `{{ziel_${z.n}}}`,
       );
     }
 
-    // Bodies, die von der Persona abhängen (eigene Stufe, Elternname), stehen als Variable body_<n> in deren Umgebung
+    // Bodies, die von der Persona abhängen, stehen als Variable body_<n> in deren Umgebung
     const bodyJePersona = (z: (typeof zeilen)[number], persona: Persona) => {
       const konto = standard[persona];
       const text = ersetze(JSON.stringify(MATRIX[z.schluessel].body!(konto)));
       return text
-        .replaceAll(konto.benutzername ?? " ", "{{benutzername}}")
-        .replaceAll(konto.passwort ?? " ", "{{passwort}}");
+        .replaceAll(konto.benutzername ?? " ", "{{benutzername}}")
+        .replaceAll(konto.passwort ?? " ", "{{passwort}}");
     };
     for (const z of zeilen.filter((z) => z.body)) {
       const texte = PERSONAS.map((p) => bodyJePersona(z, p));
@@ -1063,7 +679,7 @@ describe.runIf(process.env.POSTMAN_EXPORT)("Postman-Export", () => {
         werte[`body_${z.n}`] = bodyJePersona(z, persona);
       for (const z of zeilen.filter((z) => z.zielJeAnfrage)) {
         const url = await MATRIX[z.schluessel].urlJeAnfrage!();
-        werte[`ziel_${z.n}`] = uuid.exec(url)![0];
+        werte[`ziel_${z.n}`] = uuid.exec(url.split("/zeitregeln/")[1])![0];
       }
       const geheim = new Set(["cookie", "passwort"]);
       await writeFile(

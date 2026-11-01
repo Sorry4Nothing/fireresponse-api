@@ -1,9 +1,7 @@
 import postgres from "postgres";
-import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 import { erstelleApp } from "../src/app.js";
 import { erstelleDb } from "../src/db/client.js";
-import * as schema from "../src/db/schema.js";
 import { ladeSeiten } from "../src/seiten.js";
 import {
   APP,
@@ -38,11 +36,8 @@ const app = erstelleApp({
 afterAll(() => sql.end());
 
 let welt: Welt;
-let admin: PersonaKonto;
 beforeAll(async () => {
   welt = await erstelleWelt(db, auth);
-  // Mit zweitem Faktor: Er liest und setzt zurück, was die Personen ohne Faktor nicht dürfen
-  admin = await legePersonaAn(welt, "admin");
 });
 
 type Kopfzeilen = Record<string, string>;
@@ -84,7 +79,7 @@ async function richteEin(konto: PersonaKonto, headers = konto.headers) {
   return { ...daten, headers: mitCookie(cookiesAus(bestaetigt)) };
 }
 
-const neuerAdmin = () => legePersonaAn(welt, "adminOhneZweitenFaktor");
+const neuerAdmin = () => legePersonaAn(welt, "kantonsadminOhneZweitenFaktor");
 
 // Anmeldung am Router, wie die App
 const meldeAn = (konto: PersonaKonto) =>
@@ -96,11 +91,6 @@ const meldeAn = (konto: PersonaKonto) =>
       password: konto.passwort,
     },
   );
-
-const faktorZeilen = (id: string) =>
-  db.select().from(schema.twoFactor).where(eq(schema.twoFactor.userId, id));
-const auditZeilen = (zielId: string) =>
-  db.select().from(schema.auditLog).where(eq(schema.auditLog.zielId, zielId));
 
 describe("Einrichten", () => {
   test("der Link nennt «FireResponse» und den Benutzernamen, dazu zehn Ersatzcodes", async () => {
@@ -141,38 +131,24 @@ describe("Einrichten", () => {
     });
   });
 
-  test("zweiterFaktor wechselt in GET /ich und GET /admin/personen von false auf true, ohne Geheimnisse", async () => {
+  test("zweiterFaktor wechselt in GET /ich von false auf true, ohne Geheimnisse", async () => {
     const konto = await neuerAdmin();
-    const lesen = async (headers: Kopfzeilen) => {
-      const ich = await hole("/api/v1/ich", headers);
-      const liste = await hole("/api/v1/admin/personen", admin.headers);
-      const personen = (await liste.json()).personen as {
-        id: string;
-        zweiterFaktor: boolean;
-      }[];
-      return {
-        ich: await ich.json(),
-        eintrag: personen.find((p) => p.id === konto.id)!,
-      };
-    };
+    const lesen = async (headers: Kopfzeilen) =>
+      (await hole("/api/v1/ich", headers)).json();
     const vorher = await lesen(konto.headers);
-    expect(vorher.ich.zweiterFaktor).toBe(false);
-    expect(vorher.eintrag.zweiterFaktor).toBe(false);
+    expect(vorher.zweiterFaktor).toBe(false);
 
     const { headers } = await richteEin(konto);
     const nachher = await lesen(headers);
-    expect(nachher.ich.zweiterFaktor).toBe(true);
-    expect(nachher.eintrag.zweiterFaktor).toBe(true);
-    for (const koerper of [nachher.ich, nachher.eintrag]) {
-      expect(JSON.stringify(koerper)).not.toMatch(
-        /secret|backup|verified|locked|failedVerification|totp/i,
-      );
-    }
+    expect(nachher.zweiterFaktor).toBe(true);
+    expect(JSON.stringify(nachher)).not.toMatch(
+      /secret|backup|verified|locked|failedVerification|totp/i,
+    );
   });
 
   test("die Admin-Routen antworten bis zum ersten Code 403 ZWEITER_FAKTOR_FEHLT, danach 200", async () => {
     const konto = await neuerAdmin();
-    const gesperrt = await hole("/api/v1/admin/personen", konto.headers);
+    const gesperrt = await hole("/api/v1/admin/system", konto.headers);
     expect(gesperrt.status).toBe(403);
     expect(await gesperrt.json()).toEqual({
       code: "ZWEITER_FAKTOR_FEHLT",
@@ -180,7 +156,7 @@ describe("Einrichten", () => {
     });
     // enable allein schaltet nichts ein
     await enable(konto);
-    expect((await hole("/api/v1/admin/personen", konto.headers)).status).toBe(
+    expect((await hole("/api/v1/admin/system", konto.headers)).status).toBe(
       403,
     );
     const bestaetigt = await post(
@@ -190,7 +166,7 @@ describe("Einrichten", () => {
     );
     expect(bestaetigt.status).toBe(200);
     expect(
-      (await hole("/api/v1/admin/personen", mitCookie(cookiesAus(bestaetigt))))
+      (await hole("/api/v1/admin/system", mitCookie(cookiesAus(bestaetigt))))
         .status,
     ).toBe(200);
   });
@@ -236,7 +212,7 @@ describe("Anmeldung mit dem zweiten Faktor", () => {
     expect(antwort.status).toBe(200);
     const sitzung = mitCookie(cookiesAus(antwort));
     expect((await hole("/api/v1/ich", sitzung)).status).toBe(200);
-    expect((await hole("/api/v1/admin/personen", sitzung)).status).toBe(200);
+    expect((await hole("/api/v1/admin/system", sitzung)).status).toBe(200);
   });
 
   test("ein falscher Code gibt 401 INVALID_CODE und keine Sitzung", async () => {
@@ -303,89 +279,4 @@ describe("Anmeldung mit dem zweiten Faktor", () => {
       expect(await naechste.json()).toMatchObject({ twoFactorRedirect: true });
     },
   );
-});
-
-describe("Zurücksetzen", () => {
-  const zuruecksetzen = (ziel: PersonaKonto, headers = admin.headers) =>
-    post(
-      `/api/v1/admin/personen/${ziel.id}/zweiter-faktor-zuruecksetzen`,
-      headers,
-    );
-
-  test("ein anderer Admin setzt zurück: Zeilen weg, Flag aus, Audit-Zeile, Anmeldung ohne Code, enable geht wieder", async () => {
-    const konto = await neuerAdmin();
-    const { headers } = await richteEin(konto);
-    expect((await hole("/api/v1/admin/personen", headers)).status).toBe(200);
-    expect(await faktorZeilen(konto.id!)).toHaveLength(1);
-
-    const antwort = await zuruecksetzen(konto);
-    expect(antwort.status).toBe(204);
-
-    expect(await faktorZeilen(konto.id!)).toEqual([]);
-    const [zeile] = await db
-      .select({ an: schema.user.twoFactorEnabled })
-      .from(schema.user)
-      .where(eq(schema.user.id, konto.id!));
-    expect(zeile.an).toBe(false);
-    const audit = await auditZeilen(konto.id!);
-    expect(audit).toHaveLength(1);
-    expect(audit[0]).toMatchObject({
-      abteilungId: welt.testabteilungId,
-      akteurId: admin.id,
-      aktion: "zweiter_faktor_zurueckgesetzt",
-      zielTyp: "person",
-      zielId: konto.id,
-      details: null,
-    });
-
-    // Die laufende Sitzung bleibt, aber die Admin-Routen sind wieder zu
-    const gesperrt = await hole("/api/v1/admin/personen", headers);
-    expect(gesperrt.status).toBe(403);
-    expect(await gesperrt.json()).toMatchObject({
-      code: "ZWEITER_FAKTOR_FEHLT",
-    });
-    // Neue Anmeldung ohne Code
-    const anmeldung = await meldeAn(konto);
-    expect(anmeldung.status).toBe(200);
-    expect(await anmeldung.json()).not.toHaveProperty("twoFactorRedirect");
-    expect(cookiesAus(anmeldung)).toContain("session_token");
-    // Neu einrichten, in der neuen Sitzung: Die alte endete mit der ersten Einrichtung
-    expect(
-      (await richteEin(konto, mitCookie(cookiesAus(anmeldung)))).backupCodes,
-    ).toHaveLength(10);
-  });
-
-  test("der eigene Faktor: 409 EIGENER_ZWEITER_FAKTOR, nichts geschrieben", async () => {
-    const antwort = await zuruecksetzen(admin);
-    expect(antwort.status).toBe(409);
-    expect(await antwort.json()).toEqual({
-      code: "EIGENER_ZWEITER_FAKTOR",
-      message: "Den eigenen zweiten Faktor setzt ein anderer Admin zurück.",
-    });
-    expect(await faktorZeilen(admin.id!)).toHaveLength(1);
-    expect(await auditZeilen(admin.id!)).toEqual([]);
-  });
-
-  test("ohne aktiven Faktor: 409 KEIN_ZWEITER_FAKTOR, keine Audit-Zeile", async () => {
-    const konto = await neuerAdmin();
-    const antwort = await zuruecksetzen(konto);
-    expect(antwort.status).toBe(409);
-    expect(await antwort.json()).toEqual({
-      code: "KEIN_ZWEITER_FAKTOR",
-      message: "Diese Person hat keinen zweiten Faktor.",
-    });
-    expect(await auditZeilen(konto.id!)).toEqual([]);
-  });
-
-  test("zwei gleichzeitige Zurücksetzungen schreiben genau eine Audit-Zeile", async () => {
-    const konto = await neuerAdmin();
-    await richteEin(konto);
-    const status = (
-      await Promise.all([zuruecksetzen(konto), zuruecksetzen(konto)])
-    )
-      .map((a) => a.status)
-      .sort();
-    expect(status).toEqual([204, 409]);
-    expect(await auditZeilen(konto.id!)).toHaveLength(1);
-  });
 });

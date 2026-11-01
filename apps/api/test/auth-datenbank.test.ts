@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import postgres from "postgres";
-import { afterAll, beforeAll, expect, test } from "vitest";
+import { afterAll, expect, test } from "vitest";
 import { erstelleDb } from "../src/db/client.js";
 import {
   erzeugeStartpasswort,
@@ -24,16 +24,7 @@ const sql = postgres(API_URL);
 const db = erstelleDb(postgres(API_URL));
 const auth = erstelleTestAuth(db);
 
-let abteilungId: string;
-beforeAll(async () => {
-  [{ id: abteilungId }] =
-    await sql`insert into abteilung (name) values ('Testabteilung') returning id`;
-});
-afterAll(async () => {
-  await sql`delete from "user" where abteilung_id = ${abteilungId}`;
-  await sql`delete from abteilung where id = ${abteilungId}`;
-  await Promise.all([sql.end(), db.$client.end()]);
-});
+afterAll(() => Promise.all([sql.end(), db.$client.end()]));
 
 // Ohne mussPasswortAendern: Es gilt der Standardwert der Datenbank, darum ein künftiges Ablaufdatum und ein Startpasswort (der Hook vergleicht normalisiert)
 async function legeAn() {
@@ -46,7 +37,6 @@ async function legeAn() {
       name: "Testperson",
       data: {
         username: benutzername,
-        abteilungId,
         startpasswortGueltigBis: new Date(Date.now() + 7 * TAG),
       },
     },
@@ -74,12 +64,11 @@ test("auth.api.createUser legt die Person mit den Standardwerten der Datenbank u
   expect(id).toMatch(UUID_V7);
   expect(
     await sql`
-      select abteilung_id, muss_passwort_aendern, startpasswort_gueltig_bis, fehlversuche,
-        naechster_versuch_ab, deaktiviert_am, telefon, push_programme, datenschutz_gelesen_am
+      select muss_passwort_aendern, startpasswort_gueltig_bis, fehlversuche,
+        naechster_versuch_ab, deaktiviert_am, telefon, push_programme, einwilligung_am, einwilligung_version
       from "user" where id = ${id}`,
   ).toEqual([
     {
-      abteilung_id: abteilungId,
       muss_passwort_aendern: true,
       startpasswort_gueltig_bis: expect.any(Date),
       fehlversuche: 0,
@@ -87,7 +76,8 @@ test("auth.api.createUser legt die Person mit den Standardwerten der Datenbank u
       deaktiviert_am: null,
       telefon: null,
       push_programme: true,
-      datenschutz_gelesen_am: null,
+      einwilligung_am: null,
+      einwilligung_version: null,
     },
   ]);
 });

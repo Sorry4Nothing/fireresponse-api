@@ -21,14 +21,12 @@ const db = erstelleDb(postgres(API_URL));
 const auth = erstelleTestAuth(db);
 afterAll(() => db.$client.end());
 
-let abteilungId: string;
 let mitFaktor: PersonaKonto;
 let ohneFaktor: PersonaKonto;
 beforeAll(async () => {
   const welt = await erstelleWelt(db, auth);
-  abteilungId = welt.testabteilungId;
-  mitFaktor = await legePersonaAn(welt, "admin");
-  ohneFaktor = await legePersonaAn(welt, "adminOhneZweitenFaktor");
+  mitFaktor = await legePersonaAn(welt, "kantonsadmin");
+  ohneFaktor = await legePersonaAn(welt, "kantonsadminOhneZweitenFaktor");
 });
 
 // Direkt die Datei statt npm run (kein npm.cmd-Umweg, wie #73); die CLI ruft better-auth nie auf, darum ohne HIBP-Attrappe
@@ -77,7 +75,7 @@ test("mit Faktor: Exit 0, Zeilen weg, Flag aus, Audit-Zeile «cli»", async () =
   const audit = await auditZeilen(mitFaktor.id!);
   expect(audit).toHaveLength(1);
   expect(audit[0]).toMatchObject({
-    abteilungId,
+    einheitId: null,
     akteurId: "cli",
     aktion: "zweiter_faktor_zurueckgesetzt",
     zielTyp: "person",

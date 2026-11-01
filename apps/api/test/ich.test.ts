@@ -14,6 +14,10 @@ import {
 import { erstelleApp } from "../src/app.js";
 import { erstelleDb } from "../src/db/client.js";
 import * as schema from "../src/db/schema.js";
+import {
+  EINWILLIGUNG_TEXT,
+  EINWILLIGUNG_VERSION,
+} from "../src/einwilligung.js";
 import { ladeSeiten } from "../src/seiten.js";
 import {
   APP,
@@ -74,59 +78,61 @@ async function zweiteSitzung(konto: PersonaKonto) {
 }
 
 describe("GET /api/v1/ich", () => {
-  test("liefert Profil, Rollen, Stufen und Kinder, ohne E-Mail und Bremsfelder", async () => {
-    const konto = await legePersonaAn(welt, "leitendeAElternB");
+  test("liefert Profil, Einheiten und Teilnehmende, ohne E-Mail und Bremsfelder", async () => {
+    const konto = await legePersonaAn(welt, "leitendeJfAElternKfA");
     const antwort = await ich(konto);
     expect(antwort.status).toBe(200);
     const koerper = await antwort.json();
     expect(koerper).toEqual({
       id: konto.id,
-      name: "Leitende A und zugleich Elternteil B",
+      name: "Leitende JF A und zugleich Elternteil KF A",
       benutzername: konto.benutzername,
-      admin: false,
+      kantonsadmin: false,
       zweiterFaktor: false,
+      einwilligung: true,
       mussPasswortAendern: false,
-      datenschutzGelesenAm: null,
       telefon: null,
       bildUrl: null,
       pushProgramme: true,
       pushAnmeldungen: true,
-      rollen: [{ stufeId: welt.stufeAId, typ: "leitung" }],
-      // Die Stufen der Rollen und der Kinder, nach Name
-      stufen: [
-        { id: welt.stufeAId, name: "Stufe A", kuerzel: "A" },
-        { id: welt.stufeBId, name: "Stufe B", kuerzel: "B" },
-      ],
-      kinder: [
+      einheiten: [
         {
-          id: welt.kindBId,
-          vorname: "Kind",
-          nachname: "B",
-          stufeId: welt.stufeBId,
+          id: welt.einheit.jfA,
+          name: "JF A",
+          typ: "jf",
+          bezirk: expect.stringMatching(/^Bezirk A /),
+          rolle: "leitung",
+        },
+      ],
+      teilnehmende: [
+        {
+          id: welt.teilnehmende.kfA,
+          vorname: "Person",
+          nachname: "KfA",
+          einheitId: welt.einheit.kfA,
+          art: "eltern",
         },
       ],
     });
   });
 
-  test("Admin ohne Rollen und Kinder: admin true, leere Listen", async () => {
-    const konto = await legePersonaAn(welt, "admin");
+  test("Kantonsadmin ohne Rolle und Teilnehmende: kantonsadmin true, leere Listen", async () => {
+    const konto = await legePersonaAn(welt, "kantonsadmin");
     const koerper = await (await ich(konto)).json();
     expect(koerper).toMatchObject({
-      admin: true,
-      rollen: [],
-      stufen: [],
-      kinder: [],
+      kantonsadmin: true,
+      einheiten: [],
+      teilnehmende: [],
     });
   });
 
-  test("SL A: Rolle stufenleitung und die Stufe A", async () => {
-    const konto = await legePersonaAn(welt, "slA");
+  test("Kommando JF A: Rolle kommandant in der Einheit", async () => {
+    const konto = await legePersonaAn(welt, "kommandoJfA");
     const koerper = await (await ich(konto)).json();
     expect(koerper).toMatchObject({
-      admin: false,
-      rollen: [{ stufeId: welt.stufeAId, typ: "stufenleitung" }],
-      stufen: [{ id: welt.stufeAId, name: "Stufe A", kuerzel: "A" }],
-      kinder: [],
+      kantonsadmin: false,
+      einheiten: [{ id: welt.einheit.jfA, rolle: "kommandant" }],
+      teilnehmende: [],
     });
   });
 
@@ -136,64 +142,121 @@ describe("GET /api/v1/ich", () => {
     expect(antwort.status).toBe(200);
     expect(await antwort.json()).toMatchObject({
       mussPasswortAendern: true,
-      kinder: [{ id: welt.kindAId }],
+      teilnehmende: [{ id: welt.teilnehmende.jfA }],
     });
   });
 
-  test("ein Kind der Demo-Abteilung und ein inaktives Kind bleiben draussen", async () => {
-    const konto = await legePersonaAn(welt, "elternB");
-    // Verknüpfung über die Abteilungsgrenze und ein inaktives Kind in einer eigenen Stufe
-    const [stufeC] = await db
-      .insert(schema.stufe)
-      .values({
-        abteilungId: welt.testabteilungId,
-        name: "Stufe C",
-        kuerzel: "C",
-      })
-      .returning();
+  test("eine inaktive teilnehmende Person bleibt draussen", async () => {
+    const konto = await legePersonaAn(welt, "elternKfA");
     const [inaktiv] = await db
-      .insert(schema.kind)
+      .insert(schema.teilnehmende)
       .values({
-        abteilungId: welt.testabteilungId,
-        vorname: "Kind",
+        einheitId: welt.einheit.kfA,
+        vorname: "Person",
         nachname: "Inaktiv",
-        stufeId: stufeC.id,
         inaktivSeit: new Date(),
       })
       .returning();
-    await db.insert(schema.kindEltern).values([
-      { kindId: welt.demoKindId, userId: konto.id! },
-      { kindId: inaktiv.id, userId: konto.id! },
-    ]);
-    const koerper = await (await ich(konto)).json();
-    expect(koerper).toMatchObject({
-      kinder: [{ id: welt.kindBId }],
-      stufen: [{ id: welt.stufeBId }],
+    await db.insert(schema.teilnehmendeKonto).values({
+      userId: konto.id!,
+      teilnehmendeId: inaktiv.id,
+      art: "eltern",
     });
+    const koerper = await (await ich(konto)).json();
+    expect(koerper.teilnehmende).toEqual([
+      expect.objectContaining({ id: welt.teilnehmende.kfA }),
+    ]);
+  });
+
+  test("ohne Einwilligung bleibt GET /ich offen und meldet es", async () => {
+    const konto = await legePersonaAn(welt, "ohneEinwilligung");
+    const antwort = await ich(konto);
+    expect(antwort.status).toBe(200);
+    expect(await antwort.json()).toMatchObject({ einwilligung: false });
   });
 });
 
-describe("POST /api/v1/ich/datenschutz", () => {
-  test("setzt das Datum einmal; ein zweiter Aufruf lässt das erste stehen", async () => {
-    const konto = await legePersonaAn(welt, "elternA");
-    const datum = async () =>
-      (await (await ich(konto)).json()).datenschutzGelesenAm as string | null;
-    expect(await datum()).toBeNull();
-
-    const erste = await app.request("/api/v1/ich/datenschutz", {
-      method: "POST",
+describe("Einwilligung", () => {
+  const einwilligung = (konto: PersonaKonto, methode = "GET") =>
+    app.request("/api/v1/einwilligung", {
+      method: methode,
       headers: konto.headers,
     });
-    expect(erste.status).toBe(204);
-    const gelesenAm = await datum();
-    expect(gelesenAm).not.toBeNull();
 
-    const zweite = await app.request("/api/v1/ich/datenschutz", {
-      method: "POST",
-      headers: konto.headers,
+  test("GET liefert Version und Text der Fassung, PUT setzt Datum und Version", async () => {
+    const konto = await legePersonaAn(welt, "ohneEinwilligung");
+    expect(await (await einwilligung(konto)).json()).toEqual({
+      version: EINWILLIGUNG_VERSION,
+      text: EINWILLIGUNG_TEXT,
+      gueltig: false,
     });
-    expect(zweite.status).toBe(204);
-    expect(await datum()).toBe(gelesenAm);
+
+    expect((await einwilligung(konto, "PUT")).status).toBe(204);
+    const [zeile] = await db
+      .select({
+        am: schema.user.einwilligungAm,
+        version: schema.user.einwilligungVersion,
+      })
+      .from(schema.user)
+      .where(eq(schema.user.id, konto.id!));
+    expect(zeile.am).toBeInstanceOf(Date);
+    expect(zeile.version).toBe(EINWILLIGUNG_VERSION);
+    expect(await (await einwilligung(konto)).json()).toMatchObject({
+      gueltig: true,
+    });
+  });
+
+  test("ohne gültige Einwilligung sperrt die API die App-Routen", async () => {
+    const konto = await legePersonaAn(welt, "ohneEinwilligung");
+    const gesperrt = await app.request(
+      "/api/v1/programme?von=2027-01-01&bis=2027-12-31",
+      { headers: konto.headers },
+    );
+    expect(gesperrt.status).toBe(403);
+    expect(await gesperrt.json()).toMatchObject({
+      code: "EINWILLIGUNG_FEHLT",
+    });
+    // Offen bleiben Profil, Einwilligung und Abmelden
+    expect((await ich(konto)).status).toBe(200);
+    expect((await einwilligung(konto)).status).toBe(200);
+    // Danach geht die Route
+    await einwilligung(konto, "PUT");
+    const offen = await app.request(
+      "/api/v1/programme?von=2027-01-01&bis=2027-12-31",
+      { headers: konto.headers },
+    );
+    expect(offen.status).toBe(200);
+  });
+
+  test("eine neuere Fassung verlangt die Einwilligung erneut", async () => {
+    const konto = await legePersonaAn(welt, "elternJfA");
+    await db
+      .update(schema.user)
+      .set({ einwilligungVersion: EINWILLIGUNG_VERSION - 1 })
+      .where(eq(schema.user.id, konto.id!));
+    expect((await ich(konto)).status).toBe(200);
+    expect(await (await ich(konto)).json()).toMatchObject({
+      einwilligung: false,
+    });
+    expect(
+      (
+        await app.request("/api/v1/programme?von=2027-01-01&bis=2027-12-31", {
+          headers: konto.headers,
+        })
+      ).status,
+    ).toBe(403);
+  });
+
+  test("die Verwaltung fragt die Einwilligung der App nicht ab", async () => {
+    const konto = await legePersonaAn(welt, "kantonsadmin");
+    await db
+      .update(schema.user)
+      .set({ einwilligungAm: null, einwilligungVersion: null })
+      .where(eq(schema.user.id, konto.id!));
+    expect(
+      (await app.request("/api/v1/admin/system", { headers: konto.headers }))
+        .status,
+    ).toBe(200);
   });
 });
 
@@ -216,11 +279,16 @@ describe("PATCH /api/v1/ich", () => {
     return zeile;
   }
 
-  test.each(["elternA", "leitendeA", "slA", "admin"] as const)(
+  test.each([
+    "elternJfA",
+    "leitendeJfA",
+    "kommandoJfA",
+    "kantonsadmin",
+  ] as const)(
     "%s schaltet den Push aus und wieder ein, für sich allein",
     async (persona) => {
       const konto = await legePersonaAn(welt, persona);
-      const andere = await legePersonaAn(welt, "elternB");
+      const andere = await legePersonaAn(welt, "elternKfA");
       expect(await schalter(konto)).toEqual({ pushProgramme: true });
 
       expect((await patch(konto, { pushProgramme: false })).status).toBe(204);
@@ -236,13 +304,13 @@ describe("PATCH /api/v1/ich", () => {
   test.each([
     ["ein leerer Body", {}],
     ["ein Wert, der kein Boolean ist", { pushProgramme: "nein" }],
-    ["ein fremdes Feld", { abteilungId: "x" }],
+    ["ein fremdes Feld", { einheitId: "x" }],
     [
       "ein fremdes Feld neben einem Schalter",
       { pushProgramme: false, email: "x@example.org" },
     ],
   ])("%s ergibt 400 und ändert nichts", async (_titel, body) => {
-    const konto = await legePersonaAn(welt, "elternA");
+    const konto = await legePersonaAn(welt, "elternJfA");
 
     const antwort = await patch(konto, body);
 
@@ -253,7 +321,7 @@ describe("PATCH /api/v1/ich", () => {
 
 describe("Schalter pushAnmeldungen", () => {
   test("Leitende sehen ihn und schalten ihn aus und ein", async () => {
-    const konto = await legePersonaAn(welt, "leitendeA");
+    const konto = await legePersonaAn(welt, "leitendeJfA");
     expect((await (await ich(konto)).json()).pushAnmeldungen).toBe(true);
 
     const patchen = (wert: boolean) =>
@@ -268,8 +336,8 @@ describe("Schalter pushAnmeldungen", () => {
     expect((await (await ich(konto)).json()).pushAnmeldungen).toBe(true);
   });
 
-  test.each(["elternA", "admin"] as const)(
-    "%s ohne Stufenrolle bekommt ihn nicht zu sehen",
+  test.each(["elternJfA", "kantonsadmin"] as const)(
+    "%s ohne Rolle in einer Einheit bekommt ihn nicht zu sehen",
     async (persona) => {
       const konto = await legePersonaAn(welt, persona);
       expect(await (await ich(konto)).json()).not.toHaveProperty(
@@ -281,8 +349,8 @@ describe("Schalter pushAnmeldungen", () => {
 
 describe("Sitzungen", () => {
   test("«Überall abmelden» beendet jede Sitzung der Person, keine einer anderen", async () => {
-    const konto = await legePersonaAn(welt, "elternA");
-    const andere = await legePersonaAn(welt, "elternB");
+    const konto = await legePersonaAn(welt, "elternJfA");
+    const andere = await legePersonaAn(welt, "elternKfA");
     const zweitgeraet = await zweiteSitzung(konto);
     expect((await ich(konto)).status).toBe(200);
     expect(
@@ -307,7 +375,7 @@ describe("Sitzungen", () => {
   });
 
   test("Passwort ändern ohne Pflichtwechsel beendet die andere Sitzung; das neue Cookie gilt", async () => {
-    const konto = await legePersonaAn(welt, "elternA");
+    const konto = await legePersonaAn(welt, "elternJfA");
     const zweitgeraet = await zweiteSitzung(konto);
 
     const antwort = await app.request("/api/auth/change-password", {
@@ -336,7 +404,7 @@ describe("Sitzungen", () => {
 
 describe("Herkunft der App", () => {
   test("fireresponse:// und fireresponse://<host:port> sind vertraut, exp://… nicht", async () => {
-    const konto = await legePersonaAn(welt, "elternA");
+    const konto = await legePersonaAn(welt, "elternJfA");
     const abmelden = (origin: string, cookie: string) =>
       app.request("/api/auth/sign-out", {
         method: "POST",
@@ -367,7 +435,7 @@ describe("Herkunft der App", () => {
 
 describe("Kein Löschen durch die Person", () => {
   test("DELETE /api/v1/ich gibt es nicht: 404, das Konto bleibt", async () => {
-    const konto = await legePersonaAn(welt, "elternA");
+    const konto = await legePersonaAn(welt, "elternJfA");
     const antwort = await app.request("/api/v1/ich", {
       method: "DELETE",
       headers: { ...konto.headers, "content-type": "application/json" },

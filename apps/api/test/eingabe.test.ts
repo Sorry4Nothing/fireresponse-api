@@ -21,7 +21,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-// Wie eine spätere Route, nur unter /api/ statt /api/v1/, wo personAusSitzung eine Sitzung verlangt; abteilung_id kommt aus der Sitzung, nie aus der Eingabe
+// Wie eine spätere Route, nur unter /api/ statt /api/v1/, wo personAusSitzung eine Sitzung verlangt; einheit_id kommt aus der Sitzung, nie aus der Eingabe
 const app = erstelleApp({
   appMinVersion: "1.2.0",
   sql,
@@ -48,10 +48,10 @@ test("gültige Eingabe: 200, und der Client kennt das Schema", async () => {
 
 test.each([
   [
-    "abteilung_id",
+    "einheit_id",
     JSON.stringify({
       titel: "Waldweihnacht",
-      abteilung_id: "00000000-0000-0000-0000-000000000001",
+      einheit_id: "00000000-0000-0000-0000-000000000001",
     }),
   ],
   ["zu langer Wert", JSON.stringify({ titel: "x".repeat(21) })],

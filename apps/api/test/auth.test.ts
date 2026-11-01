@@ -260,7 +260,6 @@ describe("Herkunft: better-auth prüft jeden POST mit Cookie", () => {
 describe("Zusatzfelder mit input: false", () => {
   // Nur Werte, die als wahr gelten: update-user verwirft false, 0 und null stillschweigend, sie bewiesen hier nichts
   const gesetzt = {
-    abteilungId: "6f1c2a7e-0b4d-4c55-9a36-2d8e1f0b7c11",
     mussPasswortAendern: true,
     startpasswortGueltigBis: new Date(Date.now() + 86_400_000),
     fehlversuche: 2,
@@ -269,7 +268,8 @@ describe("Zusatzfelder mit input: false", () => {
     telefon: "keine-nummer",
     pushProgramme: true,
     pushAnmeldungen: true,
-    datenschutzGelesenAm: new Date(Date.now() - 3_600_000),
+    einwilligungAm: new Date(Date.now() - 3_600_000),
+    einwilligungVersion: 1,
   };
 
   test("auth.api.createUser setzt sie auf dem Server", async () => {
@@ -278,7 +278,6 @@ describe("Zusatzfelder mit input: false", () => {
   });
 
   test.each([
-    ["abteilungId", randomUUID()],
     ["mussPasswortAendern", true],
     [
       "startpasswortGueltigBis",
@@ -290,7 +289,8 @@ describe("Zusatzfelder mit input: false", () => {
     ["telefon", "andere-nummer"],
     ["pushProgramme", true],
     ["pushAnmeldungen", true],
-    ["datenschutzGelesenAm", new Date().toISOString()],
+    ["einwilligungAm", new Date().toISOString()],
+    ["einwilligungVersion", 2],
   ])(
     "update-user mit %s liefert 400 FIELD_NOT_ALLOWED, direkt über auth.handler und über auth.api.updateUser",
     async (feld, wert) => {
@@ -324,7 +324,6 @@ describe("Zusatzfelder mit input: false", () => {
     // Die erfolgreiche Anmeldung setzt nur die Bremse zurück
     const bleibt = { ...gesetzt, fehlversuche: 0, naechsterVersuchAb: null };
     const leer = {
-      abteilungId: null,
       mussPasswortAendern: false,
       startpasswortGueltigBis: null,
       fehlversuche: 0,
@@ -333,7 +332,8 @@ describe("Zusatzfelder mit input: false", () => {
       telefon: null,
       pushProgramme: false,
       pushAnmeldungen: false,
-      datenschutzGelesenAm: null,
+      einwilligungAm: null,
+      einwilligungVersion: null,
     };
 
     const direkt = anfrage("update-user", {

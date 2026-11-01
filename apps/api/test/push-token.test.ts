@@ -71,7 +71,7 @@ async function zweiteSitzung(konto: PersonaKonto) {
 }
 
 test("204, und die Zeile hängt an Sitzung und Person des Aufrufers", async () => {
-  const konto = await legePersonaAn(welt, "elternA");
+  const konto = await legePersonaAn(welt, "elternJfA");
   const eigenes = token();
 
   const antwort = await melden(konto, { token: eigenes, plattform: "android" });
@@ -88,7 +88,7 @@ test("204, und die Zeile hängt an Sitzung und Person des Aufrufers", async () =
 });
 
 test("ein neues Token derselben Sitzung ersetzt das alte", async () => {
-  const konto = await legePersonaAn(welt, "elternA");
+  const konto = await legePersonaAn(welt, "elternJfA");
   const neues = token();
 
   expect(
@@ -108,8 +108,8 @@ test("ein neues Token derselben Sitzung ersetzt das alte", async () => {
 });
 
 test("dasselbe Token aus der Sitzung einer anderen Person zieht um (geteiltes Handy)", async () => {
-  const vorher = await legePersonaAn(welt, "slA");
-  const nachher = await legePersonaAn(welt, "elternA");
+  const vorher = await legePersonaAn(welt, "kommandoJfA");
+  const nachher = await legePersonaAn(welt, "elternJfA");
   const geraet = token();
 
   expect(
@@ -126,7 +126,7 @@ test("dasselbe Token aus der Sitzung einer anderen Person zieht um (geteiltes Ha
 });
 
 test("ein FCM-Token wird gespeichert, die Expo-Form und Unbrauchbares geben 400", async () => {
-  const konto = await legePersonaAn(welt, "elternA");
+  const konto = await legePersonaAn(welt, "elternJfA");
   const gueltig = token();
   expect(
     (await melden(konto, { token: gueltig, plattform: "android" })).status,
@@ -151,7 +151,7 @@ test("ein FCM-Token wird gespeichert, die Expo-Form und Unbrauchbares geben 400"
 });
 
 test("überzählige Felder, falsche Token-Form, fremde Plattform und leerer Body geben 400", async () => {
-  const konto = await legePersonaAn(welt, "elternA");
+  const konto = await legePersonaAn(welt, "elternJfA");
   const gueltig = { token: token(), plattform: "ios" };
 
   for (const body of [
@@ -172,7 +172,7 @@ test("überzählige Felder, falsche Token-Form, fremde Plattform und leerer Body
 });
 
 test("keine Log-Zeile enthält das Token", async () => {
-  const konto = await legePersonaAn(welt, "elternA");
+  const konto = await legePersonaAn(welt, "elternJfA");
   const geheim = token();
   const ausgabe = vi.spyOn(console, "log").mockImplementation(() => {});
   try {
@@ -185,8 +185,8 @@ test("keine Log-Zeile enthält das Token", async () => {
 });
 
 test("nach dem Abmelden ist das Token weg, das einer anderen Person bleibt", async () => {
-  const geht = await legePersonaAn(welt, "elternA");
-  const bleibt = await legePersonaAn(welt, "elternB");
+  const geht = await legePersonaAn(welt, "elternJfA");
+  const bleibt = await legePersonaAn(welt, "elternKfA");
   expect(
     (await melden(geht, { token: token(), plattform: "ios" })).status,
   ).toBe(204);
@@ -206,7 +206,7 @@ test("nach dem Abmelden ist das Token weg, das einer anderen Person bleibt", asy
 });
 
 test("«überall abmelden» nimmt die Tokens beider Sitzungen mit", async () => {
-  const konto = await legePersonaAn(welt, "elternA");
+  const konto = await legePersonaAn(welt, "elternJfA");
   const zweite = { ...konto, headers: await zweiteSitzung(konto) };
   expect(
     (await melden(konto, { token: token(), plattform: "ios" })).status,

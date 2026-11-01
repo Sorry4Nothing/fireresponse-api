@@ -40,8 +40,8 @@ let zweitesGeraet: Record<string, string>;
 
 beforeAll(async () => {
   const welt = await erstelleWelt(db, auth);
-  admin = await legePersonaAn(welt, "admin");
-  elternA = await legePersonaAn(welt, "elternA");
+  admin = await legePersonaAn(welt, "kantonsadmin");
+  elternA = await legePersonaAn(welt, "elternJfA");
   zweitesGeraet = await anmelden(elternA);
 });
 afterAll(() => Promise.all([sql.end(), db.$client.end()]));

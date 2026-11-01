@@ -4,7 +4,6 @@ import postgres from "postgres";
 import {
   afterAll,
   afterEach,
-  beforeAll,
   beforeEach,
   describe,
   expect,
@@ -30,7 +29,6 @@ import {
   zufallsIp,
 } from "./hilfen/auth.js";
 import { API_URL } from "./hilfen/datenbank.js";
-import { erstelleWelt, type Welt } from "./hilfen/personas.js";
 
 bereiteAuthTestsVor();
 
@@ -55,11 +53,6 @@ const FEHLGESCHLAGEN = {
 };
 const MINUTE = 60_000;
 
-let welt: Welt;
-beforeAll(async () => {
-  welt = await erstelleWelt(db, auth);
-});
-
 // Jede Anfrage schreibt sonst eine Log-Zeile in die Testausgabe; die Logger-Tests lesen die Zeilen aus dem Spy
 let ausgabe: MockInstance<typeof console.log>;
 beforeEach(() => {
@@ -79,7 +72,6 @@ async function legeKonto(
       name: "Testperson",
       data: {
         username: benutzername,
-        abteilungId: welt.testabteilungId,
         mussPasswortAendern: false,
         ...daten,
       },

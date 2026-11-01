@@ -179,7 +179,7 @@ describe("Seiten für die Stores", () => {
   test("ohne Angaben nennen die Seiten weder Stelle noch Adresse, sagen es aber", () => {
     expect(geladen.datenschutz).toContain("noch nicht eingetragen");
     expect(geladen.datenschutz).not.toContain("mailto:");
-    expect(setzeKontakt("{{STELLE}}", {})).toBe("die Abteilung");
+    expect(setzeKontakt("{{STELLE}}", {})).toBe("die Einheit");
   });
 
   test.each(alle)(

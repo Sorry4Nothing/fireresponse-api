@@ -47,17 +47,12 @@ let erika: string;
 let sitzungen: string[];
 
 beforeAll(async () => {
-  const [abteilung] = await db
-    .insert(schema.abteilung)
-    .values({ name: "Push-Test" })
-    .returning();
   const personen = await db
     .insert(schema.user)
     .values(
       ["Max Muster", "Erika Beispiel"].map((name) => ({
         name,
         email: `${randomUUID()}@example.org`,
-        abteilungId: abteilung!.id,
       })),
     )
     .returning();

@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { randomBytes, randomUUID } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { eq } from "drizzle-orm";
 import postgres from "postgres";
@@ -56,9 +56,6 @@ function starte(argumente: string[], umgebung: Record<string, string> = {}) {
 
 // Kein randomUUID für den Benutzernamen: Der Standard-Validator lässt «-» nicht zu (#18 erweitert ihn erst)
 const neuerBenutzername = () => `cli.${randomBytes(4).toString("hex")}`;
-// Nie «Testabteilung»: Die gibt es pro Testdatei, die Suche nach dem Namen wäre mehrdeutig
-const neuerAbteilungsname = () => `Testabteilung CLI ${randomUUID()}`;
-
 function startpasswortAus(stdout: string) {
   const zeilen = stdout
     .split("\n")
@@ -91,45 +88,38 @@ async function benutzerMitNamen(benutzername: string) {
     .where(eq(schema.user.username, benutzername));
 }
 
-// Fall B und D2 bauen auf der Abteilung aus Fall A auf
-let abteilungA: { name: string; id: string };
-
 const TAG = 86_400_000;
 
-test("die CLI legt Abteilung und Admin an, und die Anmeldung mit dem Startpasswort gelingt", async () => {
+test("die CLI legt den Kantonsadmin an, und die Anmeldung mit dem Startpasswort gelingt", async () => {
   const benutzername = neuerBenutzername();
-  const abteilungsname = neuerAbteilungsname();
   const vorher = Date.now();
   const ergebnis = starte([
     "--benutzername",
     benutzername,
     "--name",
     "Testperson CLI",
-    "--neue-abteilung",
-    abteilungsname,
   ]);
   expect(ergebnis.stderr).toBe("");
   expect(ergebnis.status).toBe(0);
   const zeilen = ergebnis.stdout.split("\n");
-  expect(zeilen).toContain(`Abteilung «${abteilungsname}» angelegt.`);
-  expect(zeilen).toContain(`Admin «${benutzername}» angelegt.`);
+  expect(zeilen).toContain(`Kantonsadmin «${benutzername}» angelegt.`);
   expect(zeilen).toContain(
     "Nicht weiterleiten. Gilt 7 Tage und nur für die erste Anmeldung.",
   );
   const startpasswort = startpasswortAus(ergebnis.stdout);
 
-  const [abteilung] = await db
-    .select()
-    .from(schema.abteilung)
-    .where(eq(schema.abteilung.name, abteilungsname));
-  abteilungA = { name: abteilungsname, id: abteilung.id };
-
   const [benutzer] = await benutzerMitNamen(benutzername);
   expect(benutzer.role).toBe("admin");
-  expect(benutzer.abteilungId).toBe(abteilung.id);
   expect(benutzer.mussPasswortAendern).toBe(true);
   expect(benutzer.fehlversuche).toBe(0);
   expect(benutzer.naechsterVersuchAb).toBeNull();
+  // Ein Kantonsadmin hat keine Rolle in einer Einheit
+  expect(
+    await db
+      .select()
+      .from(schema.einheitRolle)
+      .where(eq(schema.einheitRolle.userId, benutzer.id)),
+  ).toEqual([]);
   // Gültig bis rund 7 Tage nach dem Anlegen; die CLI lief zwischen vorher und jetzt
   const gueltigBis = benutzer.startpasswortGueltigBis!.getTime();
   expect(gueltigBis).toBeGreaterThanOrEqual(vorher + 7 * TAG);
@@ -149,7 +139,7 @@ test("die CLI legt Abteilung und Admin an, und die Anmeldung mit dem Startpasswo
     .where(eq(schema.auditLog.zielId, benutzer.id));
   expect(protokoll).toHaveLength(1);
   expect(protokoll[0]).toMatchObject({
-    abteilungId: abteilung.id,
+    einheitId: null,
     akteurId: "cli",
     aktion: "person_angelegt",
     zielTyp: "person",
@@ -159,40 +149,19 @@ test("die CLI legt Abteilung und Admin an, und die Anmeldung mit dem Startpasswo
   expect(await meldeAn(benutzername, startpasswort)).toBe(benutzer.id);
 });
 
-test("die CLI legt in einer bestehenden Abteilung einen weiteren Admin an, auch wenn es schon welche gibt", async () => {
-  const benutzername = neuerBenutzername();
-  const ergebnis = starte([
-    "--benutzername",
-    benutzername,
-    "--name",
-    "Testperson CLI",
-    "--abteilung",
-    abteilungA.name,
-  ]);
-  expect(ergebnis.stderr).toBe("");
-  expect(ergebnis.status).toBe(0);
-  const startpasswort = startpasswortAus(ergebnis.stdout);
-  const [benutzer] = await benutzerMitNamen(benutzername);
-  expect(benutzer.role).toBe("admin");
-  expect(benutzer.abteilungId).toBe(abteilungA.id);
-  expect(await meldeAn(benutzername, startpasswort)).toBe(benutzer.id);
-});
-
 test.each([
   ["mit «--passwort»", ["--passwort", "geheim"]],
   ["mit einem positionalen Argument", ["geheim"]],
-  ["mit beiden Abteilungs-Flags", ["--abteilung", "Zweitabteilung"]],
+  ["mit einer Abteilung", ["--abteilung", "Zweitabteilung"]],
+  ["ohne Namen", []],
 ])(
   "ein Aufruf %s zeigt die Verwendung und legt nichts an",
-  async (_titel, zusatz) => {
+  async (titel, zusatz) => {
     const benutzername = neuerBenutzername();
     const ergebnis = starte([
+      ...(titel === "ohne Namen" ? [] : ["--name", "Testperson CLI"]),
       "--benutzername",
       benutzername,
-      "--name",
-      "Testperson CLI",
-      "--neue-abteilung",
-      neuerAbteilungsname(),
       ...zusatz,
     ]);
     expect(ergebnis.status).toBe(1);
@@ -204,63 +173,18 @@ test.each([
   },
 );
 
-test("eine unbekannte Abteilung bricht ab, ohne etwas anzulegen", async () => {
-  const benutzername = neuerBenutzername();
-  const abteilungsname = neuerAbteilungsname();
-  const ergebnis = starte([
-    "--benutzername",
-    benutzername,
-    "--name",
-    "Testperson CLI",
-    "--abteilung",
-    abteilungsname,
-  ]);
+test("ein zu kurzer Benutzername bricht ab, ohne etwas anzulegen", async () => {
+  const ergebnis = starte(["--benutzername", "ab", "--name", "Testperson CLI"]);
   expect(ergebnis.status).toBe(1);
-  expect(ergebnis.stderr).toContain(
-    `Admin nicht angelegt: Keine eindeutige Abteilung «${abteilungsname}».`,
-  );
-  expect(await benutzerMitNamen(benutzername)).toHaveLength(0);
-});
-
-test("eine schon vorhandene Abteilung bricht «--neue-abteilung» ab", async () => {
-  const benutzername = neuerBenutzername();
-  const ergebnis = starte([
-    "--benutzername",
-    benutzername,
-    "--name",
-    "Testperson CLI",
-    "--neue-abteilung",
-    abteilungA.name,
-  ]);
-  expect(ergebnis.status).toBe(1);
-  expect(ergebnis.stderr).toContain(
-    `Admin nicht angelegt: Abteilung «${abteilungA.name}» gibt es schon.`,
-  );
-  expect(await benutzerMitNamen(benutzername)).toHaveLength(0);
-  // Die Abteilung aus dem ersten Test bleibt die einzige mit diesem Namen
-  const abteilungen = await db
-    .select()
-    .from(schema.abteilung)
-    .where(eq(schema.abteilung.name, abteilungA.name));
-  expect(abteilungen).toHaveLength(1);
+  expect(ergebnis.stderr).toContain("Admin nicht angelegt:");
+  expect(ergebnis.stdout + ergebnis.stderr).not.toContain("Startpasswort:");
+  expect(await benutzerMitNamen("ab")).toHaveLength(0);
 });
 
 test("ist HIBP nicht erreichbar, bleibt kein halber Benutzer und kein Audit-Eintrag zurück", async () => {
   const benutzername = neuerBenutzername();
-  const abteilungsname = neuerAbteilungsname();
-  const [abteilung] = await db
-    .insert(schema.abteilung)
-    .values({ name: abteilungsname })
-    .returning();
   const ergebnis = starte(
-    [
-      "--benutzername",
-      benutzername,
-      "--name",
-      "Testperson CLI",
-      "--abteilung",
-      abteilungsname,
-    ],
+    ["--benutzername", benutzername, "--name", "Testperson CLI"],
     { HIBP_ATTRAPPE: "fehler" },
   );
   expect(ergebnis.status).toBe(1);
@@ -268,32 +192,6 @@ test("ist HIBP nicht erreichbar, bleibt kein halber Benutzer und kein Audit-Eint
   expect(ergebnis.stdout + ergebnis.stderr).not.toContain("Startpasswort:");
   // createUser legt den User vor der HIBP-Prüfung an (#14); die Transaktion nimmt ihn samt Audit-Eintrag zurück
   expect(await benutzerMitNamen(benutzername)).toHaveLength(0);
-  const protokoll = await db
-    .select()
-    .from(schema.auditLog)
-    .where(eq(schema.auditLog.abteilungId, abteilung.id));
-  expect(protokoll).toHaveLength(0);
-});
-
-test("ist HIBP nicht erreichbar, entsteht auch keine neue Abteilung", async () => {
-  const abteilungsname = neuerAbteilungsname();
-  const ergebnis = starte(
-    [
-      "--benutzername",
-      neuerBenutzername(),
-      "--name",
-      "Testperson CLI",
-      "--neue-abteilung",
-      abteilungsname,
-    ],
-    { HIBP_ATTRAPPE: "fehler" },
-  );
-  expect(ergebnis.status).toBe(1);
-  const abteilungen = await db
-    .select()
-    .from(schema.abteilung)
-    .where(eq(schema.abteilung.name, abteilungsname));
-  expect(abteilungen).toHaveLength(0);
 });
 
 test("«admin:anlegen» in package.json startet genau diese Datei", () => {
