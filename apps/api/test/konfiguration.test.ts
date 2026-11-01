@@ -59,7 +59,7 @@ describe.each(Object.keys(UNGUELTIG) as (keyof typeof UNGUELTIG)[])(
   },
 );
 
-test("BETTER_AUTH_URL mit http: in Produktion ein Fehler, sonst erlaubt (#222)", () => {
+test("BETTER_AUTH_URL mit http: in Produktion ein Fehler, sonst erlaubt", () => {
   expect(meldung({ ...GUELTIG, NODE_ENV: "production" })).toBe(
     "Fehlende oder ungültige Umgebungsvariablen: BETTER_AUTH_URL",
   );

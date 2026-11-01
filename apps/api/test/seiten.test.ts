@@ -38,7 +38,7 @@ afterEach(() => ausgabe.mockRestore());
 
 const geladen = ladeSeiten();
 
-// Ohne Cookie («ohne Login»); seite === null heisst: Der genaue Inhalt kommt erst mit #24, hier zählt nur gültiges JSON
+// Ohne Cookie («ohne Login»); seite === null heisst: Der genaue Inhalt folgt später, hier zählt nur gültiges JSON
 test.each<[string, string, string | null]>([
   ["/datenschutz", "text/html; charset=UTF-8", geladen.datenschutz],
   ["/konto-loeschen", "text/html; charset=UTF-8", geladen.kontoLoeschen],
@@ -62,7 +62,7 @@ test.each<[string, string, string | null]>([
   },
 );
 
-// Verwaltung im Browser (#141)
+// Verwaltung im Browser
 const admin = ladeSeiten().admin;
 const adminPfad = (datei: string) =>
   datei === "index.html" ? "/admin" : `/admin/${datei}`;

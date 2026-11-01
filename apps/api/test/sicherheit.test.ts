@@ -65,7 +65,7 @@ const anfragen = () =>
     .map(([zeile]) => JSON.parse(zeile))
     .filter((eintrag) => "status" in eintrag);
 
-describe("Sicherheits-Kopfzeilen (#220)", () => {
+describe("Sicherheits-Kopfzeilen", () => {
   const kopfzeilen = (antwort: Response) => ({
     nosniff: antwort.headers.get("x-content-type-options"),
     referrer: antwort.headers.get("referrer-policy"),
@@ -122,7 +122,7 @@ describe("Sicherheits-Kopfzeilen (#220)", () => {
   });
 });
 
-describe("Origin bei ändernden Routen unter /api/v1 (#221)", () => {
+describe("Origin bei ändernden Routen unter /api/v1", () => {
   // Ungültiger Body: Wer an der Prüfung vorbeikommt, bekommt 400 von der Route
   const melden = (headers: Record<string, string>) =>
     app.request("/api/v1/push-token", {
@@ -166,7 +166,7 @@ describe("Origin bei ändernden Routen unter /api/v1 (#221)", () => {
   });
 });
 
-describe("Nutzer-ID im Anfrage-Log (#224)", () => {
+describe("Nutzer-ID im Anfrage-Log", () => {
   test("403 einer angemeldeten Anfrage: die ID, kein weiteres Feld", async () => {
     const konto = await legePersonaAn(welt, "mussPasswortAendern");
     const antwort = await app.request("/api/v1/programme", {

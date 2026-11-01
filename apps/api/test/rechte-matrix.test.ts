@@ -120,13 +120,38 @@ const VERWALTEN_JF_A = (erlaubt: number) =>
     ohneLogin: 401,
   }) as Record<Persona, number>;
 
+// Stellvertretungen legt, ordnet und entfernt nur das Kommando (und das Konto des Kantonsadmins); die Stellvertretungen selbst sehen die Einheit, dürfen es aber nicht (403)
+const STELLVERTRETUNGEN_JF_A = (erlaubt: number) =>
+  ({
+    ...VERWALTEN_JF_A(erlaubt),
+    stellvertretung1JfA: 403,
+    stellvertretung2JfA: 403,
+  }) as Record<Persona, number>;
+
+// Wer die Liste der Einheiten bekommt: alle Konten der Verwaltung mit zweitem Faktor, je mit den eigenen Einheiten
+const MIT_VERWALTUNG = {
+  ...alle(403),
+  kantonsadmin: 200,
+  kommandoJfA: 200,
+  stellvertretung1JfA: 200,
+  stellvertretung2JfA: 200,
+  kommandoKfA: 200,
+  kommandoJfB: 200,
+  deaktiviert: 401,
+  ohneLogin: 401,
+} as Record<Persona, number>;
+
+// Eindeutiger Benutzername je Persona und Zeile; ohneLogin hat keinen
+const benutzerFuer = (konto: PersonaKonto, zeile: string) =>
+  `${konto.benutzername ?? "ohne.login"}.${zeile}`;
+
 const MATRIX: Record<string, Zeile> = {
   "GET /health": { erwartet: alle(200) },
   // Statische Seiten und .well-known: offen für alle, auch deaktiviert und ohne Login
   "GET /datenschutz": { erwartet: alle(200) },
   "GET /konto-loeschen": { erwartet: alle(200) },
   "GET /support": { erwartet: alle(200) },
-  // Verwaltung im Browser (#141): statische Dateien, die Daten kommen erst über die abgesicherten Admin-Routen
+  // Verwaltung im Browser: statische Dateien, die Daten kommen erst über die abgesicherten Admin-Routen
   "GET /admin": { erwartet: alle(200) },
   "GET /admin/admin.css": { erwartet: alle(200) },
   "GET /admin/admin.js": { erwartet: alle(200) },
@@ -139,7 +164,7 @@ const MATRIX: Record<string, Zeile> = {
   "GET /.well-known/apple-app-site-association": { erwartet: alle(200) },
   "GET /.well-known/assetlinks.json": { erwartet: alle(200) },
   "POST /api/auth/sign-in/username": {
-    // Eigene Zugangsdaten; ohneLogin mit erfundenem Namen. Deaktiviert und unbekannt bekommen dieselbe 401-Meldung (#15)
+    // Eigene Zugangsdaten; ohneLogin mit erfundenem Namen. Deaktiviert und unbekannt bekommen dieselbe 401-Meldung
     body: (konto) => ({
       username: konto.benutzername ?? "gibt.es.nicht",
       password: konto.passwort ?? PASSWORT,
@@ -193,13 +218,19 @@ const MATRIX: Record<string, Zeile> = {
       ohneLogin: 401,
     },
   },
-  // Einrichten dürfen heute nur Kantonsadmins; das Kommando bekommt den Zugang mit E2 (#16)
+  // Einrichten dürfen die Konten der Verwaltung: Kantonsadmin, Kommando und Stellvertretungen; für alle anderen ist der Pfad zu
   "POST /api/auth/two-factor/enable": {
     body: () => ({ password: FALSCH }),
     erwartet: {
       ...alle(404),
       kantonsadmin: 400,
       kantonsadminOhneZweitenFaktor: 400,
+      kommandoJfA: 400,
+      kommandoKfBOhneZweitenFaktor: 400,
+      stellvertretung1JfA: 400,
+      stellvertretung2JfA: 400,
+      kommandoKfA: 400,
+      kommandoJfB: 400,
     },
   },
   // Die Felder je Rolle prüft test/ich.test.ts; GET /ich bleibt neben der Einwilligung die einzige /api/v1-Route, die auch unter dem Pflichtwechsel und ohne Einwilligung offen ist
@@ -269,7 +300,7 @@ const MATRIX: Record<string, Zeile> = {
       ...SPERREN,
     },
   },
-  // Betriebszahlen (#143): nur das Konto des Kantonsadmins mit zweitem Faktor; Inhalt in test/admin-system.test.ts
+  // Betriebszahlen: nur das Konto des Kantonsadmins mit zweitem Faktor; Inhalt in test/admin-system.test.ts
   "GET /api/v1/admin/system": {
     erwartet: {
       ...alle(403),
@@ -294,6 +325,125 @@ const MATRIX: Record<string, Zeile> = {
       bisherigeRolle: { typ: "keine" },
     }),
     erwartet: { ...VERWALTEN_JF_A(403), kantonsadmin: 409 },
+  },
+  // Bezirke und Einheiten legt nur das Konto des Kantonsadmins an; Inhalt in test/konten-anlegen.test.ts
+  "GET /api/v1/admin/bezirke": {
+    erwartet: {
+      ...alle(403),
+      kantonsadmin: 200,
+      deaktiviert: 401,
+      ohneLogin: 401,
+    },
+  },
+  "POST /api/v1/admin/bezirke": {
+    body: (konto) => ({ name: `Bezirk ${benutzerFuer(konto, "neu")}` }),
+    erwartet: {
+      ...alle(403),
+      kantonsadmin: 201,
+      deaktiviert: 401,
+      ohneLogin: 401,
+    },
+  },
+  // Das Kommando und die Stellvertretungen sehen ihre Einheiten, der Kantonsadmin alle
+  "GET /api/v1/admin/einheiten": { erwartet: MIT_VERWALTUNG },
+  // Der Bezirk der Zeile hat noch keine Einheit dieser Art; sie entsteht beim ersten Treffer, dem Kantonsadmin
+  "POST /api/v1/admin/einheiten": {
+    body: (konto) => ({
+      bezirkId: leererBezirkId,
+      typ: "jf",
+      name: "Neue Einheit",
+      kommandant: {
+        vorname: "Neu",
+        nachname: "Kommando",
+        benutzername: benutzerFuer(konto, "kdt"),
+      },
+    }),
+    erwartet: {
+      ...alle(403),
+      kantonsadmin: 201,
+      deaktiviert: 401,
+      ohneLogin: 401,
+    },
+  },
+  "POST /api/v1/admin/einheiten/:einheitId/stellvertretungen": {
+    url: (w) => `/api/v1/admin/einheiten/${w.einheit.jfA}/stellvertretungen`,
+    body: (konto) => ({
+      vorname: "Neu",
+      nachname: "Stellvertretung",
+      benutzername: benutzerFuer(konto, "stv"),
+    }),
+    erwartet: STELLVERTRETUNGEN_JF_A(201),
+  },
+  // Die zweite Stellvertretung bleibt an Position 2: Die Antwort ändert nichts
+  "PUT /api/v1/admin/einheiten/:einheitId/stellvertretungen/:userId": {
+    url: (w) =>
+      `/api/v1/admin/einheiten/${w.einheit.jfA}/stellvertretungen/${standard.stellvertretung2JfA.id}`,
+    body: () => ({ reihenfolge: 2 }),
+    erwartet: STELLVERTRETUNGEN_JF_A(204),
+  },
+  "DELETE /api/v1/admin/einheiten/:einheitId/stellvertretungen/:userId": {
+    // Jede Anfrage verbraucht ihre Stellvertretung: eine frische pro Persona
+    urlJeAnfrage: async () =>
+      `/api/v1/admin/einheiten/${welt.einheit.jfA}/stellvertretungen/${await wegwerfStellvertretungId()}`,
+    erwartet: STELLVERTRETUNGEN_JF_A(204),
+  },
+  "POST /api/v1/admin/einheiten/:einheitId/leitende": {
+    url: (w) => `/api/v1/admin/einheiten/${w.einheit.jfA}/leitende`,
+    body: (konto) => ({
+      vorname: "Neu",
+      nachname: "Leitung",
+      benutzername: benutzerFuer(konto, "leitung"),
+    }),
+    erwartet: VERWALTEN_JF_A(201),
+  },
+  // Ohne Konto: Das Anlegen der Eltern und des eigenen Kontos prüft test/konten-anlegen.test.ts
+  "POST /api/v1/admin/einheiten/:einheitId/teilnehmende": {
+    url: (w) => `/api/v1/admin/einheiten/${w.einheit.jfA}/teilnehmende`,
+    body: () => ({
+      vorname: "Neu",
+      nachname: "Teilnehmende",
+      antwort: { art: "eltern", eltern: [] },
+    }),
+    erwartet: VERWALTEN_JF_A(201),
+  },
+  "POST /api/v1/admin/einheiten/:einheitId/teilnehmende/:teilnehmendeId/eltern":
+    {
+      url: (w) =>
+        `/api/v1/admin/einheiten/${w.einheit.jfA}/teilnehmende/${w.teilnehmende.jfA}/eltern`,
+      body: (konto) => ({
+        eltern: {
+          vorname: "Neu",
+          nachname: "Eltern",
+          benutzername: benutzerFuer(konto, "eltern"),
+        },
+      }),
+      erwartet: VERWALTEN_JF_A(201),
+    },
+  // Jede Anfrage verbraucht ihre Person (danach antwortet sie selbst): eine frische mit Eltern pro Persona
+  "POST /api/v1/admin/einheiten/:einheitId/teilnehmende/:teilnehmendeId/konto-wechsel":
+    {
+      urlJeAnfrage: async () =>
+        `/api/v1/admin/einheiten/${welt.einheit.jfA}/teilnehmende/${await wegwerfTeilnehmendeId()}/konto-wechsel`,
+      body: (konto) => ({ benutzername: benutzerFuer(konto, "kind") }),
+      erwartet: VERWALTEN_JF_A(201),
+    },
+  "POST /api/v1/admin/einheiten/:einheitId/import/vorschau": {
+    url: (w) => `/api/v1/admin/einheiten/${w.einheit.jfA}/import/vorschau`,
+    body: (konto) => ({
+      zeilen: [
+        { vorname: "Import", nachname: benutzerFuer(konto, "v"), art: "ohne" },
+      ],
+    }),
+    erwartet: VERWALTEN_JF_A(200),
+  },
+  "POST /api/v1/admin/einheiten/:einheitId/import": {
+    url: (w) => `/api/v1/admin/einheiten/${w.einheit.jfA}/import`,
+    body: (konto) => ({
+      zeilen: [
+        { vorname: "Import", nachname: benutzerFuer(konto, "i"), art: "ohne" },
+      ],
+    }),
+    erwartet: VERWALTEN_JF_A(201),
   },
   "GET /api/v1/admin/einheiten/:einheitId/zeitregeln": {
     url: (w) => `/api/v1/admin/einheiten/${w.einheit.jfA}/zeitregeln`,
@@ -321,7 +471,7 @@ const MATRIX: Record<string, Zeile> = {
       `/api/v1/admin/einheiten/${welt.einheit.jfA}/zeitregeln/${await wegwerfRegelId()}`,
     erwartet: VERWALTEN_JF_A(204),
   },
-  // Profilbild (#173): Jede Person mit Sitzung lädt ihr eigenes hoch und löscht es; nur die Person selbst, nie eine andere. Typ, Grösse und Rate-Limit prüft test/profilbild.test.ts
+  // Profilbild: Jede Person mit Sitzung lädt ihr eigenes hoch und löscht es; nur die Person selbst, nie eine andere. Typ, Grösse und Rate-Limit prüft test/profilbild.test.ts
   "PUT /api/v1/ich/bild": {
     bild: true,
     erwartet: { ...alle(204), ...SPERREN },
@@ -352,7 +502,56 @@ let programmId: string;
 let offenProgrammId: string;
 let patchRegelId: string;
 let bildZielId: string;
+let leererBezirkId: string;
+let naechstePosition = 30;
 let testBild: Buffer;
+
+// Eine Stellvertretung ohne Passwort, direkt eingefügt: das Ziel einer Löschung
+async function wegwerfStellvertretungId() {
+  const [zeile] = await welt.db
+    .insert(schema.user)
+    .values({
+      name: "Wegwerf Stellvertretung",
+      email: `${randomUUID()}@example.org`,
+      username: `wegwerf.stv.${randomUUID().slice(0, 8)}`,
+      mussPasswortAendern: false,
+    })
+    .returning({ id: schema.user.id });
+  await welt.db.insert(schema.einheitRolle).values({
+    userId: zeile.id,
+    einheitId: welt.einheit.jfA,
+    typ: "stellvertretung",
+    reihenfolge: naechstePosition++,
+  });
+  return zeile.id;
+}
+
+// Eine Person mit einem Elternkonto, direkt eingefügt: das Ziel eines Konto-Wechsels
+async function wegwerfTeilnehmendeId() {
+  const [eltern] = await welt.db
+    .insert(schema.user)
+    .values({
+      name: "Wegwerf Eltern",
+      email: `${randomUUID()}@example.org`,
+      username: `wegwerf.eltern.${randomUUID().slice(0, 8)}`,
+      mussPasswortAendern: false,
+    })
+    .returning({ id: schema.user.id });
+  const [person] = await welt.db
+    .insert(schema.teilnehmende)
+    .values({
+      einheitId: welt.einheit.jfA,
+      vorname: "Wegwerf",
+      nachname: "Kind",
+    })
+    .returning({ id: schema.teilnehmende.id });
+  await welt.db.insert(schema.teilnehmendeKonto).values({
+    userId: eltern.id,
+    teilnehmendeId: person.id,
+    art: "eltern",
+  });
+  return person.id;
+}
 
 async function wegwerfRegelId() {
   const [zeile] = await welt.db
@@ -389,6 +588,10 @@ beforeAll(async () => {
     })
   ).id;
   patchRegelId = await wegwerfRegelId();
+  [{ id: leererBezirkId }] = await db
+    .insert(schema.bezirk)
+    .values({ name: `Leerer Bezirk ${randomUUID().slice(0, 8)}` })
+    .returning({ id: schema.bezirk.id });
   testBild = await sharp({
     create: { width: 64, height: 64, channels: 3, background: "#3366cc" },
   })
@@ -487,7 +690,7 @@ describe("Vollständigkeit", () => {
   });
 });
 
-describe("Sperre ohne zweiten Faktor (#23)", () => {
+describe("Sperre ohne zweiten Faktor", () => {
   // Bewusst eine Schleife: Jede künftige Admin-Route erbt die Regel; ein leeres test.each ergäbe gar keinen Test
   test("jede Admin-Route erwartet für Kantonsadmin und Kommando ohne zweiten Faktor 403", () => {
     let n = 0;
@@ -587,7 +790,7 @@ describe("jeder übrige better-auth-Pfad liefert 404 aus der App", () => {
   });
 });
 
-// Export für docs/api/endpunkte.md und die Postman-Collection (#186): läuft nur mit POSTMAN_EXPORT=1, schreibt die Zeilen der Matrix mit ID-Platzhaltern und je Persona eine Umgebung mit Sitzung. Die Datenbank bleibt danach stehen, die API kann auf ihr laufen (docs/api/postman.md)
+// Export für docs/api/endpunkte.md und die Postman-Collection: läuft nur mit POSTMAN_EXPORT=1, schreibt die Zeilen der Matrix mit ID-Platzhaltern und je Persona eine Umgebung mit Sitzung. Die Datenbank bleibt danach stehen, die API kann auf ihr laufen (docs/api/postman.md)
 describe.runIf(process.env.POSTMAN_EXPORT)("Postman-Export", () => {
   test("schreibt apps/api/.postman-lokal/", async () => {
     const ordner = new URL("../.postman-lokal/", import.meta.url);
@@ -608,6 +811,7 @@ describe.runIf(process.env.POSTMAN_EXPORT)("Postman-Export", () => {
       programmId,
       offenProgrammId,
       patchRegelId,
+      leererBezirkId,
       bildZielId,
       elternJfAUserId: standard.elternJfA.id!,
     };
@@ -679,7 +883,10 @@ describe.runIf(process.env.POSTMAN_EXPORT)("Postman-Export", () => {
         werte[`body_${z.n}`] = bodyJePersona(z, persona);
       for (const z of zeilen.filter((z) => z.zielJeAnfrage)) {
         const url = await MATRIX[z.schluessel].urlJeAnfrage!();
-        werte[`ziel_${z.n}`] = uuid.exec(url.split("/zeitregeln/")[1])![0];
+        // Das Ziel ist die letzte ID im Pfad
+        werte[`ziel_${z.n}`] = [...url.matchAll(new RegExp(uuid, "g"))].at(
+          -1,
+        )![0];
       }
       const geheim = new Set(["cookie", "passwort"]);
       await writeFile(
