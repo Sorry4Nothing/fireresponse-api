@@ -1,6 +1,6 @@
 $kind: http-request
 name: "GET /.well-known/assetlinks.json"
-order: 21000
+order: 15000
 method: GET
 url: "{{baseUrl}}/.well-known/assetlinks.json"
 headers:

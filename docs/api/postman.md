@@ -1,6 +1,6 @@
 # Endpunkte mit Postman prüfen
 
-Die Collection `postman/collections/FireResponse API/` enthält jede Route der Rechte-Matrix (`apps/api/test/rechte-matrix.test.ts`). Ihr Test erwartet den Status, den die Matrix für die gewählte Persona festhält. Mit der Persona `ohneLogin` oder einer fremden Stufe prüft sie also auch Zugriffe ohne Recht (401, 403, 404). Alle Routen und Stati stehen in [endpunkte.md](endpunkte.md).
+Die Collection `postman/collections/FireResponse API/` enthält jede Route der Rechte-Matrix (`apps/api/test/rechte-matrix.test.ts`). Ihr Test erwartet den Status, den die Matrix für die gewählte Persona festhält. Mit der Persona `ohneLogin` oder einer fremden Einheit prüft sie also auch Zugriffe ohne Recht (401, 403, 404). Alle Routen und Stati stehen in [endpunkte.md](endpunkte.md).
 
 Die Umgebungen (je Persona eine, mit Sitzung und IDs) enthalten Sitzungen und liegen nur lokal in `apps/api/.postman-lokal/` (git-ignoriert). Sie gehören nie ins Repo.
 
@@ -27,7 +27,7 @@ Voraussetzung: PostgreSQL aus `docker-compose.yml` läuft, `npm ci` ist gelaufen
 
    ```sh
    postman collection run "postman/collections/FireResponse API" \
-     -e apps/api/.postman-lokal/elternA.environment.yaml --env-var baseUrl=http://localhost:3999
+     -e apps/api/.postman-lokal/elternJfA.environment.yaml --env-var baseUrl=http://localhost:3999
    ```
 
    In der Postman-App: Collection-Ordner und eine Umgebung importieren, dann «Run».
@@ -35,6 +35,6 @@ Voraussetzung: PostgreSQL aus `docker-compose.yml` läuft, `npm ci` ist gelaufen
 ## Wichtig
 
 - Ein Lauf verbraucht die Sitzungen (am Ende stehen `sign-out` und `revoke-sessions`) und ändert Daten. Für einen zweiten Lauf Schritt 1 wiederholen und die API neu starten.
-- Alle 14 Personas laufen nacheinander gegen dieselbe Datenbank, solange man Schritt 1 nicht dazwischen wiederholt.
+- Alle 19 Personas laufen nacheinander gegen dieselbe Datenbank, solange man Schritt 1 nicht dazwischen wiederholt.
 - Das Bild-Hochladen (`PUT /api/v1/ich/bild`) fehlt in der Collection, weil der Body binär ist. Die Matrix prüft es im Test.
 - Neue Route: Zeile in die Rechte-Matrix, dann `node apps/api/scripts/postman-erzeugen.mjs` nach Schritt 1, danach `npx prettier --write docs/api/endpunkte.md`; das Skript schreibt `endpunkte.md` und die Collection neu. Beide nicht von Hand ändern.

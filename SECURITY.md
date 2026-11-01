@@ -18,14 +18,14 @@ Hilfreich sind:
 - die Schritte, um das Problem nachzustellen
 - was ein Angreifer damit erreichen kann, z. B. fremde Daten lesen oder Rechte erweitern
 
-Schick keine echten Personendaten mit, auch nicht als Beleg. Nenne nur ihre Art, z. B. «Namen von Kindern einer anderen Stufe».
+Schick keine echten Personendaten mit, auch nicht als Beleg. Nenne nur ihre Art, z. B. «Namen von Teilnehmenden einer anderen Einheit».
 
 Wir bestätigen den Eingang, prüfen die Meldung und halten dich über den Stand der Korrektur auf dem Laufenden. Bitte veröffentliche Details erst, wenn eine Korrektur verfügbar ist.
 
 ## Was dazugehört
 
 - Anmeldung und Sitzungen, auch Startpasswort und zweiter Faktor
-- Zugriff auf Daten oder Rechte über die eigene Rolle, Stufe oder Abteilung hinaus
+- Zugriff auf Daten oder Rechte über die eigene Rolle oder Einheit hinaus
 - Inhalte von Pushes, z. B. Namen von Kindern
 - Daten, die auf dem Gerät liegen bleiben
 - offengelegte Zugangsdaten oder Geheimnisse

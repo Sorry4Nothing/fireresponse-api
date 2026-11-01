@@ -1,8 +1,8 @@
 $kind: http-request
 name: "PUT /api/v1/programme/:id/leitung"
-order: 39000
+order: 32000
 method: PUT
-url: "{{baseUrl}}/api/v1/programme/{{leitungProgrammId}}/leitung"
+url: "{{baseUrl}}/api/v1/programme/{{offenProgrammId}}/leitung"
 headers:
   - key: "Cookie"
     value: "{{cookie}}"

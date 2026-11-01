@@ -1,8 +1,8 @@
 $kind: http-request
-name: "POST /api/v1/admin/personen"
-order: 43000
-method: POST
-url: "{{baseUrl}}/api/v1/admin/personen"
+name: "GET /api/v1/einwilligung"
+order: 26000
+method: GET
+url: "{{baseUrl}}/api/v1/einwilligung"
 headers:
   - key: "Cookie"
     value: "{{cookie}}"
@@ -12,9 +12,3 @@ headers:
     value: "{{ip}}"
   - key: "X-App-Version"
     value: "{{appVersion}}"
-  - key: "Content-Type"
-    value: "application/json"
-body:
-  type: json
-  content: |-
-    {{body_42}}

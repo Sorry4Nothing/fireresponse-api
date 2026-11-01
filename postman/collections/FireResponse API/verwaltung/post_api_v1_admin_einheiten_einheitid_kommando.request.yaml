@@ -1,8 +1,8 @@
 $kind: http-request
-name: "PUT /api/v1/admin/stufen/:id/stufenleitung"
-order: 56000
-method: PUT
-url: "{{baseUrl}}/api/v1/admin/stufen/{{patchStufeId}}/stufenleitung"
+name: "POST /api/v1/admin/einheiten/:einheitId/kommando"
+order: 35000
+method: POST
+url: "{{baseUrl}}/api/v1/admin/einheiten/{{einheit_jfA}}/kommando"
 headers:
   - key: "Cookie"
     value: "{{cookie}}"
@@ -18,5 +18,8 @@ body:
   type: json
   content: |-
     {
-      "ids": []
+      "neuerKommandantId": "01a19971-0990-778a-b79c-f6c9ab416303",
+      "bisherigeRolle": {
+        "typ": "keine"
+      }
     }

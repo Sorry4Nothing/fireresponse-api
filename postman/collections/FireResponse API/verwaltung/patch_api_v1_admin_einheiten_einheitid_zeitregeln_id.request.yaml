@@ -1,8 +1,8 @@
 $kind: http-request
-name: "POST /api/v1/admin/personen/:id/zweiter-faktor-zuruecksetzen"
-order: 48000
-method: POST
-url: "{{baseUrl}}/api/v1/admin/personen/{{ziel_47}}/zweiter-faktor-zuruecksetzen"
+name: "PATCH /api/v1/admin/einheiten/:einheitId/zeitregeln/:id"
+order: 38000
+method: PATCH
+url: "{{baseUrl}}/api/v1/admin/einheiten/{{einheit_jfA}}/zeitregeln/{{patchRegelId}}"
 headers:
   - key: "Cookie"
     value: "{{cookie}}"
@@ -17,4 +17,6 @@ headers:
 body:
   type: json
   content: |-
-    {}
+    {
+      "aktiv": false
+    }
