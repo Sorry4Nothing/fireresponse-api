@@ -7,7 +7,7 @@ import type { Person } from "../../rechte.js";
 
 const mb = (bytes: number) => Math.round((bytes / 1024 / 1024) * 10) / 10;
 
-// Nur Admins (die Middleware für /api/v1/admin/* verlangt zusätzlich den zweiten Faktor). Die Antworten enthalten nur Zahlen, Flags und feste Texte: keine Umgebungswerte, Hosts, Adressen, Namen oder IDs
+// Nur das Kantonsadmin-Konto (die Middleware für /api/v1/admin/* verlangt zusätzlich den zweiten Faktor). Die Antworten enthalten nur Zahlen, Flags und feste Texte: keine Umgebungswerte, Hosts, Adressen, Namen oder IDs
 export function erstelleSystemRouten({
   sql,
   metriken,
@@ -21,26 +21,25 @@ export function erstelleSystemRouten({
 
   return new Hono<{ Variables: { person: Person } }>()
     .get("/", async (c) => {
-      const person = c.get("person");
-      if (!person.admin) throw new HTTPException(403);
+      if (!c.get("person").kantonsadmin) throw new HTTPException(403);
 
       const start = performance.now();
       let erreichbar = true;
       let verbindungen: number | null = null;
-      let bestand = { personen: 0, kinder: 0, push: 0 };
+      let bestand = { personen: 0, teilnehmende: 0, push: 0 };
       try {
-        // Ein Aufruf: Er misst die Antwortzeit der Datenbank und zählt zugleich den Bestand der Abteilung
+        // Ein Aufruf: Er misst die Antwortzeit der Datenbank und zählt zugleich den Bestand
         const [z] = await sql<
           {
             personen: number;
-            kinder: number;
+            teilnehmende: number;
             push: number;
             verbindungen: number;
           }[]
         >`select
-            (select count(*) from "user" where abteilung_id = ${person.abteilungId} and banned is not true)::int as personen,
-            (select count(*) from kind where abteilung_id = ${person.abteilungId} and inaktiv_seit is null)::int as kinder,
-            (select count(*) from push_token p join "user" u on u.id = p.user_id where u.abteilung_id = ${person.abteilungId})::int as push,
+            (select count(*) from "user" where banned is not true)::int as personen,
+            (select count(*) from teilnehmende where inaktiv_seit is null)::int as teilnehmende,
+            (select count(*) from push_token)::int as push,
             (select count(*) from pg_stat_activity where datname = current_database())::int as verbindungen`;
         bestand = z;
         verbindungen = z.verbindungen;
@@ -75,7 +74,7 @@ export function erstelleSystemRouten({
         },
         bestand: {
           aktivePersonen: bestand.personen,
-          aktiveKinder: bestand.kinder,
+          aktiveTeilnehmende: bestand.teilnehmende,
           pushTokens: bestand.push,
         },
         umgebung: {
@@ -87,7 +86,7 @@ export function erstelleSystemRouten({
       return antwort;
     })
     .get("/requests", (c) => {
-      if (!c.get("person").admin) throw new HTTPException(403);
+      if (!c.get("person").kantonsadmin) throw new HTTPException(403);
       return c.json(metriken.momentaufnahme());
     });
 }

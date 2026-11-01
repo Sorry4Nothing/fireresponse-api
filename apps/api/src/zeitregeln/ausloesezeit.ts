@@ -42,7 +42,7 @@ export function kurzDatum(beginn: Date) {
 }
 
 // Der letzte Zeitpunkt (Zürcher Zeit) mit diesem Wochentag und dieser Uhrzeit, der nicht nach dem Beginn liegt
-// shortcut: Eine Uhrzeit in der übersprungenen Stunde der Umstellung (02:xx im Frühling) rückt auf 03:xx; in der doppelten Stunde (Herbst) gilt die zweite. Genauer nur, falls eine Abteilung genau dort Regeln will
+// shortcut: Eine Uhrzeit in der übersprungenen Stunde der Umstellung (02:xx im Frühling) rückt auf 03:xx; in der doppelten Stunde (Herbst) gilt die zweite. Genauer nur, falls eine Einheit genau dort Regeln will
 export function ausloesezeit(
   beginn: Date,
   wochentag: number,

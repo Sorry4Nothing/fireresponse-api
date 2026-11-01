@@ -1,35 +1,9 @@
 {
-  "id": "8b0247a7-9cc7-457d-b021-c2f5e378f412",
-  "prevId": "1a89a2c6-6d2e-4c58-902c-645f8e197241",
+  "id": "fb6592bd-890e-4da8-a6b7-b118f44bd00b",
+  "prevId": "9d764e14-eee5-4ca6-991c-8054697be03a",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
-    "public.abteilung": {
-      "name": "abteilung",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "uuidv7()"
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
     "public.account": {
       "name": "account",
       "schema": "",
@@ -164,11 +138,11 @@
           "notNull": true,
           "default": "uuidv7()"
         },
-        "abteilung_id": {
-          "name": "abteilung_id",
+        "einheit_id": {
+          "name": "einheit_id",
           "type": "uuid",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "akteur_id": {
           "name": "akteur_id",
@@ -210,13 +184,13 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "audit_log_abteilung_id_abteilung_id_fk": {
-          "name": "audit_log_abteilung_id_abteilung_id_fk",
+        "audit_log_einheit_id_einheit_id_fk": {
+          "name": "audit_log_einheit_id_einheit_id_fk",
           "tableFrom": "audit_log",
           "columnsFrom": [
-            "abteilung_id"
+            "einheit_id"
           ],
-          "tableTo": "abteilung",
+          "tableTo": "einheit",
           "columnsTo": [
             "id"
           ],
@@ -230,8 +204,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.kind": {
-      "name": "kind",
+    "public.bezirk": {
+      "name": "bezirk",
       "schema": "",
       "columns": {
         "id": {
@@ -241,66 +215,94 @@
           "notNull": true,
           "default": "uuidv7()"
         },
-        "abteilung_id": {
-          "name": "abteilung_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "vorname": {
-          "name": "vorname",
+        "name": {
+          "name": "name",
           "type": "text",
           "primaryKey": false,
           "notNull": true
-        },
-        "nachname": {
-          "name": "nachname",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "stufe_id": {
-          "name": "stufe_id",
+        }
+      },
+      "indexes": {
+        "bezirk_name_eindeutig": {
+          "name": "bezirk_name_eindeutig",
+          "columns": [
+            {
+              "expression": "lower(\"name\")",
+              "isExpression": true,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.einheit": {
+      "name": "einheit",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
           "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "stufe_seit": {
-          "name": "stufe_seit",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
+          "primaryKey": true,
           "notNull": true,
-          "default": "now()"
+          "default": "uuidv7()"
         },
-        "inaktiv_seit": {
-          "name": "inaktiv_seit",
+        "bezirk_id": {
+          "name": "bezirk_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "typ": {
+          "name": "typ",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "lodur_url_verschluesselt": {
+          "name": "lodur_url_verschluesselt",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sync_ok_am": {
+          "name": "sync_ok_am",
           "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sync_fehler": {
+          "name": "sync_fehler",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         }
       },
       "indexes": {},
       "foreignKeys": {
-        "kind_abteilung_id_abteilung_id_fk": {
-          "name": "kind_abteilung_id_abteilung_id_fk",
-          "tableFrom": "kind",
+        "einheit_bezirk_id_bezirk_id_fk": {
+          "name": "einheit_bezirk_id_bezirk_id_fk",
+          "tableFrom": "einheit",
           "columnsFrom": [
-            "abteilung_id"
+            "bezirk_id"
           ],
-          "tableTo": "abteilung",
-          "columnsTo": [
-            "id"
-          ],
-          "onUpdate": "no action",
-          "onDelete": "restrict"
-        },
-        "kind_stufe_id_stufe_id_fk": {
-          "name": "kind_stufe_id_stufe_id_fk",
-          "tableFrom": "kind",
-          "columnsFrom": [
-            "stufe_id"
-          ],
-          "tableTo": "stufe",
+          "tableTo": "bezirk",
           "columnsTo": [
             "id"
           ],
@@ -309,26 +311,58 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "einheit_bezirk_typ_eindeutig": {
+          "name": "einheit_bezirk_typ_eindeutig",
+          "columns": [
+            "bezirk_id",
+            "typ"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "einheit_typ_check": {
+          "name": "einheit_typ_check",
+          "value": "\"einheit\".\"typ\" in ('jf', 'kf')"
+        }
+      },
       "isRLSEnabled": false
     },
-    "public.kind_eltern": {
-      "name": "kind_eltern",
+    "public.einheit_rolle": {
+      "name": "einheit_rolle",
       "schema": "",
       "columns": {
-        "kind_id": {
-          "name": "kind_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
         "user_id": {
           "name": "user_id",
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
+        },
+        "einheit_id": {
+          "name": "einheit_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "typ": {
+          "name": "typ",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reihenfolge": {
+          "name": "reihenfolge",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "rang_id": {
+          "name": "rang_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
         },
         "erstellt_am": {
           "name": "erstellt_am",
@@ -338,24 +372,43 @@
           "default": "now()"
         }
       },
-      "indexes": {},
-      "foreignKeys": {
-        "kind_eltern_kind_id_kind_id_fk": {
-          "name": "kind_eltern_kind_id_kind_id_fk",
-          "tableFrom": "kind_eltern",
-          "columnsFrom": [
-            "kind_id"
+      "indexes": {
+        "einheit_rolle_ein_kommandant": {
+          "name": "einheit_rolle_ein_kommandant",
+          "columns": [
+            {
+              "expression": "einheit_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
           ],
-          "tableTo": "kind",
-          "columnsTo": [
-            "id"
-          ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "isUnique": true,
+          "with": {},
+          "method": "btree",
+          "where": "\"einheit_rolle\".\"typ\" = 'kommandant'",
+          "concurrently": false
         },
-        "kind_eltern_user_id_user_id_fk": {
-          "name": "kind_eltern_user_id_user_id_fk",
-          "tableFrom": "kind_eltern",
+        "einheit_rolle_einheit_idx": {
+          "name": "einheit_rolle_einheit_idx",
+          "columns": [
+            {
+              "expression": "einheit_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "einheit_rolle_user_id_user_id_fk": {
+          "name": "einheit_rolle_user_id_user_id_fk",
+          "tableFrom": "einheit_rolle",
           "columnsFrom": [
             "user_id"
           ],
@@ -365,20 +418,66 @@
           ],
           "onUpdate": "no action",
           "onDelete": "cascade"
+        },
+        "einheit_rolle_einheit_id_einheit_id_fk": {
+          "name": "einheit_rolle_einheit_id_einheit_id_fk",
+          "tableFrom": "einheit_rolle",
+          "columnsFrom": [
+            "einheit_id"
+          ],
+          "tableTo": "einheit",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "restrict"
+        },
+        "einheit_rolle_rang_der_einheit": {
+          "name": "einheit_rolle_rang_der_einheit",
+          "tableFrom": "einheit_rolle",
+          "columnsFrom": [
+            "rang_id",
+            "einheit_id"
+          ],
+          "tableTo": "rang",
+          "columnsTo": [
+            "id",
+            "einheit_id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "restrict"
         }
       },
       "compositePrimaryKeys": {
-        "kind_eltern_kind_id_user_id_pk": {
-          "name": "kind_eltern_kind_id_user_id_pk",
+        "einheit_rolle_user_id_einheit_id_pk": {
+          "name": "einheit_rolle_user_id_einheit_id_pk",
           "columns": [
-            "kind_id",
-            "user_id"
+            "user_id",
+            "einheit_id"
           ]
         }
       },
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "einheit_rolle_reihenfolge_eindeutig": {
+          "name": "einheit_rolle_reihenfolge_eindeutig",
+          "columns": [
+            "einheit_id",
+            "reihenfolge"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "einheit_rolle_typ_check": {
+          "name": "einheit_rolle_typ_check",
+          "value": "\"einheit_rolle\".\"typ\" in ('kommandant', 'stellvertretung', 'leitung')"
+        },
+        "einheit_rolle_reihenfolge_check": {
+          "name": "einheit_rolle_reihenfolge_check",
+          "value": "(\"einheit_rolle\".\"typ\" = 'stellvertretung' and \"einheit_rolle\".\"reihenfolge\" is not null and \"einheit_rolle\".\"reihenfolge\" >= 1) or (\"einheit_rolle\".\"typ\" <> 'stellvertretung' and \"einheit_rolle\".\"reihenfolge\" is null)"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.leitung_anmeldung": {
@@ -514,8 +613,8 @@
           "notNull": true,
           "default": "uuidv7()"
         },
-        "abteilung_id": {
-          "name": "abteilung_id",
+        "einheit_id": {
+          "name": "einheit_id",
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
@@ -586,24 +685,17 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'aktiv'"
-        },
-        "sichtbarkeit": {
-          "name": "sichtbarkeit",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'intern'"
         }
       },
       "indexes": {},
       "foreignKeys": {
-        "programm_abteilung_id_abteilung_id_fk": {
-          "name": "programm_abteilung_id_abteilung_id_fk",
+        "programm_einheit_id_einheit_id_fk": {
+          "name": "programm_einheit_id_einheit_id_fk",
           "tableFrom": "programm",
           "columnsFrom": [
-            "abteilung_id"
+            "einheit_id"
           ],
-          "tableTo": "abteilung",
+          "tableTo": "einheit",
           "columnsTo": [
             "id"
           ],
@@ -613,10 +705,10 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "programm_abteilung_google_event_eindeutig": {
-          "name": "programm_abteilung_google_event_eindeutig",
+        "programm_einheit_google_event_eindeutig": {
+          "name": "programm_einheit_google_event_eindeutig",
           "columns": [
-            "abteilung_id",
+            "einheit_id",
             "google_event_id"
           ],
           "nullsNotDistinct": false
@@ -628,75 +720,11 @@
           "name": "programm_status_check",
           "value": "\"programm\".\"status\" in ('aktiv', 'abgesagt', 'pruefen')"
         },
-        "programm_sichtbarkeit_check": {
-          "name": "programm_sichtbarkeit_check",
-          "value": "\"programm\".\"sichtbarkeit\" in ('intern', 'leitende', 'eltern')"
-        },
         "programm_zeiten_passen_zu_ganztaegig": {
           "name": "programm_zeiten_passen_zu_ganztaegig",
           "value": "(\"programm\".\"ganztaegig\" and \"programm\".\"tag_von\" is not null and \"programm\".\"tag_bis\" is not null and \"programm\".\"beginn\" is null and \"programm\".\"ende\" is null) or (not \"programm\".\"ganztaegig\" and \"programm\".\"beginn\" is not null and \"programm\".\"ende\" is not null and \"programm\".\"tag_von\" is null and \"programm\".\"tag_bis\" is null)"
         }
       },
-      "isRLSEnabled": false
-    },
-    "public.programm_stufe": {
-      "name": "programm_stufe",
-      "schema": "",
-      "columns": {
-        "programm_id": {
-          "name": "programm_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "stufe_id": {
-          "name": "stufe_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "programm_stufe_programm_id_programm_id_fk": {
-          "name": "programm_stufe_programm_id_programm_id_fk",
-          "tableFrom": "programm_stufe",
-          "columnsFrom": [
-            "programm_id"
-          ],
-          "tableTo": "programm",
-          "columnsTo": [
-            "id"
-          ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
-        },
-        "programm_stufe_stufe_id_stufe_id_fk": {
-          "name": "programm_stufe_stufe_id_stufe_id_fk",
-          "tableFrom": "programm_stufe",
-          "columnsFrom": [
-            "stufe_id"
-          ],
-          "tableTo": "stufe",
-          "columnsTo": [
-            "id"
-          ],
-          "onUpdate": "no action",
-          "onDelete": "restrict"
-        }
-      },
-      "compositePrimaryKeys": {
-        "programm_stufe_programm_id_stufe_id_pk": {
-          "name": "programm_stufe_programm_id_stufe_id_pk",
-          "columns": [
-            "programm_id",
-            "stufe_id"
-          ]
-        }
-      },
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "public.push_token": {
@@ -783,6 +811,116 @@
       },
       "isRLSEnabled": false
     },
+    "public.rang": {
+      "name": "rang",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "uuidv7()"
+        },
+        "einheit_id": {
+          "name": "einheit_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kuerzel": {
+          "name": "kuerzel",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reihenfolge": {
+          "name": "reihenfolge",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "abzeichen_sterne": {
+          "name": "abzeichen_sterne",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "abzeichen_bild": {
+          "name": "abzeichen_bild",
+          "type": "bytea",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "abzeichen_bild_typ": {
+          "name": "abzeichen_bild_typ",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "rang_einheit_id_einheit_id_fk": {
+          "name": "rang_einheit_id_einheit_id_fk",
+          "tableFrom": "rang",
+          "columnsFrom": [
+            "einheit_id"
+          ],
+          "tableTo": "einheit",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "restrict"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "rang_reihenfolge_pro_einheit": {
+          "name": "rang_reihenfolge_pro_einheit",
+          "columns": [
+            "einheit_id",
+            "reihenfolge"
+          ],
+          "nullsNotDistinct": false
+        },
+        "rang_id_einheit": {
+          "name": "rang_id_einheit",
+          "columns": [
+            "id",
+            "einheit_id"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "rang_reihenfolge_check": {
+          "name": "rang_reihenfolge_check",
+          "value": "\"rang\".\"reihenfolge\" between 1 and 999"
+        },
+        "rang_sterne_check": {
+          "name": "rang_sterne_check",
+          "value": "\"rang\".\"abzeichen_sterne\" is null or \"rang\".\"abzeichen_sterne\" between 0 and 5"
+        },
+        "rang_abzeichen_eines": {
+          "name": "rang_abzeichen_eines",
+          "value": "not (\"rang\".\"abzeichen_sterne\" is not null and \"rang\".\"abzeichen_bild\" is not null)"
+        },
+        "rang_bild_typ_check": {
+          "name": "rang_bild_typ_check",
+          "value": "(\"rang\".\"abzeichen_bild\" is null and \"rang\".\"abzeichen_bild_typ\" is null) or (\"rang\".\"abzeichen_bild\" is not null and \"rang\".\"abzeichen_bild_typ\" in ('svg', 'png') and octet_length(\"rang\".\"abzeichen_bild\") <= 512000)"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "public.rate_limit": {
       "name": "rate_limit",
       "schema": "",
@@ -827,94 +965,6 @@
       },
       "policies": {},
       "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.rolle": {
-      "name": "rolle",
-      "schema": "",
-      "columns": {
-        "user_id": {
-          "name": "user_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "stufe_id": {
-          "name": "stufe_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "typ": {
-          "name": "typ",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "prioritaet": {
-          "name": "prioritaet",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "erstellt_am": {
-          "name": "erstellt_am",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "rolle_user_id_user_id_fk": {
-          "name": "rolle_user_id_user_id_fk",
-          "tableFrom": "rolle",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "tableTo": "user",
-          "columnsTo": [
-            "id"
-          ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
-        },
-        "rolle_stufe_id_stufe_id_fk": {
-          "name": "rolle_stufe_id_stufe_id_fk",
-          "tableFrom": "rolle",
-          "columnsFrom": [
-            "stufe_id"
-          ],
-          "tableTo": "stufe",
-          "columnsTo": [
-            "id"
-          ],
-          "onUpdate": "no action",
-          "onDelete": "restrict"
-        }
-      },
-      "compositePrimaryKeys": {
-        "rolle_user_id_stufe_id_pk": {
-          "name": "rolle_user_id_stufe_id_pk",
-          "columns": [
-            "user_id",
-            "stufe_id"
-          ]
-        }
-      },
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "rolle_prioritaet_check": {
-          "name": "rolle_prioritaet_check",
-          "value": "\"rolle\".\"prioritaet\" >= 1"
-        },
-        "rolle_typ_check": {
-          "name": "rolle_typ_check",
-          "value": "\"rolle\".\"typ\" in ('leitung', 'stufenleitung')"
-        }
-      },
       "isRLSEnabled": false
     },
     "public.session": {
@@ -1029,80 +1079,6 @@
       },
       "isRLSEnabled": false
     },
-    "public.stufe": {
-      "name": "stufe",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "uuidv7()"
-        },
-        "abteilung_id": {
-          "name": "abteilung_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "kuerzel": {
-          "name": "kuerzel",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {
-        "stufe_name_pro_abteilung": {
-          "name": "stufe_name_pro_abteilung",
-          "columns": [
-            {
-              "expression": "abteilung_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "lower(\"name\")",
-              "isExpression": true,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "with": {},
-          "method": "btree",
-          "concurrently": false
-        }
-      },
-      "foreignKeys": {
-        "stufe_abteilung_id_abteilung_id_fk": {
-          "name": "stufe_abteilung_id_abteilung_id_fk",
-          "tableFrom": "stufe",
-          "columnsFrom": [
-            "abteilung_id"
-          ],
-          "tableTo": "abteilung",
-          "columnsTo": [
-            "id"
-          ],
-          "onUpdate": "no action",
-          "onDelete": "restrict"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
     "public.teilnahme": {
       "name": "teilnahme",
       "schema": "",
@@ -1113,8 +1089,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "kind_id": {
-          "name": "kind_id",
+        "teilnehmende_id": {
+          "name": "teilnehmende_id",
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
@@ -1154,13 +1130,13 @@
           "onUpdate": "no action",
           "onDelete": "cascade"
         },
-        "teilnahme_kind_id_kind_id_fk": {
-          "name": "teilnahme_kind_id_kind_id_fk",
+        "teilnahme_teilnehmende_id_teilnehmende_id_fk": {
+          "name": "teilnahme_teilnehmende_id_teilnehmende_id_fk",
           "tableFrom": "teilnahme",
           "columnsFrom": [
-            "kind_id"
+            "teilnehmende_id"
           ],
-          "tableTo": "kind",
+          "tableTo": "teilnehmende",
           "columnsTo": [
             "id"
           ],
@@ -1182,11 +1158,11 @@
         }
       },
       "compositePrimaryKeys": {
-        "teilnahme_programm_id_kind_id_pk": {
-          "name": "teilnahme_programm_id_kind_id_pk",
+        "teilnahme_programm_id_teilnehmende_id_pk": {
+          "name": "teilnahme_programm_id_teilnehmende_id_pk",
           "columns": [
             "programm_id",
-            "kind_id"
+            "teilnehmende_id"
           ]
         }
       },
@@ -1196,6 +1172,211 @@
         "teilnahme_status_check": {
           "name": "teilnahme_status_check",
           "value": "\"teilnahme\".\"status\" in ('ja', 'nein')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.teilnehmende": {
+      "name": "teilnehmende",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "uuidv7()"
+        },
+        "einheit_id": {
+          "name": "einheit_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "vorname": {
+          "name": "vorname",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "nachname": {
+          "name": "nachname",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rang_id": {
+          "name": "rang_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "inaktiv_seit": {
+          "name": "inaktiv_seit",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "teilnehmende_einheit_idx": {
+          "name": "teilnehmende_einheit_idx",
+          "columns": [
+            {
+              "expression": "einheit_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "teilnehmende_einheit_id_einheit_id_fk": {
+          "name": "teilnehmende_einheit_id_einheit_id_fk",
+          "tableFrom": "teilnehmende",
+          "columnsFrom": [
+            "einheit_id"
+          ],
+          "tableTo": "einheit",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "restrict"
+        },
+        "teilnehmende_rang_der_einheit": {
+          "name": "teilnehmende_rang_der_einheit",
+          "tableFrom": "teilnehmende",
+          "columnsFrom": [
+            "rang_id",
+            "einheit_id"
+          ],
+          "tableTo": "rang",
+          "columnsTo": [
+            "id",
+            "einheit_id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "restrict"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.teilnehmende_konto": {
+      "name": "teilnehmende_konto",
+      "schema": "",
+      "columns": {
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "teilnehmende_id": {
+          "name": "teilnehmende_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "art": {
+          "name": "art",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "erstellt_am": {
+          "name": "erstellt_am",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "teilnehmende_konto_ein_selbst": {
+          "name": "teilnehmende_konto_ein_selbst",
+          "columns": [
+            {
+              "expression": "teilnehmende_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "with": {},
+          "method": "btree",
+          "where": "\"teilnehmende_konto\".\"art\" = 'selbst'",
+          "concurrently": false
+        },
+        "teilnehmende_konto_teilnehmende_idx": {
+          "name": "teilnehmende_konto_teilnehmende_idx",
+          "columns": [
+            {
+              "expression": "teilnehmende_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "teilnehmende_konto_user_id_user_id_fk": {
+          "name": "teilnehmende_konto_user_id_user_id_fk",
+          "tableFrom": "teilnehmende_konto",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "tableTo": "user",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        },
+        "teilnehmende_konto_teilnehmende_id_teilnehmende_id_fk": {
+          "name": "teilnehmende_konto_teilnehmende_id_teilnehmende_id_fk",
+          "tableFrom": "teilnehmende_konto",
+          "columnsFrom": [
+            "teilnehmende_id"
+          ],
+          "tableTo": "teilnehmende",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {
+        "teilnehmende_konto_user_id_teilnehmende_id_pk": {
+          "name": "teilnehmende_konto_user_id_teilnehmende_id_pk",
+          "columns": [
+            "user_id",
+            "teilnehmende_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "teilnehmende_konto_art_check": {
+          "name": "teilnehmende_konto_art_check",
+          "value": "\"teilnehmende_konto\".\"art\" in ('eltern', 'selbst')"
         }
       },
       "isRLSEnabled": false
@@ -1359,12 +1540,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "display_username": {
-          "name": "display_username",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
         "role": {
           "name": "role",
           "type": "text",
@@ -1396,12 +1571,6 @@
           "primaryKey": false,
           "notNull": false,
           "default": false
-        },
-        "abteilung_id": {
-          "name": "abteilung_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
         },
         "muss_passwort_aendern": {
           "name": "muss_passwort_aendern",
@@ -1461,29 +1630,21 @@
           "notNull": true,
           "default": true
         },
-        "datenschutz_gelesen_am": {
-          "name": "datenschutz_gelesen_am",
+        "einwilligung_am": {
+          "name": "einwilligung_am",
           "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "einwilligung_version": {
+          "name": "einwilligung_version",
+          "type": "integer",
           "primaryKey": false,
           "notNull": false
         }
       },
       "indexes": {},
-      "foreignKeys": {
-        "user_abteilung_id_abteilung_id_fk": {
-          "name": "user_abteilung_id_abteilung_id_fk",
-          "tableFrom": "user",
-          "columnsFrom": [
-            "abteilung_id"
-          ],
-          "tableTo": "abteilung",
-          "columnsTo": [
-            "id"
-          ],
-          "onUpdate": "no action",
-          "onDelete": "restrict"
-        }
-      },
+      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "user_email_unique": {
@@ -1502,7 +1663,16 @@
         }
       },
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "user_username_regel": {
+          "name": "user_username_regel",
+          "value": "\"user\".\"username\" is null or (\"user\".\"username\" ~ '^[A-Za-z0-9._-]{3,64}$' and \"user\".\"username\" = lower(\"user\".\"username\"))"
+        },
+        "user_einwilligung_zusammen": {
+          "name": "user_einwilligung_zusammen",
+          "value": "(\"user\".\"einwilligung_am\" is null) = (\"user\".\"einwilligung_version\" is null)"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.verification": {
@@ -1584,17 +1754,11 @@
           "notNull": true,
           "default": "uuidv7()"
         },
-        "abteilung_id": {
-          "name": "abteilung_id",
+        "einheit_id": {
+          "name": "einheit_id",
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
-        },
-        "stufe_id": {
-          "name": "stufe_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
         },
         "wochentag": {
           "name": "wochentag",
@@ -1637,26 +1801,13 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "zeitregel_abteilung_id_abteilung_id_fk": {
-          "name": "zeitregel_abteilung_id_abteilung_id_fk",
+        "zeitregel_einheit_id_einheit_id_fk": {
+          "name": "zeitregel_einheit_id_einheit_id_fk",
           "tableFrom": "zeitregel",
           "columnsFrom": [
-            "abteilung_id"
+            "einheit_id"
           ],
-          "tableTo": "abteilung",
-          "columnsTo": [
-            "id"
-          ],
-          "onUpdate": "no action",
-          "onDelete": "restrict"
-        },
-        "zeitregel_stufe_id_stufe_id_fk": {
-          "name": "zeitregel_stufe_id_stufe_id_fk",
-          "tableFrom": "zeitregel",
-          "columnsFrom": [
-            "stufe_id"
-          ],
-          "tableTo": "stufe",
+          "tableTo": "einheit",
           "columnsTo": [
             "id"
           ],

@@ -15,12 +15,12 @@ const maskiere = (text: string) => text.replace(/[&<>"']/g, (z) => MASKE[z]!);
 // Ohne Angabe bleibt die Seite lesbar, nennt aber keine erfundene Stelle oder Adresse
 export function setzeKontakt(html: string, { stelle, email }: Kontakt) {
   return html
-    .replaceAll("{{STELLE}}", stelle ? maskiere(stelle) : "die Abteilung")
+    .replaceAll("{{STELLE}}", stelle ? maskiere(stelle) : "die Einheit")
     .replaceAll(
       "{{KONTAKT}}",
       email
         ? `<a href="mailto:${maskiere(email)}">${maskiere(email)}</a>`
-        : "die Adresse der Abteilung (noch nicht eingetragen)",
+        : "die Adresse der Einheit (noch nicht eingetragen)",
     );
 }
 

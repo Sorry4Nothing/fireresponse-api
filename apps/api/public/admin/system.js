@@ -517,7 +517,7 @@ function systemKacheln(s, a) {
     kachel({
       titel: "Push-Tokens",
       wert: zahl(s.bestand.pushTokens),
-      hinweis: "Registrierte Geräte der Abteilung",
+      hinweis: "Registrierte Geräte",
     }),
     kachel({
       titel: "Anfragen (24 Std.)",

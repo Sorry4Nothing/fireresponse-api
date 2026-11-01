@@ -62,7 +62,7 @@ let md = `# Endpunkte und Zugriff
 
 Erzeugt aus der Rechte-Matrix (\`apps/api/test/rechte-matrix.test.ts\`) und \`docs/api/openapi.yaml\`; nicht von Hand ändern. Neu erzeugen: siehe [postman.md](postman.md).
 
-Je Route steht, welche Persona welchen Status bekommt. 2xx heisst erlaubt, 401 nicht angemeldet, 403 angemeldet ohne Recht, 404 das Objekt gehört einer anderen Stufe oder Abteilung und ist unsichtbar. Die Personas beschreibt \`apps/api/test/hilfen/personas.ts\`.
+Je Route steht, welche Persona welchen Status bekommt. 2xx heisst erlaubt, 401 nicht angemeldet, 403 angemeldet ohne Recht, 404 das Objekt gehört einer anderen Einheit und ist unsichtbar. Die Personas beschreibt \`apps/api/test/hilfen/personas.ts\`.
 
 `;
 for (const [name, zeilen] of nachBereich) {

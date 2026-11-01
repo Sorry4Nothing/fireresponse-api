@@ -1,12 +1,13 @@
-import { and, eq, inArray, isNull, notExists, sql as roh } from "drizzle-orm";
+import { and, eq, isNull, notExists, sql as roh } from "drizzle-orm";
 import { verbindeDatenbank } from "../datenbank.js";
 import { erstelleDb, type Db } from "../db/client.js";
 import {
-  kind,
-  kindEltern,
+  einheitRolle,
+  leitungAnmeldung,
   programm,
-  programmStufe,
   teilnahme,
+  teilnehmende,
+  teilnehmendeKonto,
   user,
   zeitregel,
   zeitregelGesendet,
@@ -37,11 +38,11 @@ export async function sendeFaelligeErinnerungen(
   { db, fcm }: { db: Db; fcm: Fcm },
   jetzt: Date,
 ) {
-  // Nur Programme, die Eltern sehen und die noch Anmeldungen annehmen (wie teilnahmeOffen)
+  // Nur Programme, die noch Anmeldungen annehmen (wie teilnahmeOffen)
   const programme = await db
     .select({
       id: programm.id,
-      abteilungId: programm.abteilungId,
+      einheitId: programm.einheitId,
       titel: programm.titel,
       // Millisekunden statt Zeitstempel: Der Treiber liefert Zeitstempel als Text
       beginnMs: roh<string>`(extract(epoch from ${programmBeginn}) * 1000)::bigint`,
@@ -50,7 +51,6 @@ export async function sendeFaelligeErinnerungen(
     .where(
       and(
         eq(programm.status, "aktiv"),
-        eq(programm.sichtbarkeit, "eltern"),
         roh`${programmBeginn} > ${jetzt.toISOString()}`,
         roh`${programmBeginn} <= ${new Date(jetzt.getTime() + VORLAUF_MS).toISOString()}`,
       ),
@@ -61,26 +61,11 @@ export async function sendeFaelligeErinnerungen(
     .from(zeitregel)
     .where(eq(zeitregel.aktiv, true));
   if (regeln.length === 0) return;
-  const stufenZeilen = await db
-    .select()
-    .from(programmStufe)
-    .where(
-      inArray(
-        programmStufe.programmId,
-        programme.map((p) => p.id),
-      ),
-    );
 
   for (const p of programme) {
-    const stufen = stufenZeilen
-      .filter((z) => z.programmId === p.id)
-      .map((z) => z.stufeId);
-    // Ohne Stufe sehen die Eltern das Programm nicht
-    if (stufen.length === 0) continue;
     const beginn = new Date(Number(p.beginnMs));
     for (const regel of regeln) {
-      if (regel.abteilungId !== p.abteilungId) continue;
-      if (regel.stufeId !== null && !stufen.includes(regel.stufeId)) continue;
+      if (regel.einheitId !== p.einheitId) continue;
       if (ausloesezeit(beginn, regel.wochentag, regel.uhrzeit) > jetzt)
         continue;
       try {
@@ -90,37 +75,71 @@ export async function sendeFaelligeErinnerungen(
           .onConflictDoNothing()
           .returning({ regelId: zeitregelGesendet.regelId });
         if (!neu) continue;
-        // Aktive Kinder der Stufe ohne gespeichertes «ja» oder «nein»; ein Elternteil mit mehreren offenen Kindern kommt einmal vor
-        const eltern = await db
+        // Konten aktiver Teilnehmender der Einheit ohne gespeichertes «ja» oder «nein», dazu Kommando und Leitende ohne Anmeldung; wer mehrere Kinder offen hat, kommt einmal vor
+        const ohneAntwort = await db
           .selectDistinct({ id: user.id })
-          .from(kind)
-          .innerJoin(kindEltern, eq(kindEltern.kindId, kind.id))
+          .from(teilnehmende)
+          .innerJoin(
+            teilnehmendeKonto,
+            eq(teilnehmendeKonto.teilnehmendeId, teilnehmende.id),
+          )
           .innerJoin(
             user,
             and(
-              eq(user.id, kindEltern.userId),
-              aktivesKonto(p.abteilungId),
+              eq(user.id, teilnehmendeKonto.userId),
+              aktivesKonto(),
               eq(user.pushProgramme, true),
             ),
           )
           .where(
             and(
-              eq(kind.abteilungId, p.abteilungId),
-              isNull(kind.inaktivSeit),
-              inArray(kind.stufeId, regel.stufeId ? [regel.stufeId] : stufen),
+              eq(teilnehmende.einheitId, p.einheitId),
+              isNull(teilnehmende.inaktivSeit),
               notExists(
                 db
                   .select({ eins: roh`1` })
                   .from(teilnahme)
                   .where(
                     and(
-                      eq(teilnahme.kindId, kind.id),
+                      eq(teilnahme.teilnehmendeId, teilnehmende.id),
                       eq(teilnahme.programmId, p.id),
                     ),
                   ),
               ),
             ),
           );
+        const leitungOhneAntwort = await db
+          .selectDistinct({ id: user.id })
+          .from(einheitRolle)
+          .innerJoin(
+            user,
+            and(
+              eq(user.id, einheitRolle.userId),
+              aktivesKonto(),
+              eq(user.pushProgramme, true),
+            ),
+          )
+          .where(
+            and(
+              eq(einheitRolle.einheitId, p.einheitId),
+              notExists(
+                db
+                  .select({ eins: roh`1` })
+                  .from(leitungAnmeldung)
+                  .where(
+                    and(
+                      eq(leitungAnmeldung.userId, user.id),
+                      eq(leitungAnmeldung.programmId, p.id),
+                    ),
+                  ),
+              ),
+            ),
+          );
+        const eltern = [
+          ...new Map(
+            [...ohneAntwort, ...leitungOhneAntwort].map((z) => [z.id, z]),
+          ).values(),
+        ];
         if (eltern.length === 0) continue;
         await sendePush(
           { db, fcm },

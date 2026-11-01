@@ -45,7 +45,10 @@ function zeichneSeite(bereich, daten) {
     hinweis.textContent = text;
     kacheln.replaceChildren(
       kachel({ titel: "Aktive Personen", wert: zahl(b.aktivePersonen) }),
-      kachel({ titel: "Aktive Kinder", wert: zahl(b.aktiveKinder) }),
+      kachel({
+        titel: "Aktive Teilnehmende",
+        wert: zahl(b.aktiveTeilnehmende),
+      }),
       kachel({ titel: "Push-Tokens", wert: zahl(b.pushTokens) }),
       kachel({
         titel: "Datenbank",

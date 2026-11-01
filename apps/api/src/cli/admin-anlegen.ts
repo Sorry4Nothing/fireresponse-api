@@ -1,7 +1,6 @@
 import { parseArgs } from "node:util";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError } from "better-auth/api";
-import { eq } from "drizzle-orm";
 import { erstelleAuth, platzhalterEmail } from "../auth.js";
 import { verbindeDatenbank } from "../datenbank.js";
 import { erstelleDb } from "../db/client.js";
@@ -13,9 +12,8 @@ import {
   startpasswortFelder,
 } from "../startpasswort.js";
 
-const VERWENDUNG = `Verwendung: npm run admin:anlegen -w apps/api -- --benutzername <benutzername> --name "<Vorname Nachname>" (--abteilung <Name> | --neue-abteilung <Name>)
---abteilung nimmt eine bestehende Abteilung, --neue-abteilung legt eine an; genau eine der beiden Angaben.
-Das Startpasswort erzeugt die CLI selbst und nimmt keines entgegen.`;
+const VERWENDUNG = `Verwendung: npm run admin:anlegen -w apps/api -- --benutzername <benutzername> --name "<Vorname Nachname>"
+Legt ein Konto des Kantonsadmins an. Das Startpasswort erzeugt die CLI selbst und nimmt keines entgegen.`;
 
 // Eigene Abbrüche mit gefahrlos druckbarer Meldung; fremde Meldungen könnten Eingaben oder Hosts wiederholen
 class AbbruchFehler extends Error {}
@@ -27,21 +25,14 @@ function leseArgumente() {
       options: {
         benutzername: { type: "string" },
         name: { type: "string" },
-        abteilung: { type: "string" },
-        "neue-abteilung": { type: "string" },
       },
       strict: true,
       allowPositionals: false,
     });
     const benutzername = values.benutzername?.trim();
     const name = values.name?.trim();
-    const neu = values["neue-abteilung"] !== undefined;
-    if (neu === (values.abteilung !== undefined)) return null;
-    const abteilungsname = (
-      values.abteilung ?? values["neue-abteilung"]
-    )?.trim();
-    if (!benutzername || !name || !abteilungsname) return null;
-    return { benutzername, name, neu, abteilungsname };
+    if (!benutzername || !name) return null;
+    return { benutzername, name };
   } catch {
     return null;
   }
@@ -69,37 +60,9 @@ if (!argumente) {
   const sql = verbindeDatenbank(konfiguration.DATABASE_URL);
   try {
     const db = erstelleDb(sql);
-    const { benutzername, name, neu, abteilungsname } = argumente;
+    const { benutzername, name } = argumente;
     // Eine Transaktion für alle Schreibzugriffe: createUser legt den User vor der HIBP-Prüfung an, ein Fehlschlag dort liesse sonst ein Konto ohne Passwort zurück
     const ergebnis = await db.transaction(async (tx) => {
-      let abteilungId: string;
-      if (neu) {
-        const vorhandene = await tx
-          .select({ id: schema.abteilung.id })
-          .from(schema.abteilung)
-          .where(eq(schema.abteilung.name, abteilungsname));
-        if (vorhandene.length > 0) {
-          throw new AbbruchFehler(
-            `Abteilung «${abteilungsname}» gibt es schon.`,
-          );
-        }
-        const [angelegt] = await tx
-          .insert(schema.abteilung)
-          .values({ name: abteilungsname })
-          .returning({ id: schema.abteilung.id });
-        abteilungId = angelegt.id;
-      } else {
-        const zeilen = await tx
-          .select({ id: schema.abteilung.id })
-          .from(schema.abteilung)
-          .where(eq(schema.abteilung.name, abteilungsname));
-        if (zeilen.length !== 1) {
-          throw new AbbruchFehler(
-            `Keine eindeutige Abteilung «${abteilungsname}».`,
-          );
-        }
-        abteilungId = zeilen[0].id;
-      }
       const auth = erstelleAuth(
         drizzleAdapter(tx, { provider: "pg", schema, transaction: true }),
       );
@@ -113,13 +76,11 @@ if (!argumente) {
           role: "admin",
           data: {
             username: benutzername,
-            abteilungId,
             ...startpasswortFelder(new Date(), startpasswort),
           },
         },
       });
       await tx.insert(schema.auditLog).values({
-        abteilungId,
         akteurId: "cli",
         aktion: "person_angelegt",
         zielTyp: "person",
@@ -132,8 +93,7 @@ if (!argumente) {
       };
     });
     // stdout erst nach dem Commit: Ein zurückgenommenes Startpasswort darf nie gedruckt sein
-    if (neu) console.log(`Abteilung «${abteilungsname}» angelegt.`);
-    console.log(`Admin «${ergebnis.gespeichert}» angelegt.`);
+    console.log(`Kantonsadmin «${ergebnis.gespeichert}» angelegt.`);
     console.log(`Startpasswort: ${ergebnis.startpasswort}`);
     console.log(
       "Nicht weiterleiten. Gilt 7 Tage und nur für die erste Anmeldung.",

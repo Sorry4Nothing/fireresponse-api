@@ -12,17 +12,14 @@ import { log } from "./log.js";
 import type { Fcm } from "./push.js";
 import { erstelleMetriken } from "./metriken.js";
 import { personAusSitzung, zweiterFaktorPflicht } from "./rechte.js";
-import { erstelleImportRouten } from "./routes/admin/import.js";
-import { erstelleKinderRouten } from "./routes/admin/kinder.js";
-import { erstellePersonenRouten } from "./routes/admin/personen.js";
-import { erstelleAdminStufenRouten } from "./routes/admin/stufen.js";
+import { erstelleEinheitenRouten } from "./routes/admin/einheiten.js";
 import { erstelleSystemRouten } from "./routes/admin/system.js";
 import { erstelleZeitregelRouten } from "./routes/admin/zeitregeln.js";
+import { erstelleEinwilligungRouten } from "./routes/einwilligung.js";
 import { erstelleIchRouten } from "./routes/ich.js";
 import { erstelleProfilbildRouten } from "./routes/profilbild.js";
 import { erstelleProgrammRouten } from "./routes/programme.js";
 import { erstellePushTokenRouten } from "./routes/push-token.js";
-import { erstelleStufenRouten } from "./routes/stufen.js";
 
 // Ein Format für alle Fehler, wie bei better-auth, damit die App nur eines kennen muss
 const FEHLER: Record<number, { code: string; message: string }> = {
@@ -82,8 +79,6 @@ export function erstelleApp({
   // Zahlen der laufenden Instanz; nach einem Neustart leer
   const metriken = erstelleMetriken();
   const kleinesLimit = bodyLimit({ maxSize: 64 * 1024 });
-  // 500 Zeilen mit langen Namen passen nicht in 64 KB
-  const importLimit = bodyLimit({ maxSize: 256 * 1024 });
   return (
     // nutzerId setzt personAusSitzung, sobald es die Sitzung gelesen hat
     new Hono<{ Variables: { nutzerId?: string } }>()
@@ -129,14 +124,11 @@ export function erstelleApp({
           metriken.erfasse(eintrag);
         }
       })
-      // Ausnahmen: der Upload des Profilbilds, den die Route selbst auf 5 MB begrenzt, und der Import mit 256 KB
+      // Ausnahme: der Upload des Profilbilds, den die Route selbst auf 5 MB begrenzt
       .use((c, next) =>
         c.req.method === "PUT" && c.req.path === "/api/v1/ich/bild"
           ? next()
-          : c.req.method === "POST" &&
-              /^\/api\/v1\/admin\/import(\/vorschau)?$/.test(c.req.path)
-            ? importLimit(c, next)
-            : kleinesLimit(c, next),
+          : kleinesLimit(c, next),
       )
       .use("/api/*", async (c, next) => {
         const version = c.req.header("X-App-Version");
@@ -165,13 +157,13 @@ export function erstelleApp({
       .route("/api/v1", erstelleProfilbildRouten({ db, kodiereBild }))
       .route("/api/v1/ich", erstelleIchRouten({ db }))
       .route("/api/v1/programme", erstelleProgrammRouten({ db, fcm }))
-      .route("/api/v1/admin/personen", erstellePersonenRouten({ db, auth }))
-      .route("/api/v1/admin/stufen", erstelleAdminStufenRouten({ db }))
-      .route("/api/v1/admin/kinder", erstelleKinderRouten({ db }))
-      .route("/api/v1/admin/import", erstelleImportRouten({ db }))
-      .route("/api/v1/admin/zeitregeln", erstelleZeitregelRouten({ db }))
+      .route("/api/v1/einwilligung", erstelleEinwilligungRouten({ db }))
+      .route("/api/v1/admin/einheiten", erstelleEinheitenRouten({ db }))
+      .route(
+        "/api/v1/admin/einheiten/:einheitId/zeitregeln",
+        erstelleZeitregelRouten({ db }),
+      )
       .route("/api/v1/admin/system", erstelleSystemRouten({ sql, metriken }))
-      .route("/api/v1/stufen", erstelleStufenRouten({ db }))
       .route("/api/v1/push-token", erstellePushTokenRouten({ db }))
       .get("/health", async (c) => {
         try {

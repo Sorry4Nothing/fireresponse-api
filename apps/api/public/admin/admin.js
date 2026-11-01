@@ -1,12 +1,7 @@
 import { ApiFehler, anfrage, beiSitzungsende, fehlertext } from "./api.js";
 import { avatar, codefeld, el, feld, icon, knopf, kopf, leere } from "./dom.js";
-import * as importieren from "./import.js";
-import * as kinder from "./kinder.js";
-import * as personen from "./personen.js";
-import * as stufen from "./stufen.js";
 import * as system from "./system.js";
 import * as uebersicht from "./uebersicht.js";
-import * as zeitregeln from "./zeitregeln.js";
 
 // [Schlüssel im Hash, Name, Modul, Icon, Untertitel im Seitenkopf]
 const BEREICHE = [
@@ -15,30 +10,7 @@ const BEREICHE = [
     "Übersicht",
     uebersicht,
     "uebersicht",
-    "Zustand der Abteilung und der API auf einen Blick.",
-  ],
-  [
-    "personen",
-    "Personen",
-    personen,
-    "personen",
-    "Konten, Rollen in den Stufen und Eltern-Zuordnung.",
-  ],
-  ["stufen", "Stufen", stufen, "stufen", "Die Stufen der Abteilung."],
-  ["kinder", "Kinder", kinder, "kinder", "Kinder, ihre Stufe und ihre Eltern."],
-  [
-    "import",
-    "Import",
-    importieren,
-    "ablage",
-    "Kinder und Leitende aus einem CSV-Export anlegen.",
-  ],
-  [
-    "zeitregeln",
-    "Erinnerungen",
-    zeitregeln,
-    "uhr",
-    "Pushes an Eltern, die noch nicht geantwortet haben.",
+    "Zustand der API auf einen Blick.",
   ],
   [
     "system",

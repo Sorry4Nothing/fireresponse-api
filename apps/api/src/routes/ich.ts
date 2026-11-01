@@ -1,9 +1,17 @@
-import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, eq, isNull } from "drizzle-orm";
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { z } from "zod";
 import type { Db } from "../db/client.js";
-import { kind, kindEltern, profilbild, stufe, user } from "../db/schema.js";
+import {
+  bezirk,
+  einheit,
+  einheitRolle,
+  profilbild,
+  teilnehmende,
+  teilnehmendeKonto,
+  user,
+} from "../db/schema.js";
 import { bildUrl } from "../bild.js";
 import { eingabe } from "../eingabe.js";
 import type { Person } from "../rechte.js";
@@ -32,7 +40,6 @@ export function erstelleIchRouten({ db }: { db: Db }) {
             name: user.name,
             benutzername: user.username,
             mussPasswortAendern: user.mussPasswortAendern,
-            datenschutzGelesenAm: user.datenschutzGelesenAm,
             telefon: user.telefon,
             pushProgramme: user.pushProgramme,
             pushAnmeldungen: user.pushAnmeldungen,
@@ -40,86 +47,64 @@ export function erstelleIchRouten({ db }: { db: Db }) {
           })
           .from(user)
           .leftJoin(profilbild, eq(profilbild.userId, user.id))
-          .where(
-            and(
-              eq(user.id, person.id),
-              eq(user.abteilungId, person.abteilungId),
-            ),
-          );
-        const kinder = await db
-          .select({
-            id: kind.id,
-            vorname: kind.vorname,
-            nachname: kind.nachname,
-            stufeId: kind.stufeId,
-          })
-          .from(kind)
-          .innerJoin(kindEltern, eq(kindEltern.kindId, kind.id))
-          .where(
-            and(
-              eq(kindEltern.userId, person.id),
-              eq(kind.abteilungId, person.abteilungId),
-              isNull(kind.inaktivSeit),
-            ),
-          )
-          .orderBy(asc(kind.id));
+          .where(eq(user.id, person.id));
         // Die Sitzung löscht die Datenbank mit der Person (CASCADE); ohne Zeile ist sie nicht mehr gültig
         if (!profil) throw new HTTPException(401);
-        // Die Stufen der Rollen und der Kinder; inArray mit leerer Liste wird zu «false»
-        const stufenIds = [
-          ...new Set([
-            ...person.rollen.map((r) => r.stufeId),
-            ...kinder.map((k) => k.stufeId),
-          ]),
-        ];
-        const stufen =
-          stufenIds.length === 0
-            ? []
-            : await db
-                .select({
-                  id: stufe.id,
-                  name: stufe.name,
-                  kuerzel: stufe.kuerzel,
-                })
-                .from(stufe)
-                .where(
-                  and(
-                    inArray(stufe.id, stufenIds),
-                    eq(stufe.abteilungId, person.abteilungId),
-                  ),
-                )
-                .orderBy(asc(stufe.name), asc(stufe.id));
-        // Der Anmelde-Push gilt nur Leitenden: Allen anderen zeigt die API den Schalter nicht
+        const einheiten = await db
+          .select({
+            id: einheit.id,
+            name: einheit.name,
+            typ: einheit.typ,
+            bezirk: bezirk.name,
+            rolle: einheitRolle.typ,
+          })
+          .from(einheitRolle)
+          .innerJoin(einheit, eq(einheit.id, einheitRolle.einheitId))
+          .innerJoin(bezirk, eq(bezirk.id, einheit.bezirkId))
+          .where(eq(einheitRolle.userId, person.id))
+          .orderBy(asc(bezirk.name), asc(einheit.typ));
+        const teilnehmendeListe = await db
+          .select({
+            id: teilnehmende.id,
+            vorname: teilnehmende.vorname,
+            nachname: teilnehmende.nachname,
+            einheitId: teilnehmende.einheitId,
+            art: teilnehmendeKonto.art,
+          })
+          .from(teilnehmendeKonto)
+          .innerJoin(
+            teilnehmende,
+            eq(teilnehmende.id, teilnehmendeKonto.teilnehmendeId),
+          )
+          .where(
+            and(
+              eq(teilnehmendeKonto.userId, person.id),
+              isNull(teilnehmende.inaktivSeit),
+            ),
+          )
+          .orderBy(asc(teilnehmende.vorname), asc(teilnehmende.id));
+        // Der Anmelde-Push gilt nur dem Kommando und den Leitenden: Allen anderen zeigt die API den Schalter nicht
         const { pushAnmeldungen, ...rest } = profil;
         return c.json({
           ...rest,
-          ...(person.rollen.length > 0 && { pushAnmeldungen }),
-          admin: person.admin,
+          ...(person.einheiten.length > 0 && { pushAnmeldungen }),
+          kantonsadmin: person.kantonsadmin,
           zweiterFaktor: person.zweiterFaktor,
-          rollen: person.rollen,
-          stufen,
-          kinder,
+          einwilligung: person.einwilligung,
+          einheiten,
+          teilnehmende: teilnehmendeListe,
         });
-      })
-      // Kenntnisnahme, keine Einwilligung: einmal pro Person, das erste Datum bleibt
-      .post("/datenschutz", async (c) => {
-        const person = c.get("person");
-        await db
-          .update(user)
-          .set({ datenschutzGelesenAm: sql`now()` })
-          .where(
-            and(eq(user.id, person.id), isNull(user.datenschutzGelesenAm)),
-          );
-        return c.body(null, 204);
       })
       // Nur die eigenen Schalter und die eigene Nummer; die Person kommt aus der Sitzung, nie aus dem Body
       .patch("/", eingabe("json", profilSchema), async (c) => {
         const person = c.get("person");
         const daten = c.req.valid("json");
-        // Eine Nummer speichern nur SL; entfernen darf jede Person, auch eine, die die Rolle verloren hat
+        // Eine Nummer speichern nur Kommando und Stellvertretungen (sie sind die Kontakte); entfernen darf jede Person, auch eine, die die Rolle verloren hat
         if (
           daten.telefon &&
-          !person.rollen.some((r) => r.typ === "stufenleitung")
+          !person.einheiten.some(
+            (r) => r.typ === "kommandant" || r.typ === "stellvertretung",
+          )
         ) {
           throw new HTTPException(403);
         }

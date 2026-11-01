@@ -23,9 +23,9 @@ export const KATEGORIEN = {
     google: ["Personal info: Name", "Personal info: User IDs"],
   },
   telefon: {
-    titel: "Telefonnummer der Stufenleitung",
+    titel: "Telefonnummer des Kommandos",
     zweck:
-      "Eltern erreichen die Stufenleitung ihrer Stufe. Die Nummer ist freiwillig.",
+      "Eltern und Teilnehmende erreichen das Kommando ihrer Einheit. Die Nummer ist freiwillig.",
     frist: "Bis die Person die Nummer entfernt oder das Konto gelöscht wird.",
     apple: ["Contact Info: Phone Number"],
     google: ["Personal info: Phone number"],
@@ -33,41 +33,41 @@ export const KATEGORIEN = {
   profilbild: {
     titel: "Profilbild",
     zweck:
-      "Andere Personen erkennen, wer schreibt oder wen sie erreichen. Das Bild ist freiwillig, und jede Person lädt nur ihr eigenes hoch.",
+      "Andere Personen erkennen, wen sie erreichen. Das Bild ist freiwillig, und jede Person lädt nur ihr eigenes hoch.",
     frist:
       "Bis die Person das Bild löscht oder das Konto deaktiviert oder gelöscht wird. Von Kindern gibt es nie ein Bild.",
     apple: ["User Content: Photos or Videos"],
     google: ["Photos and videos: Photos"],
   },
-  kinder: {
-    titel: "Kinder",
+  teilnehmende: {
+    titel: "Teilnehmende",
     zweck:
-      "Die Eltern melden ihr Kind zu Programmen an oder ab, und die Leitung sieht, wer kommt.",
-    frist: `Bis die Leitung den Eintrag löscht. ${AUF_ANFRAGE}`,
+      "Die Eltern oder die Teilnehmenden selbst melden sich zu Programmen an oder ab, und das Kommando sieht, wer kommt.",
+    frist: `Bis das Kommando den Eintrag löscht. ${AUF_ANFRAGE}`,
     apple: ["Contact Info: Name"],
     google: ["Personal info: Name"],
   },
   rollen: {
-    titel: "Rollen und Stufen",
+    titel: "Rollen in den Einheiten",
     zweck: "Festlegen, wer welche Programme und Anmeldungen sehen darf.",
-    frist: "Bis die Leitung die Rolle entfernt oder das Konto gelöscht wird.",
+    frist: "Bis das Kommando die Rolle entfernt oder das Konto gelöscht wird.",
     apple: ["Other Data"],
     google: ["Personal info: Other info"],
   },
   programme: {
     titel: "Programme",
     zweck:
-      "Information über Zeit und Ort der Programme. Sie stammen aus dem Kalender der Abteilung.",
+      "Information über Zeit und Ort der Programme. Sie stammen aus dem Kalender der Einheit.",
     frist:
-      "Bis die Leitung das Programm löscht. Der Kalender der Abteilung bleibt unverändert.",
+      "Bis die Leitung das Programm löscht. Der Kalender der Einheit bleibt unverändert.",
     apple: [],
     google: [],
   },
   anmeldungen: {
     titel: "Anmeldungen und Abmeldungen",
     zweck:
-      "Zeigen, ob ein Kind zu einem Programm kommt (Ja oder Nein) und ob eine Leitungsperson dabei ist.",
-    frist: `Bis die Leitung die Anmeldung, das Kind oder das Programm löscht. ${AUF_ANFRAGE}`,
+      "Zeigen, ob eine teilnehmende Person zu einem Programm kommt (Ja oder Nein) und ob eine Leitungsperson dabei ist.",
+    frist: `Bis das Kommando die Anmeldung, die teilnehmende Person oder das Programm löscht. ${AUF_ANFRAGE}`,
     apple: ["Other Data"],
     google: ["App activity: Other actions"],
   },
@@ -97,10 +97,11 @@ export const KATEGORIEN = {
     apple: [],
     google: [],
   },
-  abteilung: {
-    titel: "Angaben der Abteilung",
-    zweck: "Die Abteilung und ihre Stufen.",
-    frist: "Bis die Leitung die Angaben ändert oder löscht.",
+  einheiten: {
+    titel: "Angaben der Bezirke und Einheiten",
+    zweck:
+      "Der Bezirk, die Einheit (Jugend- oder Kinderfeuerwehr), ihre Ränge mit Abzeichen und der verschlüsselte Link zum Kalender.",
+    frist: "Bis das Kommando die Angaben ändert oder löscht.",
     apple: [],
     google: [],
   },
@@ -110,9 +111,6 @@ export type KategorieId = keyof typeof KATEGORIEN;
 
 // Tabelle -> Kategorie -> Spalten. Jede Spalte steht genau einmal da; ein Test scheitert bei einer neuen oder entfernten Spalte
 export const SPALTEN: Record<string, Partial<Record<KategorieId, string[]>>> = {
-  abteilung: {
-    abteilung: ["id", "name"],
-  },
   account: {
     konto: [
       "id",
@@ -133,7 +131,7 @@ export const SPALTEN: Record<string, Partial<Record<KategorieId, string[]>>> = {
   audit_log: {
     protokoll: [
       "id",
-      "abteilung_id",
+      "einheit_id",
       "akteur_id",
       "aktion",
       "ziel_typ",
@@ -142,25 +140,35 @@ export const SPALTEN: Record<string, Partial<Record<KategorieId, string[]>>> = {
       "erstellt_am",
     ],
   },
-  kind: {
-    kinder: [
+  bezirk: { einheiten: ["id", "name"] },
+  einheit: {
+    einheiten: [
       "id",
-      "abteilung_id",
-      "vorname",
-      "nachname",
-      "stufe_id",
-      "stufe_seit",
-      "inaktiv_seit",
+      "bezirk_id",
+      "typ",
+      "name",
+      "lodur_url_verschluesselt",
+      "sync_ok_am",
+      "sync_fehler",
     ],
   },
-  kind_eltern: { kinder: ["kind_id", "user_id", "erstellt_am"] },
+  einheit_rolle: {
+    rollen: [
+      "user_id",
+      "einheit_id",
+      "typ",
+      "reihenfolge",
+      "rang_id",
+      "erstellt_am",
+    ],
+  },
   leitung_anmeldung: {
     anmeldungen: ["programm_id", "user_id", "status"],
   },
   programm: {
     programme: [
       "id",
-      "abteilung_id",
+      "einheit_id",
       "google_event_id",
       "google_serie",
       "titel",
@@ -172,10 +180,8 @@ export const SPALTEN: Record<string, Partial<Record<KategorieId, string[]>>> = {
       "google_ort",
       "google_beschreibung",
       "status",
-      "sichtbarkeit",
     ],
   },
-  programm_stufe: { programme: ["programm_id", "stufe_id"] },
   profilbild: { profilbild: ["user_id", "inhalt", "geaendert_am"] },
   push_token: {
     benachrichtigungen: [
@@ -187,8 +193,17 @@ export const SPALTEN: Record<string, Partial<Record<KategorieId, string[]>>> = {
     ],
   },
   rate_limit: { technik: ["id", "key", "count", "last_request"] },
-  rolle: {
-    rollen: ["user_id", "stufe_id", "typ", "prioritaet", "erstellt_am"],
+  rang: {
+    einheiten: [
+      "id",
+      "einheit_id",
+      "name",
+      "kuerzel",
+      "reihenfolge",
+      "abzeichen_sterne",
+      "abzeichen_bild",
+      "abzeichen_bild_typ",
+    ],
   },
   session: {
     technik: [
@@ -203,17 +218,27 @@ export const SPALTEN: Record<string, Partial<Record<KategorieId, string[]>>> = {
       "impersonated_by",
     ],
   },
-  stufe: {
-    abteilung: ["id", "abteilung_id", "name", "kuerzel"],
-  },
   teilnahme: {
     anmeldungen: [
       "programm_id",
-      "kind_id",
+      "teilnehmende_id",
       "status",
       "geaendert_von",
       "geaendert_am",
     ],
+  },
+  teilnehmende: {
+    teilnehmende: [
+      "id",
+      "einheit_id",
+      "vorname",
+      "nachname",
+      "rang_id",
+      "inaktiv_seit",
+    ],
+  },
+  teilnehmende_konto: {
+    teilnehmende: ["user_id", "teilnehmende_id", "art", "erstellt_am"],
   },
   two_factor: {
     konto: [
@@ -236,20 +261,19 @@ export const SPALTEN: Record<string, Partial<Record<KategorieId, string[]>>> = {
       "created_at",
       "updated_at",
       "username",
-      "display_username",
       "role",
       "banned",
       "ban_reason",
       "ban_expires",
       "two_factor_enabled",
-      "abteilung_id",
       "muss_passwort_aendern",
       "startpasswort_gueltig_bis",
       "startpasswort_verschluesselt",
       "fehlversuche",
       "naechster_versuch_ab",
       "deaktiviert_am",
-      "datenschutz_gelesen_am",
+      "einwilligung_am",
+      "einwilligung_version",
     ],
     telefon: ["telefon"],
     benachrichtigungen: ["push_programme", "push_anmeldungen"],
@@ -267,8 +291,7 @@ export const SPALTEN: Record<string, Partial<Record<KategorieId, string[]>>> = {
   zeitregel: {
     benachrichtigungen: [
       "id",
-      "abteilung_id",
-      "stufe_id",
+      "einheit_id",
       "wochentag",
       "uhrzeit",
       "text",

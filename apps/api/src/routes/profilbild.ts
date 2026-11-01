@@ -1,4 +1,4 @@
-import { and, eq, isNull, ne, or, sql } from "drizzle-orm";
+import { and, eq, inArray, or, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { HTTPException } from "hono/http-exception";
@@ -9,22 +9,9 @@ import {
   type BildKodierer,
 } from "../bild.js";
 import type { Db } from "../db/client.js";
-import {
-  leitungAnmeldung,
-  programm,
-  programmStufe,
-  profilbild,
-  rolle,
-  user,
-} from "../db/schema.js";
+import { einheitRolle, profilbild, user } from "../db/schema.js";
 import { eingabe } from "../eingabe.js";
-import { stufenMitKind } from "../kontakte.js";
-import {
-  aktivesKonto,
-  hatRolle,
-  programmSichtbar,
-  type Person,
-} from "../rechte.js";
+import { aktivesKonto, type Person } from "../rechte.js";
 
 const pfadSchema = z.strictObject({ id: z.uuid() });
 const BILD_FORMAT = {
@@ -35,72 +22,40 @@ const BILD_FORMAT = {
 const UPLOADS = 10;
 const FENSTER_MS = 10 * 60_000;
 
-// Wer die Person mit Namen sieht, sieht auch ihr Bild: dieselben Wege wie bei den Namen, keine neue Preisgabe. Die Wege sind die Kontakte der Stufe und die Kontakte eines Programms
+// Wer die Person mit Namen sieht, sieht auch ihr Bild: das Kantonsadmin-Konto alle, das Kommando und die Leitenden alle Rollen ihrer Einheiten, Eltern und Teilnehmende das Kommando (die Kontakte) ihrer Einheiten
 async function darfBildSehen(db: Db, person: Person, zielId: string) {
   if (zielId === person.id) return true;
-  // Die Verwaltung sieht alle Personen der Abteilung, also auch ihre Bilder
-  if (person.admin) {
+  if (person.kantonsadmin) {
     const [ziel] = await db
       .select({ id: user.id })
       .from(user)
-      .where(and(eq(user.id, zielId), eq(user.abteilungId, person.abteilungId)))
+      .where(eq(user.id, zielId))
       .limit(1);
     return !!ziel;
   }
-  // Die Stufe der Person: Leitende und SL sehen alle Leitenden ihrer Stufe (wie in den Anmeldungen), Eltern mit aktivem Kind nur die SL
-  const zielRollen = await db
-    .select({ stufeId: rolle.stufeId, typ: rolle.typ })
-    .from(rolle)
-    .innerJoin(
-      user,
-      and(eq(user.id, rolle.userId), aktivesKonto(person.abteilungId)),
-    )
-    .where(eq(rolle.userId, zielId));
-  const slStufen = zielRollen
-    .filter((r) => r.typ === "stufenleitung")
-    .map((r) => r.stufeId);
-  if (
-    zielRollen.some((r) => hatRolle(person, r.stufeId, "leitung")) ||
-    (slStufen.length > 0 &&
-      (await stufenMitKind(db, person, slStufen)).size > 0)
-  ) {
-    return true;
-  }
-  // Kontakte eines Programms: die SL ohne Abmeldung (Status Nein) bei einem Programm, das die Person sieht
-  const [kontakt] = await db
-    .select({ id: programm.id })
-    .from(programm)
-    .innerJoin(programmStufe, eq(programmStufe.programmId, programm.id))
-    .innerJoin(
-      rolle,
-      and(
-        eq(rolle.stufeId, programmStufe.stufeId),
-        eq(rolle.userId, zielId),
-        eq(rolle.typ, "stufenleitung"),
-      ),
-    )
-    .innerJoin(
-      user,
-      and(eq(user.id, rolle.userId), aktivesKonto(person.abteilungId)),
-    )
-    .leftJoin(
-      leitungAnmeldung,
-      and(
-        eq(leitungAnmeldung.programmId, programm.id),
-        eq(leitungAnmeldung.userId, zielId),
-      ),
-    )
+  const mitRolle = new Set(person.einheiten.map((r) => r.einheitId));
+  const alle = [...mitRolle];
+  const nurKommando = person.teilnehmendeEinheiten.filter(
+    (id) => !mitRolle.has(id),
+  );
+  const [treffer] = await db
+    .select({ einheitId: einheitRolle.einheitId })
+    .from(einheitRolle)
+    .innerJoin(user, and(eq(user.id, einheitRolle.userId), aktivesKonto()))
     .where(
       and(
-        programmSichtbar(person),
+        eq(einheitRolle.userId, zielId),
         or(
-          isNull(leitungAnmeldung.status),
-          ne(leitungAnmeldung.status, "nein"),
+          inArray(einheitRolle.einheitId, alle),
+          and(
+            inArray(einheitRolle.einheitId, nurKommando),
+            inArray(einheitRolle.typ, ["kommandant", "stellvertretung"]),
+          ),
         ),
       ),
     )
     .limit(1);
-  return kontakt !== undefined;
+  return treffer !== undefined;
 }
 
 // Auch in den Importen ohne node:* und process: Die App prüft diese Datei über AppType; sharp kommt darum als Parameter

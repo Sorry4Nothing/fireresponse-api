@@ -91,7 +91,6 @@ export function erstelleAuth(database: BetterAuthOptions["database"]) {
       deleteUser: { enabled: true },
       // Wie die Spalten in src/db/schema.ts; better-auth schreibt beim Anlegen seinen defaultValue, darum gleich dem der Datenbank
       additionalFields: {
-        abteilungId: { type: "string", input: false, required: true },
         mussPasswortAendern: {
           type: "boolean",
           input: false,
@@ -115,7 +114,8 @@ export function erstelleAuth(database: BetterAuthOptions["database"]) {
         telefon: { type: "string", input: false, required: false },
         pushProgramme: { type: "boolean", input: false, defaultValue: true },
         pushAnmeldungen: { type: "boolean", input: false, defaultValue: true },
-        datenschutzGelesenAm: { type: "date", input: false, required: false },
+        einwilligungAm: { type: "date", input: false, required: false },
+        einwilligungVersion: { type: "number", input: false, required: false },
       },
     },
     session: {
@@ -405,6 +405,8 @@ export function erstelleAuth(database: BetterAuthOptions["database"]) {
           BENUTZERNAME_MUSTER.test(benutzername),
         minUsernameLength: BENUTZERNAME_MIN,
         maxUsernameLength: BENUTZERNAME_MAX,
+        // Eine Spalte: der Benutzername, kleingeschrieben gespeichert
+        displayUsername: false,
       }),
       admin({ ac, roles: rollen }),
       // Name wie in app.json; sonst die Standards: 6 Stellen, 30 s, zehn Ersatzcodes

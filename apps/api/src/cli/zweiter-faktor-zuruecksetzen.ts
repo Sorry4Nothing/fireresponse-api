@@ -36,7 +36,7 @@ if (!benutzername) {
   try {
     const db = erstelleDb(sql);
     const [ziel] = await db
-      .select({ id: user.id, abteilungId: user.abteilungId })
+      .select({ id: user.id })
       .from(user)
       .where(eq(user.username, benutzername));
     if (!ziel) {
@@ -45,7 +45,6 @@ if (!benutzername) {
     } else if (
       await setzeZweitenFaktorZurueck(db, {
         zielId: ziel.id,
-        abteilungId: ziel.abteilungId,
         akteurId: "cli",
       })
     ) {
