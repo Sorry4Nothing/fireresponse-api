@@ -1,0 +1,26 @@
+$kind: http-request
+name: "POST /api/v1/admin/zeitregeln"
+order: 65000
+method: POST
+url: "{{baseUrl}}/api/v1/admin/zeitregeln"
+headers:
+  - key: "Cookie"
+    value: "{{cookie}}"
+  - key: "expo-origin"
+    value: "{{expoOrigin}}"
+  - key: "X-Forwarded-For"
+    value: "{{ip}}"
+  - key: "X-App-Version"
+    value: "{{appVersion}}"
+  - key: "Content-Type"
+    value: "application/json"
+body:
+  type: json
+  content: |-
+    {
+      "stufeId": null,
+      "wochentag": 3,
+      "uhrzeit": "08:00",
+      "text": "{Programm} am {Datum}",
+      "aktiv": true
+    }

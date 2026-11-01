@@ -1,0 +1,22 @@
+$kind: http-request
+name: "PATCH /api/v1/admin/zeitregeln/:id"
+order: 66000
+method: PATCH
+url: "{{baseUrl}}/api/v1/admin/zeitregeln/{{patchRegelId}}"
+headers:
+  - key: "Cookie"
+    value: "{{cookie}}"
+  - key: "expo-origin"
+    value: "{{expoOrigin}}"
+  - key: "X-Forwarded-For"
+    value: "{{ip}}"
+  - key: "X-App-Version"
+    value: "{{appVersion}}"
+  - key: "Content-Type"
+    value: "application/json"
+body:
+  type: json
+  content: |-
+    {
+      "uhrzeit": "09:30"
+    }

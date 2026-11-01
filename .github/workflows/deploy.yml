@@ -1,0 +1,59 @@
+name: Deploy
+
+# Von Hand oder aus release.yml, nur für einen Release-Tag; die Umgebung «production» verlangt eine Freigabe und gilt nur für den Branch main
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release-Tag vX.Y.Z, dessen Image schon gebaut ist
+        required: true
+        type: string
+  workflow_call:
+    inputs:
+      tag:
+        description: Release-Tag vX.Y.Z, dessen Image schon gebaut ist
+        required: true
+        type: string
+
+# Dieser Workflow braucht kein Schreibrecht; packages: write haben nur image.yml und der Aufruf davon in release.yml
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Auf den Server ausrollen
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    steps:
+      # Eingaben und Secrets kommen aus der Umgebung, nicht als Ausdruck ins Skript: So kann kein Wert Shell-Code einschleusen
+      - name: Tag prüfen
+        env:
+          TAG: ${{ inputs.tag }}
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          echo "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'
+          # Der Tag liegt auf main: Er ist dann Vorfahre von main oder gleich main
+          status=$(gh api "repos/$REPO/compare/main...$TAG" --jq .status)
+          case "$status" in identical|behind) ;; *) echo "Der Tag $TAG liegt nicht auf main" >&2; exit 1 ;; esac
+          docker manifest inspect "ghcr.io/sorry4nothing/fireresponse-api:$TAG" > /dev/null
+      - name: Per SSH ausrollen
+        env:
+          TAG: ${{ inputs.tag }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_HOST_KEY: ${{ secrets.DEPLOY_HOST_KEY }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$DEPLOY_HOST_KEY" > ~/.ssh/known_hosts
+          # Der Server führt für diesen Schlüssel nur deploy/ssh-deploy.sh aus; der Tag ist sein einziges Argument
+          ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            "$DEPLOY_USER@$DEPLOY_HOST" "$TAG"

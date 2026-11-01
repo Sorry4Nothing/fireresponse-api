@@ -1,0 +1,11 @@
+# Vorlage für deploy/Caddyfile auf dem Server; die Domain muss auf die IP des Servers zeigen, Caddy holt das Zertifikat selbst
+api.fireresponse.ch {
+	# HSTS ein Jahr, auch für Subdomains; -Server nimmt die Kennung von Caddy aus den Antworten
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+		-Server
+	}
+	reverse_proxy api:3000
+}

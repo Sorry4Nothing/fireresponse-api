@@ -1,0 +1,14 @@
+$kind: http-request
+name: "GET /admin/zeitregeln.js"
+order: 17000
+method: GET
+url: "{{baseUrl}}/admin/zeitregeln.js"
+headers:
+  - key: "Cookie"
+    value: "{{cookie}}"
+  - key: "expo-origin"
+    value: "{{expoOrigin}}"
+  - key: "X-Forwarded-For"
+    value: "{{ip}}"
+  - key: "X-App-Version"
+    value: "{{appVersion}}"

@@ -1,0 +1,20 @@
+$kind: http-request
+name: "POST /api/v1/admin/personen/:id/zweiter-faktor-zuruecksetzen"
+order: 48000
+method: POST
+url: "{{baseUrl}}/api/v1/admin/personen/{{ziel_47}}/zweiter-faktor-zuruecksetzen"
+headers:
+  - key: "Cookie"
+    value: "{{cookie}}"
+  - key: "expo-origin"
+    value: "{{expoOrigin}}"
+  - key: "X-Forwarded-For"
+    value: "{{ip}}"
+  - key: "X-App-Version"
+    value: "{{appVersion}}"
+  - key: "Content-Type"
+    value: "application/json"
+body:
+  type: json
+  content: |-
+    {}

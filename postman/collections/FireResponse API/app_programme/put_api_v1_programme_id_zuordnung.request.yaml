@@ -1,0 +1,25 @@
+$kind: http-request
+name: "PUT /api/v1/programme/:id/zuordnung"
+order: 36000
+method: PUT
+url: "{{baseUrl}}/api/v1/programme/{{programmId}}/zuordnung"
+headers:
+  - key: "Cookie"
+    value: "{{cookie}}"
+  - key: "expo-origin"
+    value: "{{expoOrigin}}"
+  - key: "X-Forwarded-For"
+    value: "{{ip}}"
+  - key: "X-App-Version"
+    value: "{{appVersion}}"
+  - key: "Content-Type"
+    value: "application/json"
+body:
+  type: json
+  content: |-
+    {
+      "stufen": [
+        "{{stufeAId}}"
+      ],
+      "sichtbarkeit": "eltern"
+    }

@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [develop, main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+# Die Jobnamen sind die Namen der Pflicht-Checks und bleiben darum ohne Umlaute
+jobs:
+  api:
+    name: API und Rechte
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: postgres:18
+        env:
+          POSTGRES_DB: fireresponse
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # Nur für den Migrationsschritt auf fireresponse; die Tests bauen fireresponse_test über feste URLs selbst auf
+      MIGRATION_DATABASE_URL: postgres://fireresponse_besitzer@localhost:5432/fireresponse
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 26
+          cache: npm
+      - run: npm ci
+      # Der Service startet vor dem Checkout, darum legt hier kein Mount wie in docker-compose.yml die Rollen an
+      - run: docker exec -i ${{ job.services.db.id }} psql -v ON_ERROR_STOP=1 -U postgres -d fireresponse < apps/api/src/db/rollen.sql
+      # Belegt bei jedem PR, dass die Migrationen auf einer leeren Datenbank durchlaufen
+      - run: npm run db:migrieren -w apps/api
+      - run: npm run typecheck -w apps/api
+      - run: npm run lint -w apps/api
+      - run: npx prettier --check apps/api
+      - run: npm test -w apps/api
+
+  audit:
+    name: Abhaengigkeiten (npm audit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 26
+      - run: npm audit --omit=dev --audit-level=high -w apps/api

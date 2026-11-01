@@ -1,0 +1,14 @@
+$kind: http-request
+name: "GET /admin/favicon.svg"
+order: 10000
+method: GET
+url: "{{baseUrl}}/admin/favicon.svg"
+headers:
+  - key: "Cookie"
+    value: "{{cookie}}"
+  - key: "expo-origin"
+    value: "{{expoOrigin}}"
+  - key: "X-Forwarded-For"
+    value: "{{ip}}"
+  - key: "X-App-Version"
+    value: "{{appVersion}}"

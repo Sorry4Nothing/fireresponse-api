@@ -1,0 +1,114 @@
+# Endpunkte und Zugriff
+
+Erzeugt aus der Rechte-Matrix (`apps/api/test/rechte-matrix.test.ts`) und `docs/api/openapi.yaml`; nicht von Hand ändern. Neu erzeugen: siehe [postman.md](postman.md).
+
+Je Route steht, welche Persona welchen Status bekommt. 2xx heisst erlaubt, 401 nicht angemeldet, 403 angemeldet ohne Recht, 404 das Objekt gehört einer anderen Stufe oder Abteilung und ist unsichtbar. Die Personas beschreibt `apps/api/test/hilfen/personas.ts`.
+
+## Seiten und Gesundheit
+
+| Route                                         | Zweck                                                 | Status je Persona |
+| --------------------------------------------- | ----------------------------------------------------- | ----------------- |
+| `GET /health`                                 | Gesundheitsprüfung                                    | **200** alle      |
+| `GET /datenschutz`                            | Datenschutzerklärung als HTML-Seite                   | **200** alle      |
+| `GET /konto-loeschen`                         | Hinweis zum Löschen des Kontos als HTML-Seite         | **200** alle      |
+| `GET /support`                                | Support-Seite als HTML-Seite                          | **200** alle      |
+| `GET /admin`                                  | Verwaltung im Browser als HTML-Seite                  | **200** alle      |
+| `GET /admin/admin.css`                        | Stilvorlage der Verwaltung                            | **200** alle      |
+| `GET /admin/admin.js`                         | Hauptskript der Verwaltung (Anmeldung und Navigation) | **200** alle      |
+| `GET /admin/api.js`                           | Skript der Verwaltung – Aufrufe gegen die API         | **200** alle      |
+| `GET /admin/dom.js`                           | Skript der Verwaltung – Bausteine der Oberfläche      | **200** alle      |
+| `GET /admin/favicon.svg`                      | Symbol der Verwaltung im Browser-Tab                  | **200** alle      |
+| `GET /admin/hintergrund.svg`                  | Logo als Hintergrund der Verwaltung                   | **200** alle      |
+| `GET /admin/kinder.js`                        | Skript der Verwaltung – Bereich Kinder                | **200** alle      |
+| `GET /admin/personen.js`                      | Skript der Verwaltung – Bereich Personen              | **200** alle      |
+| `GET /admin/stufen.js`                        | Skript der Verwaltung – Bereich Stufen                | **200** alle      |
+| `GET /admin/system.js`                        | Skript der Verwaltung – Bereich System                | **200** alle      |
+| `GET /admin/uebersicht.js`                    | Skript der Verwaltung – Bereich Übersicht             | **200** alle      |
+| `GET /admin/zeitregeln.js`                    | Skript der Verwaltung – Bereich Erinnerungen          | **200** alle      |
+| `GET /admin/csv.js`                           | Skript der Verwaltung – CSV-Leser                     | **200** alle      |
+| `GET /admin/import.js`                        | Skript der Verwaltung – Bereich Import                | **200** alle      |
+| `GET /.well-known/apple-app-site-association` | Apple App Site Association (noch leer)                | **200** alle      |
+| `GET /.well-known/assetlinks.json`            | Android Digital Asset Links (noch leer)               | **200** alle      |
+
+## Anmeldung (better-auth)
+
+| Route                                          | Zweck                                            | Status je Persona                                                                                                                                                                       |
+| ---------------------------------------------- | ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /api/auth/sign-in/username`              | Mit Benutzername und Passwort anmelden           | **200** admin, adminOhneZweitenFaktor, slA, slB, leitendeA, leitendeB, leitendeAElternB, elternA, elternB, mussPasswortAendern, demoAdmin, demoEltern<br>**401** deaktiviert, ohneLogin |
+| `POST /api/auth/sign-out`                      | Abmelden (aktuelle Sitzung beenden)              | **200** alle                                                                                                                                                                            |
+| `GET /api/auth/get-session`                    | Aktuelle Sitzung und Person lesen                | **200** alle                                                                                                                                                                            |
+| `POST /api/auth/change-password`               | Eigenes Passwort ändern                          | **400** admin, adminOhneZweitenFaktor, slA, slB, leitendeA, leitendeB, leitendeAElternB, elternA, elternB, mussPasswortAendern, demoAdmin, demoEltern<br>**401** deaktiviert, ohneLogin |
+| `POST /api/auth/revoke-sessions`               | Überall abmelden (alle Sitzungen beenden)        | **200** admin, adminOhneZweitenFaktor, slA, slB, leitendeA, leitendeB, leitendeAElternB, elternA, elternB, mussPasswortAendern, demoAdmin, demoEltern<br>**401** deaktiviert, ohneLogin |
+| `POST /api/auth/two-factor/verify-totp`        | TOTP-Code prüfen (Anmeldung oder Einrichtung)    | **400** adminOhneZweitenFaktor, slA, slB, leitendeA, leitendeB, leitendeAElternB, elternA, elternB, mussPasswortAendern, demoEltern<br>**401** admin, deaktiviert, ohneLogin, demoAdmin |
+| `POST /api/auth/two-factor/verify-backup-code` | Ersatzcode prüfen (Anmeldung ohne Authenticator) | **400** adminOhneZweitenFaktor, slA, slB, leitendeA, leitendeB, leitendeAElternB, elternA, elternB, mussPasswortAendern, demoEltern<br>**401** admin, deaktiviert, ohneLogin, demoAdmin |
+| `POST /api/auth/two-factor/enable`             | Zweiten Faktor (TOTP) einrichten                 | **400** admin, adminOhneZweitenFaktor, demoAdmin<br>**404** slA, slB, leitendeA, leitendeB, leitendeAElternB, elternA, elternB, mussPasswortAendern, deaktiviert, ohneLogin, demoEltern |
+
+## App: ich
+
+| Route                          | Zweck                                               | Status je Persona                                                                                                                                                                                 |
+| ------------------------------ | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/v1/ich`              | Eigenes Profil mit Rollen, Stufen und Kindern lesen | **200** admin, adminOhneZweitenFaktor, slA, slB, leitendeA, leitendeB, leitendeAElternB, elternA, elternB, mussPasswortAendern, demoAdmin, demoEltern<br>**401** deaktiviert, ohneLogin           |
+| `POST /api/v1/ich/datenschutz` | Kenntnisnahme der Datenschutzerklärung festhalten   | **204** admin, adminOhneZweitenFaktor, slA, slB, leitendeA, leitendeB, leitendeAElternB, elternA, elternB, demoAdmin, demoEltern<br>**401** deaktiviert, ohneLogin<br>**403** mussPasswortAendern |
+| `PATCH /api/v1/ich`            | Eigene Push-Schalter und Telefonnummer ändern       | **204** admin, adminOhneZweitenFaktor, slA, slB, leitendeA, leitendeB, leitendeAElternB, elternA, elternB, demoAdmin, demoEltern<br>**401** deaktiviert, ohneLogin<br>**403** mussPasswortAendern |
+| `PUT /api/v1/ich/bild`         | Eigenes Profilbild hochladen                        | **204** admin, adminOhneZweitenFaktor, slA, slB, leitendeA, leitendeB, leitendeAElternB, elternA, elternB, demoAdmin, demoEltern<br>**401** deaktiviert, ohneLogin<br>**403** mussPasswortAendern |
+| `DELETE /api/v1/ich/bild`      | Eigenes Profilbild löschen                          | **204** admin, adminOhneZweitenFaktor, slA, slB, leitendeA, leitendeB, leitendeAElternB, elternA, elternB, demoAdmin, demoEltern<br>**401** deaktiviert, ohneLogin<br>**403** mussPasswortAendern |
+
+## App: programme
+
+| Route                                          | Zweck                                                | Status je Persona                                                                                                                                                                                           |
+| ---------------------------------------------- | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/v1/programme`                        | Programme eines Zeitfensters auflisten               | **200** admin, adminOhneZweitenFaktor, slA, slB, leitendeA, leitendeB, leitendeAElternB, elternA, elternB, demoAdmin, demoEltern<br>**401** deaktiviert, ohneLogin<br>**403** mussPasswortAendern           |
+| `GET /api/v1/programme/:id`                    | Ein Programm mit Teilnahmen der eigenen Kinder lesen | **200** admin, adminOhneZweitenFaktor, slA, slB, leitendeA, leitendeAElternB, elternA<br>**401** deaktiviert, ohneLogin<br>**403** mussPasswortAendern<br>**404** leitendeB, elternB, demoAdmin, demoEltern |
+| `GET /api/v1/programme/:id/kontakte`           | Kontaktpersonen eines Programms lesen                | **200** admin, adminOhneZweitenFaktor, slA, slB, leitendeA, leitendeAElternB, elternA<br>**401** deaktiviert, ohneLogin<br>**403** mussPasswortAendern<br>**404** leitendeB, elternB, demoAdmin, demoEltern |
+| `PUT /api/v1/programme/:id/zuordnung`          | Stufen und Sichtbarkeit eines Programms setzen       | **204** admin, adminOhneZweitenFaktor, slA, slB<br>**401** deaktiviert, ohneLogin<br>**403** leitendeA, leitendeAElternB, elternA, mussPasswortAendern<br>**404** leitendeB, elternB, demoAdmin, demoEltern |
+| `PUT /api/v1/programme/:id/teilnahmen/:kindId` | Teilnahme eines Kindes melden oder ändern            | **204** admin, adminOhneZweitenFaktor, slA, leitendeA, leitendeAElternB, elternA<br>**401** deaktiviert, ohneLogin<br>**403** slB, mussPasswortAendern<br>**404** leitendeB, elternB, demoAdmin, demoEltern |
+| `GET /api/v1/programme/:id/teilnahmen`         | Übersicht der Teilnahmen eines Programms lesen       | **200** admin, adminOhneZweitenFaktor, slA, leitendeA, leitendeAElternB, elternA<br>**401** deaktiviert, ohneLogin<br>**403** slB, mussPasswortAendern<br>**404** leitendeB, elternB, demoAdmin, demoEltern |
+| `PUT /api/v1/programme/:id/leitung`            | Eigene Anmeldung als Leitung melden oder ändern      | **204** slA, leitendeA, leitendeAElternB<br>**401** deaktiviert, ohneLogin<br>**403** admin, adminOhneZweitenFaktor, slB, elternA, mussPasswortAendern<br>**404** leitendeB, elternB, demoAdmin, demoEltern |
+
+## Verwaltung
+
+| Route                                                          | Zweck                                                          | Status je Persona                                                                                                                                                                                           |
+| -------------------------------------------------------------- | -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/v1/admin/system`                                     | Zustand der API und Bestand der Abteilung                      | **200** admin, demoAdmin<br>**401** deaktiviert, ohneLogin<br>**403** adminOhneZweitenFaktor, slA, slB, leitendeA, leitendeB, leitendeAElternB, elternA, elternB, mussPasswortAendern, demoEltern           |
+| `GET /api/v1/admin/system/requests`                            | Zahlen zu den Anfragen an die API                              | **200** admin, demoAdmin<br>**401** deaktiviert, ohneLogin<br>**403** adminOhneZweitenFaktor, slA, slB, leitendeA, leitendeB, leitendeAElternB, elternA, elternB, mussPasswortAendern, demoEltern           |
+| `GET /api/v1/admin/personen`                                   | Personen, Stufen und Kinder der Abteilung für die Verwaltung   | **200** admin, demoAdmin<br>**401** deaktiviert, ohneLogin<br>**403** adminOhneZweitenFaktor, slA, slB, leitendeA, leitendeB, leitendeAElternB, elternA, elternB, mussPasswortAendern, demoEltern           |
+| `POST /api/v1/admin/personen`                                  | Person anlegen und Startpasswort erhalten                      | **201** admin, demoAdmin<br>**401** deaktiviert, ohneLogin<br>**403** adminOhneZweitenFaktor, slA, slB, leitendeA, leitendeB, leitendeAElternB, elternA, elternB, mussPasswortAendern, demoEltern           |
+| `PATCH /api/v1/admin/personen/:id`                             | Name, Admin-Recht, Stufenrollen und Kinder einer Person ändern | **204** admin<br>**401** deaktiviert, ohneLogin<br>**403** adminOhneZweitenFaktor, slA, slB, leitendeA, leitendeB, leitendeAElternB, elternA, elternB, mussPasswortAendern<br>**404** demoAdmin, demoEltern |
+| `POST /api/v1/admin/personen/:id/startpasswort`                | Neues Startpasswort für eine Person erzeugen                   | **200** admin<br>**401** deaktiviert, ohneLogin<br>**403** adminOhneZweitenFaktor, slA, slB, leitendeA, leitendeB, leitendeAElternB, elternA, elternB, mussPasswortAendern<br>**404** demoAdmin, demoEltern |
+| `POST /api/v1/admin/personen/:id/deaktivieren`                 | Person deaktivieren                                            | **204** admin<br>**401** deaktiviert, ohneLogin<br>**403** adminOhneZweitenFaktor, slA, slB, leitendeA, leitendeB, leitendeAElternB, elternA, elternB, mussPasswortAendern<br>**404** demoAdmin, demoEltern |
+| `POST /api/v1/admin/personen/:id/aktivieren`                   | Deaktivierte Person wieder aktivieren                          | **204** admin<br>**401** deaktiviert, ohneLogin<br>**403** adminOhneZweitenFaktor, slA, slB, leitendeA, leitendeB, leitendeAElternB, elternA, elternB, mussPasswortAendern<br>**404** demoAdmin, demoEltern |
+| `POST /api/v1/admin/personen/:id/zweiter-faktor-zuruecksetzen` | Zweiten Faktor einer Person zurücksetzen                       | **204** admin<br>**401** deaktiviert, ohneLogin<br>**403** adminOhneZweitenFaktor, slA, slB, leitendeA, leitendeB, leitendeAElternB, elternA, elternB, mussPasswortAendern<br>**404** demoAdmin, demoEltern |
+| `DELETE /api/v1/admin/personen/:id`                            | Person löschen                                                 | **204** admin<br>**401** deaktiviert, ohneLogin<br>**403** adminOhneZweitenFaktor, slA, slB, leitendeA, leitendeB, leitendeAElternB, elternA, elternB, mussPasswortAendern<br>**404** demoAdmin, demoEltern |
+| `POST /api/v1/admin/stufen`                                    | Stufe anlegen                                                  | **201** admin, demoAdmin<br>**401** deaktiviert, ohneLogin<br>**403** adminOhneZweitenFaktor, slA, slB, leitendeA, leitendeB, leitendeAElternB, elternA, elternB, mussPasswortAendern, demoEltern           |
+| `PATCH /api/v1/admin/stufen/:id`                               | Stufe ändern                                                   | **204** admin<br>**401** deaktiviert, ohneLogin<br>**403** adminOhneZweitenFaktor, slA, slB, leitendeA, leitendeB, leitendeAElternB, elternA, elternB, mussPasswortAendern<br>**404** demoAdmin, demoEltern |
+| `PUT /api/v1/admin/stufen/:id/stufenleitung`                   | Reihenfolge der Stufenleitung festlegen                        | **204** admin<br>**401** deaktiviert, ohneLogin<br>**403** adminOhneZweitenFaktor, slA, slB, leitendeA, leitendeB, leitendeAElternB, elternA, elternB, mussPasswortAendern<br>**404** demoAdmin, demoEltern |
+| `DELETE /api/v1/admin/stufen/:id`                              | Stufe löschen                                                  | **204** admin<br>**401** deaktiviert, ohneLogin<br>**403** adminOhneZweitenFaktor, slA, slB, leitendeA, leitendeB, leitendeAElternB, elternA, elternB, mussPasswortAendern<br>**404** demoAdmin, demoEltern |
+| `GET /api/v1/admin/kinder`                                     | Kinder der Abteilung mit Elternteilen                          | **200** admin, demoAdmin<br>**401** deaktiviert, ohneLogin<br>**403** adminOhneZweitenFaktor, slA, slB, leitendeA, leitendeB, leitendeAElternB, elternA, elternB, mussPasswortAendern, demoEltern           |
+| `POST /api/v1/admin/kinder`                                    | Kind anlegen                                                   | **201** admin, demoAdmin<br>**401** deaktiviert, ohneLogin<br>**403** adminOhneZweitenFaktor, slA, slB, leitendeA, leitendeB, leitendeAElternB, elternA, elternB, mussPasswortAendern, demoEltern           |
+| `POST /api/v1/admin/import/vorschau`                           | Import prüfen, ohne etwas zu schreiben                         | **200** admin, demoAdmin<br>**401** deaktiviert, ohneLogin<br>**403** adminOhneZweitenFaktor, slA, slB, leitendeA, leitendeB, leitendeAElternB, elternA, elternB, mussPasswortAendern, demoEltern           |
+| `POST /api/v1/admin/import`                                    | Kinder und Leitende importieren                                | **201** admin, demoAdmin<br>**401** deaktiviert, ohneLogin<br>**403** adminOhneZweitenFaktor, slA, slB, leitendeA, leitendeB, leitendeAElternB, elternA, elternB, mussPasswortAendern, demoEltern           |
+| `PATCH /api/v1/admin/kinder/:id`                               | Kind ändern                                                    | **204** admin<br>**401** deaktiviert, ohneLogin<br>**403** adminOhneZweitenFaktor, slA, slB, leitendeA, leitendeB, leitendeAElternB, elternA, elternB, mussPasswortAendern<br>**404** demoAdmin, demoEltern |
+| `DELETE /api/v1/admin/kinder/:id`                              | Kind löschen                                                   | **204** admin<br>**401** deaktiviert, ohneLogin<br>**403** adminOhneZweitenFaktor, slA, slB, leitendeA, leitendeB, leitendeAElternB, elternA, elternB, mussPasswortAendern<br>**404** demoAdmin, demoEltern |
+| `GET /api/v1/admin/zeitregeln`                                 | Erinnerungsregeln der Abteilung                                | **200** admin, demoAdmin<br>**401** deaktiviert, ohneLogin<br>**403** adminOhneZweitenFaktor, slA, slB, leitendeA, leitendeB, leitendeAElternB, elternA, elternB, mussPasswortAendern, demoEltern           |
+| `POST /api/v1/admin/zeitregeln`                                | Erinnerungsregel anlegen                                       | **201** admin, demoAdmin<br>**401** deaktiviert, ohneLogin<br>**403** adminOhneZweitenFaktor, slA, slB, leitendeA, leitendeB, leitendeAElternB, elternA, elternB, mussPasswortAendern, demoEltern           |
+| `PATCH /api/v1/admin/zeitregeln/:id`                           | Erinnerungsregel ändern                                        | **204** admin<br>**401** deaktiviert, ohneLogin<br>**403** adminOhneZweitenFaktor, slA, slB, leitendeA, leitendeB, leitendeAElternB, elternA, elternB, mussPasswortAendern<br>**404** demoAdmin, demoEltern |
+| `DELETE /api/v1/admin/zeitregeln/:id`                          | Erinnerungsregel löschen                                       | **204** admin<br>**401** deaktiviert, ohneLogin<br>**403** adminOhneZweitenFaktor, slA, slB, leitendeA, leitendeB, leitendeAElternB, elternA, elternB, mussPasswortAendern<br>**404** demoAdmin, demoEltern |
+
+## App: stufen
+
+| Route                             | Zweck                                   | Status je Persona                                                                                                                                                                                           |
+| --------------------------------- | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/v1/stufen`              | Alle Stufen der eigenen Abteilung lesen | **200** admin, adminOhneZweitenFaktor, slA, slB, leitendeA, leitendeB, leitendeAElternB, elternA, elternB, demoAdmin, demoEltern<br>**401** deaktiviert, ohneLogin<br>**403** mussPasswortAendern           |
+| `GET /api/v1/stufen/:id/kontakte` | SL einer Stufe lesen                    | **200** admin, adminOhneZweitenFaktor, slA, leitendeA, leitendeAElternB, elternA<br>**401** deaktiviert, ohneLogin<br>**403** mussPasswortAendern<br>**404** slB, leitendeB, elternB, demoAdmin, demoEltern |
+
+## App: personen
+
+| Route                           | Zweck                         | Status je Persona                                                                                                                                                                                           |
+| ------------------------------- | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/v1/personen/:id/bild` | Profilbild einer Person lesen | **200** admin, adminOhneZweitenFaktor, slA, slB, leitendeA, leitendeAElternB, elternA<br>**401** deaktiviert, ohneLogin<br>**403** mussPasswortAendern<br>**404** leitendeB, elternB, demoAdmin, demoEltern |
+
+## App: push-token
+
+| Route                    | Zweck                                                      | Status je Persona                                                                                                                                                                                 |
+| ------------------------ | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PUT /api/v1/push-token` | Push-Token des Geräts für die aktuelle Sitzung hinterlegen | **204** admin, adminOhneZweitenFaktor, slA, slB, leitendeA, leitendeB, leitendeAElternB, elternA, elternB, demoAdmin, demoEltern<br>**401** deaktiviert, ohneLogin<br>**403** mussPasswortAendern |
