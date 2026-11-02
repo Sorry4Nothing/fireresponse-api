@@ -67,8 +67,8 @@ interface Zeile {
   // Literale Werte: beobachtet und gegen better-auth gegengelesen, nie aus rechte.ts berechnet
   erwartet: Record<Persona, number>;
   body?: (konto: PersonaKonto) => Record<string, unknown>;
-  // Statt body: Der Body ist das Bild selbst (Profilbild-Upload; «abzeichen»: ein SVG für den Rang; «logo»: ein quadratisches SVG für die Einheit)
-  bild?: true | "abzeichen" | "logo";
+  // Statt body: Der Body ist das Bild selbst (Profilbild-Upload; «logo»: ein quadratisches SVG für die Einheit)
+  bild?: true | "logo";
   // Für Zeilen, die die Sitzungen der geteilten Personas beenden oder ihre Daten ändern würden: eigene Personas in einer eigenen Welt
   frischePersonas?: true;
   // Pflicht für jede Route mit Pfad-Parameter: ein Objekt der Welt
@@ -538,43 +538,15 @@ const MATRIX: Record<string, Zeile> = {
     body: () => ({ rangId: welt.rangId }),
     erwartet: VERWALTEN_JF_A(204),
   },
-  // Ränge: Inhalt, Reihenfolge, Abzeichen-Prüfung und Löschen in test/admin-raenge.test.ts.
+  // Ränge sind fest: Die Verwaltung liest sie nur.
   "GET /api/v1/admin/einheiten/:einheitId/raenge": {
     url: (w) => `/api/v1/admin/einheiten/${w.einheit.jfA}/raenge`,
     erwartet: VERWALTEN_JF_A(200),
   },
-  "PUT /api/v1/admin/einheiten/:einheitId/raenge/reihenfolge": {
-    url: (w) => `/api/v1/admin/einheiten/${w.einheit.jfA}/raenge/reihenfolge`,
-    body: () => ({ ids: alleRangIds }),
-    erwartet: VERWALTEN_JF_A(204),
-  },
-  "PATCH /api/v1/admin/einheiten/:einheitId/raenge/:rangId": {
-    url: (w) => `/api/v1/admin/einheiten/${w.einheit.jfA}/raenge/${bildRangId}`,
-    body: () => ({ name: "Rang mit Bild", typ: "jf" }),
-    erwartet: VERWALTEN_JF_A(204),
-  },
-  // Jede Anfrage verbraucht ihren Rang: einer pro Persona
-  "DELETE /api/v1/admin/einheiten/:einheitId/raenge/:rangId": {
-    urlJeAnfrage: async () =>
-      `/api/v1/admin/einheiten/${welt.einheit.jfA}/raenge/${await wegwerfRangId()}`,
-    erwartet: VERWALTEN_JF_A(204),
-  },
-  // Das Bild liegt im Test unverändert in der Datenbank; die Reihenfolge GET, PUT, DELETE hält es vorhanden, bis DELETE es entfernt
   "GET /api/v1/admin/einheiten/:einheitId/raenge/:rangId/abzeichen": {
     url: (w) =>
       `/api/v1/admin/einheiten/${w.einheit.jfA}/raenge/${bildRangId}/abzeichen`,
     erwartet: VERWALTEN_JF_A(200),
-  },
-  "PUT /api/v1/admin/einheiten/:einheitId/raenge/:rangId/abzeichen": {
-    url: (w) =>
-      `/api/v1/admin/einheiten/${w.einheit.jfA}/raenge/${bildRangId}/abzeichen`,
-    bild: "abzeichen",
-    erwartet: VERWALTEN_JF_A(204),
-  },
-  "DELETE /api/v1/admin/einheiten/:einheitId/raenge/:rangId/abzeichen": {
-    url: (w) =>
-      `/api/v1/admin/einheiten/${w.einheit.jfA}/raenge/${bildRangId}/abzeichen`,
-    erwartet: VERWALTEN_JF_A(204),
   },
   // Das Bild für die Verwaltung unter der Adresse, die logoUrl dort nennt; wie PUT und DELETE ohne die Einwilligungsprüfung der App. Liegt vor ihnen, weil sie das Logo ändern
   "GET /api/v1/admin/einheiten/:einheitId/logo": {
@@ -752,8 +724,6 @@ let leitungZielId: string;
 let offenesKontoId: string;
 let bildRangId: string;
 let milizRangId: string;
-let alleRangIds: string[] = [];
-let naechsterWegwerfRang = 700;
 let programmId: string;
 let offenProgrammId: string;
 let abzeichenRangId: string;
@@ -860,19 +830,6 @@ async function wegwerfBezirkId() {
 }
 
 // Ein Rang pro Aufruf, eigene Reihenfolge: das Ziel einer Löschung
-async function wegwerfRangId() {
-  const [zeile] = await welt.db
-    .insert(schema.rang)
-    .values({
-      einheitId: welt.einheit.jfA,
-      name: "Wegwerf Rang",
-      kuerzel: "WR",
-      reihenfolge: naechsterWegwerfRang++,
-    })
-    .returning({ id: schema.rang.id });
-  return zeile.id;
-}
-
 async function wegwerfRegelId() {
   const [zeile] = await welt.db
     .insert(schema.zeitregel)
@@ -950,7 +907,6 @@ beforeAll(async () => {
       typ: "miliz",
     })
     .returning({ id: schema.rang.id });
-  alleRangIds = [welt.rangId, abzeichenRangId, bildRangId];
   await db
     .update(schema.einheit)
     .set({ logoBild: logoSvg, logoBildTyp: "svg" })
@@ -1115,13 +1071,7 @@ describe("Matrix: jede Route mal jede Persona", () => {
           ? { ...konto.headers, "content-type": "application/json" }
           : konto.headers,
         body: zeile.bild
-          ? new Uint8Array(
-              zeile.bild === "abzeichen"
-                ? abzeichenSvg
-                : zeile.bild === "logo"
-                  ? logoSvg
-                  : testBild,
-            )
+          ? new Uint8Array(zeile.bild === "logo" ? logoSvg : testBild)
           : zeile.body && JSON.stringify(zeile.body(konto)),
       });
       ergebnis[persona] = antwort.status;

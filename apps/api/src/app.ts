@@ -59,7 +59,7 @@ const SICHERHEITS_KOPFZEILEN = {
 };
 
 const ABZEICHEN_PFAD =
-  /^\/api\/v1\/admin\/einheiten\/[^/]+(?:\/raenge\/[^/]+\/abzeichen|\/logo)$/;
+  /^\/api\/v1\/admin\/einheiten\/[^/]+\/logo$/;
 
 // Lesende Methoden ändern nichts; der Origin zählt nur bei den übrigen
 const LESEND = new Set(["GET", "HEAD", "OPTIONS"]);

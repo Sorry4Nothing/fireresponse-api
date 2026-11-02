@@ -25,7 +25,7 @@ import {
   mehrzahl,
   zustandsChips,
 } from "./konten.js";
-import { nurMiliz, raengeAuswahl, rangZelle } from "./raenge.js";
+import { raengeAuswahl, raengeVomTyp, rangZelle } from "./raenge.js";
 
 // Suche und Filter überleben das Neuladen nach einer Aktion; fokus: Person, deren Zeile danach den Fokus bekommt
 const zustand = { frage: "", filter: "alle", fokus: null };
@@ -150,7 +150,7 @@ function bearbeiten(person, einheit, daten, ctx, neu) {
         })
       : null;
   const rang = raengeAuswahl(
-    nurMiliz(daten.raenge),
+    raengeVomTyp(daten.raenge, "miliz"),
     person.rang?.id ?? "",
     "Rang",
   );

@@ -485,7 +485,7 @@ export function codefeld({ label, hilfe, stellen = 6, ...rest }) {
 }
 
 // Eigene Auswahl (Combobox mit Liste); das versteckte select hält den Wert, damit .eingabe.value und «change» wie bei einem normalen Feld funktionieren
-// optionen: [[wert, beschriftung, bild?], …]; bild ist die URL eines Symbols vor der Beschriftung
+// optionen: [[wert, beschriftung, bild?], …]; bild ist die URL oder ein Element (wird je Anzeige kopiert) vor der Beschriftung
 export function auswahl({ label, optionen, wert, ...rest }) {
   const id = neueId("auswahl");
   const listeId = `${id}-liste`;
@@ -499,7 +499,10 @@ export function auswahl({ label, optionen, wert, ...rest }) {
     el(
       "span",
       { class: "auswahl-wert" },
-      bild && el("img", { class: "auswahl-bild", src: bild, alt: "" }),
+      bild &&
+        (typeof bild === "string"
+          ? el("img", { class: "auswahl-bild", src: bild, alt: "" })
+          : bild.cloneNode(true)),
       beschriftung,
     );
   const text = el("span", { class: "auswahl-wert" });

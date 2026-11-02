@@ -23,7 +23,7 @@ import {
   mehrzahl,
   zustandsChips,
 } from "./konten.js";
-import { abzeichen, ohneMiliz, raengeAuswahl } from "./raenge.js";
+import { abzeichen, raengeAuswahl, raengeVomTyp } from "./raenge.js";
 
 // Suche und Filter überleben das Neuladen nach einer Aktion; fokus: Person, deren Zeile danach den Fokus bekommt
 const zustand = { frage: "", filter: "alle", fokus: null };
@@ -166,7 +166,11 @@ function elternBlock(nr, beiEntfernen) {
 function anlegen(einheit, daten, ctx, neu) {
   const vorname = feld({ label: "Vorname", maxlength: 100, required: true });
   const nachname = feld({ label: "Nachname", maxlength: 100, required: true });
-  const rang = raengeAuswahl(ohneMiliz(daten.raenge), "", "Rang");
+  const rang = raengeAuswahl(
+    raengeVomTyp(daten.raenge, einheit.typ),
+    "",
+    "Rang",
+  );
   const art = { wert: "eltern" };
   const gruppe = neueId("antwort-art");
   const benutzername = feld({
@@ -381,7 +385,11 @@ function bearbeiten(t, einheit, daten, ctx, neu) {
     maxlength: 100,
     required: true,
   });
-  const rang = raengeAuswahl(ohneMiliz(daten.raenge), t.rang?.id ?? "", "Rang");
+  const rang = raengeAuswahl(
+    raengeVomTyp(daten.raenge, einheit.typ),
+    t.rang?.id ?? "",
+    "Rang",
+  );
   const formularId = neueId("teilnehmende-formular");
   const fehler = el("p", {
     class: "hinweis hinweis--fehler",
