@@ -43,6 +43,13 @@
       "when": 1793623777657,
       "tag": "0005_standard_raenge_vier",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793629668337,
+      "tag": "0007_rang_typ",
+      "breakpoints": true
     }
   ]
 }
