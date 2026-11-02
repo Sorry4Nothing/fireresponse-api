@@ -12,12 +12,14 @@ import { log } from "./log.js";
 import type { Fcm } from "./push.js";
 import { erstelleMetriken } from "./metriken.js";
 import { personAusSitzung, zweiterFaktorPflicht } from "./rechte.js";
+import { erstelleAuswertungRouten } from "./routes/admin/auswertung.js";
 import { erstelleEinheitenRouten } from "./routes/admin/einheiten.js";
 import { erstelleLodurRouten } from "./routes/admin/lodur.js";
 import { erstelleSystemRouten } from "./routes/admin/system.js";
 import { erstelleZeitregelRouten } from "./routes/admin/zeitregeln.js";
 import { erstelleEinwilligungRouten } from "./routes/einwilligung.js";
 import { erstelleIchRouten } from "./routes/ich.js";
+import { erstelleKontaktRouten } from "./routes/kontakt.js";
 import { erstelleProfilbildRouten } from "./routes/profilbild.js";
 import { erstelleProgrammRouten } from "./routes/programme.js";
 import { erstellePushTokenRouten } from "./routes/push-token.js";
@@ -60,6 +62,7 @@ export function erstelleApp({
   auth,
   fcm,
   kodiereBild,
+  anmeldefensterTage,
   seiten,
   lodurErlaubteHosts = [],
 }: {
@@ -70,6 +73,8 @@ export function erstelleApp({
   fcm?: Fcm;
   // sharp steckt in bild-sharp.ts: Schon ein Import zöge dessen Typen von Node in dieses Programm; ohne Kodierer antwortet der Upload mit 501
   kodiereBild?: BildKodierer;
+  // Tage vor dem Beginn, ab denen die Anmeldung offen ist; ohne Angabe 42
+  anmeldefensterTage?: number;
   // Ausgeschrieben statt aus seiten.ts importiert: Schon ein Typ-Import zöge node:fs in dieses Programm
   seiten: {
     admin: AdminDateien;
@@ -160,8 +165,13 @@ export function erstelleApp({
       .use("/api/v1/admin/*", zweiterFaktorPflicht)
       .route("/api/v1", erstelleProfilbildRouten({ db, kodiereBild }))
       .route("/api/v1/ich", erstelleIchRouten({ db }))
-      .route("/api/v1/programme", erstelleProgrammRouten({ db, fcm }))
+      .route(
+        "/api/v1/programme",
+        erstelleProgrammRouten({ db, fcm, anmeldefensterTage }),
+      )
+      .route("/api/v1", erstelleKontaktRouten({ db }))
       .route("/api/v1/einwilligung", erstelleEinwilligungRouten({ db }))
+      .route("/api/v1/admin/auswertung", erstelleAuswertungRouten({ db }))
       .route("/api/v1/admin/einheiten", erstelleEinheitenRouten({ db }))
       .route(
         "/api/v1/admin/einheiten/:einheitId/zeitregeln",

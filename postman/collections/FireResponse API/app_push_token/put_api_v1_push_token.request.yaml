@@ -1,6 +1,6 @@
 $kind: http-request
 name: "PUT /api/v1/push-token"
-order: 45000
+order: 44000
 method: PUT
 url: "{{baseUrl}}/api/v1/push-token"
 headers:
@@ -17,4 +17,4 @@ headers:
 body:
   type: json
   content: |-
-    {{body_45}}
+    {{body_44}}

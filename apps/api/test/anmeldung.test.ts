@@ -52,11 +52,12 @@ let jfA: string;
 let kfA: string;
 let jfB: string;
 let vorbei: string;
-const IN_EINEM_JAHR = () => new Date(Date.now() + 365 * 86_400_000);
+// Im Anmeldefenster (42 Tage): Die Fenstergrenzen prüft test/termine.test.ts
+const IN_ZEHN_TAGEN = () => new Date(Date.now() + 10 * 86_400_000);
 
 beforeAll(async () => {
   welt = await erstelleWelt(db, auth);
-  const anlegen = (einheitId: string, beginn = IN_EINEM_JAHR()) =>
+  const anlegen = (einheitId: string, beginn = IN_ZEHN_TAGEN()) =>
     legeProgrammAn(db, { einheitId, beginn }).then((p) => p.id);
   jfA = await anlegen(welt.einheit.jfA);
   kfA = await anlegen(welt.einheit.kfA);
@@ -103,7 +104,12 @@ describe("PUT /api/v1/programme/:id/teilnahmen/:teilnehmendeId", () => {
     expect((await melde(eltern, jfA, welt.teilnehmende.jfA)).status).toBe(204);
     let detail = await lies(eltern, `/api/v1/programme/${jfA}`);
     expect(detail.teilnehmende).toEqual([
-      { id: welt.teilnehmende.jfA, vorname: "Person", status: "ja" },
+      {
+        id: welt.teilnehmende.jfA,
+        vorname: "Person",
+        status: "ja",
+        abzeichen: null,
+      },
     ]);
 
     expect(
@@ -205,8 +211,8 @@ describe("PUT /api/v1/programme/:id/teilnahmen/:teilnehmendeId", () => {
         googleEventId: "abgesagt-1",
         titel: "Abgesagt",
         ganztaegig: false,
-        beginn: IN_EINEM_JAHR(),
-        ende: IN_EINEM_JAHR(),
+        beginn: IN_ZEHN_TAGEN(),
+        ende: IN_ZEHN_TAGEN(),
         status: "abgesagt",
       })
       .returning({ id: schema.programm.id });

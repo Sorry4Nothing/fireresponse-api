@@ -352,13 +352,13 @@ export const programm = pgTable(
     googleOrt: text("google_ort"),
     // Aus dem HTML der Google-Beschreibung; gilt als intern
     googleBeschreibung: text("google_beschreibung"),
-    status: text("status", { enum: ["aktiv", "abgesagt", "pruefen"] })
-      .notNull()
-      .default("aktiv"),
-    // «Thema/Dienst», «Info» und «Aufgebot» aus der Lodur-Beschreibung; «Verantwortlich» wird nie gespeichert
+    // «Thema/Dienst», «Info» und «Aufgebot» aus der Lodur-Beschreibung (Sync); «Verantwortlich» wird nie gespeichert. Leer, solange die Quelle sie nicht liefert
     thema: text("thema"),
     info: text("info"),
     aufgebot: text("aufgebot"),
+    status: text("status", { enum: ["aktiv", "abgesagt", "pruefen"] })
+      .notNull()
+      .default("aktiv"),
     // SHA-256 über die Felder, die der Sync übernimmt: CREATED, DTSTAMP und LAST-MODIFIED sind in Lodur immer der Abrufzeitpunkt
     inhaltHash: text("inhalt_hash"),
   },

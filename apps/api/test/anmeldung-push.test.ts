@@ -41,6 +41,8 @@ const app = erstelleApp({
   db,
   auth,
   fcm: fcmAttrappe,
+  // Das Datum der Termine ist fest (für den Text des Pushes), das Fenster darum weit offen
+  anmeldefensterTage: 365,
   seiten: ladeSeiten(),
 });
 afterAll(() => sql.end());

@@ -161,6 +161,21 @@ paths:
             text/javascript:
               schema:
                 type: string
+  /admin/auswertung.js:
+    get:
+      operationId: getAdminAuswertungSkript
+      summary: Skript der Verwaltung – Bereich Auswertung
+      tags:
+        - Allgemein
+      security: []
+      description: Statische Datei der Verwaltung (siehe `GET /admin`), ohne Anmeldung.
+      responses:
+        "200":
+          description: Datei (`text/javascript; charset=UTF-8`).
+          content:
+            text/javascript:
+              schema:
+                type: string
   /admin/dom.js:
     get:
       operationId: getAdminDomSkript
@@ -990,7 +1005,9 @@ paths:
         Kommandant, Stellvertretung oder Leitung ist oder für die sie als Eltern oder selbst eine aktive teilnehmende Person angemeldet hat;
         das Konto des Kantonsadmins sieht alle Einheiten. Die App schickt nie eine Einheit mit: Der Server leitet sie aus dem Konto ab.
 
-        `googleBeschreibung` ist nur für Kommando, Leitende und das Konto des Kantonsadmins gefüllt, sonst `null`.
+        Jeder Eintrag trägt `anmeldungAb`, den Schweizer Kalendertag, ab dem sich anmelden lässt (`ANMELDEFENSTER_TAGE` Tage
+        vor dem Beginn, Standard 42). Spätere Programme sind sichtbar; die App zeigt dort «Anmeldung ab <Datum>».
+        `teilnahmeOffen` sagt, ob sich jetzt antworten lässt (aktiv, nicht begonnen, Fenster offen).
 
         Statuscodes: 200 Erfolg; 400 `von` oder `bis` fehlt, ist kein gültiges Datum `JJJJ-MM-TT`, beginnt mit Jahr
         0000 oder es gibt unbekannte Query-Parameter; 401 keine gültige Sitzung (auch deaktiviertes Konto);
@@ -1038,8 +1055,11 @@ paths:
       tags:
         - Programme
       description: |
-        Liefert die Felder des Listeneintrags (mit `teilnehmende`) und zusätzlich `teilnahmeOffen` und
-        (nur für Kommando und Leitende der Einheit) `eigeneAnmeldung`.
+        Liefert die Felder des Listeneintrags (mit `teilnehmende` samt Rang-Abzeichen) und zusätzlich `thema`, `info`, `aufgebot`,
+        die Kontaktperson des Termins (`kontakt`) und (nur für Kommando und Leitende der Einheit) `eigeneAnmeldung`.
+        Die Kontaktperson ist die Kommandantin oder der Kommandant, solange sie oder er nicht «nein» gesagt hat; sonst die erste
+        Stellvertretung ohne «nein»; haben alle «nein» gesagt, wieder die Kommandantin oder der Kommandant. «Offen» ist keine Absage.
+        Die Telefonnummer des Kontakts sehen nur Eltern und Teilnehmende mit aktiver Person in der Einheit, sonst ist `telefon` `null`.
 
         Wer aufrufen darf: jede angemeldete Person, für die das Programm sichtbar ist (Regeln wie bei der Liste).
         Ein Programm, das die Person nicht sieht oder das es nicht gibt, ist 404.
@@ -1113,7 +1133,8 @@ paths:
         Die Person kommt aus der Sitzung. Das Konto des Kantonsadmins, Eltern und Teilnehmende bekommen 403, wer die Einheit nicht sieht 404.
 
         Reihenfolge der Prüfung: Eingabe (400); Programm nicht sichtbar (404); keine Rolle in der Einheit (403);
-        Programm schon begonnen (409, Code `PROGRAMM_BEGONNEN`). Statuscodes: 204, 400, 401, 403, 404, 409, 426, 429.
+        Programm schon begonnen (409, Code `PROGRAMM_BEGONNEN`); Anmeldefenster noch nicht offen (409, Code
+        `ANMELDEFENSTER_NICHT_OFFEN`). Statuscodes: 204, 400, 401, 403, 404, 409, 426, 429.
       parameters:
         - $ref: "#/components/parameters/AppVersion"
         - $ref: "#/components/parameters/ProgrammIdPfad"
@@ -1136,15 +1157,21 @@ paths:
           $ref: "#/components/responses/NichtGefunden404"
         "409":
           description: |
-            Das Programm hat schon begonnen. Die Anmeldung lässt sich nicht mehr ändern. Der Fehlercode ist
-            `PROGRAMM_BEGONNEN`.
+            Das Programm hat schon begonnen (`PROGRAMM_BEGONNEN`) oder die Anmeldung öffnet erst später
+            (`ANMELDEFENSTER_NICHT_OFFEN`, die Meldung nennt den Tag).
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Fehler"
-              example:
-                code: PROGRAMM_BEGONNEN
-                message: Das Programm hat schon begonnen.
+              examples:
+                begonnen:
+                  value:
+                    code: PROGRAMM_BEGONNEN
+                    message: Das Programm hat schon begonnen.
+                fensterZu:
+                  value:
+                    code: ANMELDEFENSTER_NICHT_OFFEN
+                    message: Die Anmeldung öffnet am 23.01.2027.
         "426":
           $ref: "#/components/responses/AppVeraltet426"
         "429":
@@ -1228,7 +1255,8 @@ paths:
         Wert gleich, geht kein Push hinaus. Ein Fehler beim Push lässt den Aufruf nicht scheitern.
 
         Reihenfolge der Prüfung: Eingabe (400); Programm nicht sichtbar oder Person nicht die eigene (404, ohne Unterscheidung);
-        inaktive Person (403); Programm noch offen (409).
+        inaktive Person (403); Programm abgesagt oder begonnen (409, `PROGRAMM_GESCHLOSSEN`); Anmeldefenster noch nicht
+        offen (409, `ANMELDEFENSTER_NICHT_OFFEN`). Zwei Elternteile: Die letzte Antwort gilt.
       parameters:
         - $ref: "#/components/parameters/AppVersion"
         - $ref: "#/components/parameters/ProgrammIdPfad"
@@ -1252,19 +1280,109 @@ paths:
           $ref: "#/components/responses/NichtGefunden404"
         "409":
           description: |
-            Das Programm ist abgesagt (Status nicht «aktiv») oder hat schon begonnen. Die Teilnahme lässt sich nicht
-            mehr ändern. Der Fehlercode ist `PROGRAMM_GESCHLOSSEN`.
+            Das Programm ist abgesagt (Status nicht «aktiv») oder hat schon begonnen (`PROGRAMM_GESCHLOSSEN`), oder die
+            Anmeldung öffnet erst später (`ANMELDEFENSTER_NICHT_OFFEN`, die Meldung nennt den Tag).
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Fehler"
-              example:
-                code: PROGRAMM_GESCHLOSSEN
-                message: Das Programm ist abgesagt oder hat schon begonnen. Die Teilnahme lässt sich nicht mehr ändern.
+              examples:
+                geschlossen:
+                  value:
+                    code: PROGRAMM_GESCHLOSSEN
+                    message: Das Programm ist abgesagt oder hat schon begonnen. Die Teilnahme lässt sich nicht mehr ändern.
+                fensterZu:
+                  value:
+                    code: ANMELDEFENSTER_NICHT_OFFEN
+                    message: Die Anmeldung öffnet am 23.01.2027.
         "426":
           $ref: "#/components/responses/AppVeraltet426"
         "429":
           $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/einheiten/{einheitId}/kontakt:
+    get:
+      operationId: einheitKontaktLesen
+      summary: Kontakt der Einheit lesen
+      tags:
+        - Programme
+      description: |
+        Der Kontakt der Einheit für die Info-Seite «Konto aufs Kind übertragen»: die Kommandantin oder der Kommandant
+        (ist das Konto deaktiviert, die erste Stellvertretung). `kontakt` ist nur dann `null`, wenn die Einheit keine
+        Kommandantin und keinen Kommandanten hat. Die Telefonnummer sehen nur Eltern und Teilnehmende mit aktiver Person in
+        dieser Einheit, sonst ist `telefon` `null`.
+
+        Wer aufrufen darf: jede Person, die die Einheit sieht (Rolle in der Einheit, aktive teilnehmende Person darin oder
+        Kantonsadmin-Konto); sonst 404. Statuscodes: 200, 400, 401, 403, 404, 426.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/EinheitIdPfad"
+      responses:
+        "200":
+          description: Der Kontakt.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [kontakt]
+                properties:
+                  kontakt:
+                    oneOf:
+                      - $ref: "#/components/schemas/Kontakt"
+                      - type: "null"
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+  /api/v1/raenge/{id}/abzeichen:
+    get:
+      operationId: abzeichenBildLesen
+      summary: Eigenes Bild eines Rang-Abzeichens lesen
+      tags:
+        - Programme
+      description: |
+        Liefert das Bild eines Abzeichens (PNG oder SVG). Die Adresse steht als `bildUrl` im `abzeichen` der Teilnehmenden und
+        der Kontaktperson; die App ruft sie mit der Sitzung auf. Abzeichen mit Sternen haben kein Bild (nur `sterne`).
+
+        Die Antwort trägt `Cache-Control: private, no-store`, `X-Content-Type-Options: nosniff` und eine CSP, die Skripte und
+        Nachladen sperrt. Wer die Einheit des Rangs nicht sieht, ein Rang ohne Bild und ein unbekannter Rang sind 404, ohne Unterschied.
+        Statuscodes: 200, 400, 401, 403, 404, 426.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - name: id
+          in: path
+          required: true
+          description: ID des Rangs, aus `bildUrl`.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Das Bild.
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/svg+xml:
+              schema:
+                type: string
+                format: binary
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
   /api/v1/einwilligung:
     get:
       operationId: einwilligungLesen
@@ -1584,6 +1702,266 @@ paths:
       responses:
         "204":
           description: Entfernt.
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/admin/auswertung/filter:
+    get:
+      operationId: auswertungFilter
+      summary: Bezirke und Einheiten für die Filter der Auswertung
+      tags:
+        - Verwaltung
+      description: |
+        Die Einheiten, die die Person auswerten darf, und ihre Bezirke: Kommandant/in und Stellvertretung die eigenen, das Kantonsadmin-Konto alle (`umschalter: true`, dann schaltet die Verwaltung zwischen Bezirken und Einheiten um).
+
+        Statuscodes: 200, 401, 403 (Leitende, Eltern und Teilnehmende; ohne zweiten Faktor mit Code `ZWEITER_FAKTOR_FEHLT`), 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+      responses:
+        "200":
+          description: Auswahl für die Filter.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuswertungFilter"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/admin/auswertung/termine:
+    get:
+      operationId: auswertungTermine
+      summary: Termine eines Zeitraums mit den Zahlen der Anmeldungen
+      tags:
+        - Verwaltung
+      description: |
+        Alle Programme, die im Zeitraum beginnen (Schweizer Kalendertag des Beginns, ein Lager zählt an seinem ersten Tag), mit Ja, Nein und Offen für Teilnehmende und Leitende. Abgesagte Termine sind enthalten (`status`), zählen aber nicht in die Quote. `begonnen` sagt, ob der Beginn vorbei ist. Sortiert nach Beginn.
+
+        Es zählen nur aktive Teilnehmende und aktive Konten; die Zahlen enthalten nie Namen, Konten oder Eltern. Grundlage sind die Anmeldungen, nie eine Präsenzkontrolle.
+
+        Statuscodes: 200, 400 (Zeitraum fehlt, verkehrt, über 366 Tage, unbekannter Parameter), 401, 403, 404 (`einheitId` unbekannt oder unsichtbar), 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/AuswertungVon"
+        - $ref: "#/components/parameters/AuswertungBis"
+        - $ref: "#/components/parameters/AuswertungBezirk"
+        - $ref: "#/components/parameters/AuswertungEinheit"
+        - $ref: "#/components/parameters/AuswertungRolle"
+      responses:
+        "200":
+          description: Termine mit Zahlen.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuswertungTermine"
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/admin/auswertung/termine/{id}:
+    get:
+      operationId: auswertungPraesenzliste
+      summary: Präsenzliste eines Termins
+      tags:
+        - Verwaltung
+      description: |
+        Ja, Nein und Offen für jede aktive teilnehmende Person und jede Person mit Rolle in der Einheit, Teilnehmende und Leitende getrennt, mit den Zahlen je Gruppe. Das ist die Liste der Anmeldungen, keine Anwesenheit. Ohne Antwort gilt `offen`.
+
+        Statuscodes: 200, 400, 401, 403 (kein Recht in der Einheit des Termins), 404 (Termin unbekannt oder in keiner sichtbaren Einheit), 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/ProgrammIdPfad"
+      responses:
+        "200":
+          description: Präsenzliste.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuswertungPraesenzliste"
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/admin/auswertung/quoten:
+    get:
+      operationId: auswertungQuoten
+      summary: Teilnahmequote pro Person im Zeitraum
+      tags:
+        - Verwaltung
+      description: |
+        Eine Zeile je Person und Einheit: Termine, Ja, Nein, Offen und Quote (`ja` geteilt durch `termine`, drei Stellen, `null` ohne Termine). Teilnehmende und Leitende stehen in einer Liste (`art`); `rolle` filtert.
+
+        Bezug sind aktive Programme, die im Zeitraum beginnen und schon begonnen haben: Bei künftigen Terminen sagt «offen» noch nichts, abgesagte zählen nicht. Inaktive Teilnehmende und deaktivierte Konten fehlen. Die Zahlen hängen an der Person, nicht am antwortenden Konto: Ein Wechsel von den Eltern aufs Kind ändert sie nicht. Eine Person zählt für alle Termine des Zeitraums, auch für die vor ihrem Eintritt (es gibt kein Eintrittsdatum).
+
+        Statuscodes: 200, 400, 401, 403, 404 (`einheitId` unbekannt oder unsichtbar), 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/AuswertungVon"
+        - $ref: "#/components/parameters/AuswertungBis"
+        - $ref: "#/components/parameters/AuswertungBezirk"
+        - $ref: "#/components/parameters/AuswertungEinheit"
+        - $ref: "#/components/parameters/AuswertungRolle"
+      responses:
+        "200":
+          description: Quoten.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuswertungQuoten"
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/admin/auswertung/jahr:
+    get:
+      operationId: auswertungJahr
+      summary: Jahresübersicht pro Einheit
+      tags:
+        - Verwaltung
+      description: |
+        Je Einheit des Bereichs (auch ohne Programme) die Summe des Jahres und zwölf Monate: begonnene Termine (`termine`), noch kommende (`kommend`) und Ja, Nein, Offen und Quote für Teilnehmende und Leitende. Die Gruppe, die `rolle` ausfiltert, ist `null`. Es gelten dieselben Regeln wie bei `GET /api/v1/admin/auswertung/quoten`.
+
+        Statuscodes: 200, 400, 401, 403, 404 (`einheitId` unbekannt oder unsichtbar), 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - name: jahr
+          in: query
+          required: true
+          description: Kalenderjahr (Schweizer Zeit), 2000 bis 2100.
+          schema:
+            type: integer
+            minimum: 2000
+            maximum: 2100
+            example: 2026
+        - $ref: "#/components/parameters/AuswertungBezirk"
+        - $ref: "#/components/parameters/AuswertungEinheit"
+        - $ref: "#/components/parameters/AuswertungRolle"
+      responses:
+        "200":
+          description: Jahresübersicht.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuswertungJahr"
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/admin/auswertung/einheiten/{einheitId}/teilnehmende/{id}:
+    get:
+      operationId: auswertungTeilnehmende
+      summary: Drilldown einer teilnehmenden Person
+      tags:
+        - Verwaltung
+      description: |
+        Zahlen und Termine (mit Antwort) einer aktiven teilnehmenden Person im Zeitraum, nach denselben Regeln wie die Quote. Eine inaktive oder fremde Person ist 404.
+
+        Statuscodes: 200, 400, 401, 403, 404 (Einheit oder Person unbekannt oder unsichtbar), 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/EinheitIdPfad"
+        - name: id
+          in: path
+          required: true
+          description: ID der teilnehmenden Person.
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/AuswertungVon"
+        - $ref: "#/components/parameters/AuswertungBis"
+      responses:
+        "200":
+          description: Person mit Zahlen und Terminen.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuswertungPerson"
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/admin/auswertung/einheiten/{einheitId}/leitende/{id}:
+    get:
+      operationId: auswertungLeitende
+      summary: Drilldown einer Person mit Rolle in der Einheit
+      tags:
+        - Verwaltung
+      description: |
+        Wie `GET /api/v1/admin/auswertung/einheiten/{einheitId}/teilnehmende/{id}` für Kommandant/in, Stellvertretungen und Leitende; `id` ist die ID des Kontos. Ein deaktiviertes Konto oder eine Person ohne Rolle in dieser Einheit ist 404.
+
+        Statuscodes: 200, 400, 401, 403, 404, 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/EinheitIdPfad"
+        - name: id
+          in: path
+          required: true
+          description: ID des Kontos der Person.
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/AuswertungVon"
+        - $ref: "#/components/parameters/AuswertungBis"
+      responses:
+        "200":
+          description: Person mit Zahlen und Terminen.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuswertungPerson"
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
         "401":
           $ref: "#/components/responses/NichtAngemeldet401"
         "403":
@@ -2012,8 +2390,8 @@ components:
         - ende
         - tagVon
         - tagBis
-        - googleOrt
-        - googleBeschreibung
+        - anmeldungAb
+        - teilnahmeOffen
         - einheit
         - teilnehmende
       properties:
@@ -2047,15 +2425,13 @@ components:
             - string
             - "null"
           format: date
-        googleOrt:
-          type:
-            - string
-            - "null"
-        googleBeschreibung:
-          type:
-            - string
-            - "null"
-          description: Nur für Kommando, Leitende und das Konto des Kantonsadmins gefüllt, sonst `null`.
+        anmeldungAb:
+          type: string
+          format: date
+          description: Schweizer Kalendertag, ab dem sich anmelden lässt; die App zeigt «Anmeldung ab <Datum>», solange `teilnahmeOffen` falsch ist und der Tag in der Zukunft liegt.
+        teilnahmeOffen:
+          type: boolean
+          description: Aktiv, noch nicht begonnen und Anmeldefenster offen; nur dann lassen sich Antworten ändern.
         einheit:
           $ref: "#/components/schemas/ProgrammEinheit"
         teilnehmende:
@@ -2076,11 +2452,25 @@ components:
       allOf:
         - $ref: "#/components/schemas/ProgrammListeneintrag"
         - type: object
-          required: [teilnahmeOffen]
+          required: [thema, info, aufgebot, kontakt]
           properties:
-            teilnahmeOffen:
-              type: boolean
-              description: Aktiv und noch nicht begonnen; nur dann lassen sich Antworten ändern.
+            thema:
+              type:
+                - string
+                - "null"
+            info:
+              type:
+                - string
+                - "null"
+            aufgebot:
+              type:
+                - string
+                - "null"
+            kontakt:
+              description: Die Kontaktperson des Termins.
+              oneOf:
+                - $ref: "#/components/schemas/Kontakt"
+                - type: "null"
             eigeneAnmeldung:
               type: string
               enum: [ja, nein, offen]
@@ -2528,7 +2918,7 @@ components:
     ProgrammTeilnehmende:
       type: object
       description: Eine eigene aktive teilnehmende Person der Einheit des Programms mit ihrer Antwort.
-      required: [id, vorname, status]
+      required: [id, vorname, status, abzeichen]
       properties:
         id:
           type: string
@@ -2541,6 +2931,52 @@ components:
             - "null"
           enum: [ja, nein, null]
           description: "`null` heisst offen."
+        abzeichen:
+          oneOf:
+            - $ref: "#/components/schemas/Abzeichen"
+            - type: "null"
+    Abzeichen:
+      type: object
+      description: Das Rang-Abzeichen; mehr vom Rang erfährt die App nicht. Entweder `sterne` (0 bis 5) oder `bildUrl`, das andere Feld ist `null`. `null` statt des Objekts heisst kein Rang oder kein Abzeichen.
+      required: [sterne, bildUrl]
+      properties:
+        sterne:
+          type:
+            - integer
+            - "null"
+          minimum: 0
+          maximum: 5
+        bildUrl:
+          type:
+            - string
+            - "null"
+          description: Pfad zu `GET /api/v1/raenge/{id}/abzeichen`.
+    Kontakt:
+      type: object
+      required: [id, name, rolle, bildUrl, abzeichen, telefon]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        rolle:
+          type: string
+          enum: [kommandant, stellvertretung]
+        bildUrl:
+          type:
+            - string
+            - "null"
+          description: Pfad zu `GET /api/v1/personen/{id}/bild` oder `null` ohne Bild.
+        abzeichen:
+          oneOf:
+            - $ref: "#/components/schemas/Abzeichen"
+            - type: "null"
+        telefon:
+          type:
+            - string
+            - "null"
+          description: Nur für Eltern und Teilnehmende mit aktiver Person in der Einheit gefüllt, sonst `null`.
     KommandoUebergabe:
       type: object
       required: [neuerKommandantId, bisherigeRolle]
@@ -2575,6 +3011,330 @@ components:
               properties:
                 typ:
                   const: keine
+    AuswertungZahlen:
+      type: object
+      description: Anmeldungen als Zahlen; `quote` ist `ja` geteilt durch die Summe, drei Stellen, `null` ohne Bezug.
+      required: [ja, nein, offen, quote]
+      properties:
+        ja:
+          type: integer
+        nein:
+          type: integer
+        offen:
+          type: integer
+        quote:
+          type: [number, "null"]
+          minimum: 0
+          maximum: 1
+    AuswertungEinheitKurz:
+      type: object
+      required: [id, name, typ]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        typ:
+          type: string
+          enum: [jf, kf]
+    AuswertungFilter:
+      type: object
+      required: [umschalter, bezirke, einheiten]
+      properties:
+        umschalter:
+          type: boolean
+          description: Nur das Kantonsadmin-Konto schaltet zwischen allen Bezirken und Einheiten um.
+        bezirke:
+          type: array
+          items:
+            type: object
+            required: [id, name]
+            properties:
+              id:
+                type: string
+                format: uuid
+              name:
+                type: string
+        einheiten:
+          type: array
+          items:
+            allOf:
+              - $ref: "#/components/schemas/AuswertungEinheitKurz"
+              - type: object
+                required: [bezirkId]
+                properties:
+                  bezirkId:
+                    type: string
+                    format: uuid
+    AuswertungTerminKopf:
+      type: object
+      required:
+        [
+          id,
+          titel,
+          status,
+          ganztaegig,
+          beginn,
+          ende,
+          tagVon,
+          tagBis,
+          begonnen,
+          einheit,
+        ]
+      properties:
+        id:
+          type: string
+          format: uuid
+        titel:
+          type: string
+        status:
+          type: string
+          enum: [aktiv, abgesagt, pruefen]
+        ganztaegig:
+          type: boolean
+        beginn:
+          type: [string, "null"]
+          format: date-time
+        ende:
+          type: [string, "null"]
+          format: date-time
+        tagVon:
+          type: [string, "null"]
+          format: date
+        tagBis:
+          type: [string, "null"]
+          format: date
+        begonnen:
+          type: boolean
+        einheit:
+          $ref: "#/components/schemas/AuswertungEinheitKurz"
+    AuswertungTermine:
+      type: object
+      required: [termine]
+      properties:
+        termine:
+          type: array
+          items:
+            allOf:
+              - $ref: "#/components/schemas/AuswertungTerminKopf"
+              - type: object
+                required: [teilnehmende, leitende]
+                properties:
+                  teilnehmende:
+                    oneOf:
+                      - $ref: "#/components/schemas/AuswertungZahlen"
+                      - type: "null"
+                  leitende:
+                    oneOf:
+                      - $ref: "#/components/schemas/AuswertungZahlen"
+                      - type: "null"
+    AuswertungPraesenzliste:
+      type: object
+      required: [termin, zahlen, teilnehmende, leitende]
+      properties:
+        termin:
+          $ref: "#/components/schemas/AuswertungTerminKopf"
+        zahlen:
+          type: object
+          required: [teilnehmende, leitende]
+          properties:
+            teilnehmende:
+              $ref: "#/components/schemas/AuswertungZahlen"
+            leitende:
+              $ref: "#/components/schemas/AuswertungZahlen"
+        teilnehmende:
+          type: array
+          description: Aktive Teilnehmende, nach Nachname und Vorname.
+          items:
+            type: object
+            required: [id, vorname, nachname, status]
+            properties:
+              id:
+                type: string
+                format: uuid
+              vorname:
+                type: string
+              nachname:
+                type: string
+              status:
+                type: string
+                enum: [ja, nein, offen]
+        leitende:
+          type: array
+          description: Aktive Konten mit Rolle in der Einheit, Kommandant/in zuerst.
+          items:
+            type: object
+            required: [id, name, rolle, status]
+            properties:
+              id:
+                type: string
+                format: uuid
+              name:
+                type: string
+              rolle:
+                type: string
+                enum: [kommandant, stellvertretung, leitung]
+              status:
+                type: string
+                enum: [ja, nein, offen]
+    AuswertungQuoten:
+      type: object
+      required: [von, bis, personen]
+      properties:
+        von:
+          type: string
+          format: date
+        bis:
+          type: string
+          format: date
+        personen:
+          type: array
+          items:
+            allOf:
+              - $ref: "#/components/schemas/AuswertungZahlen"
+              - type: object
+                required: [art, id, name, rolle, einheit, termine]
+                properties:
+                  art:
+                    type: string
+                    enum: [teilnehmende, leitende]
+                  id:
+                    type: string
+                    format: uuid
+                    description: ID der teilnehmenden Person oder des Kontos.
+                  name:
+                    type: string
+                  rolle:
+                    type: [string, "null"]
+                    enum: [kommandant, stellvertretung, leitung, null]
+                  einheit:
+                    $ref: "#/components/schemas/AuswertungEinheitKurz"
+                  termine:
+                    type: integer
+                    description: Programme im Bezug; Summe aus ja, nein und offen.
+    AuswertungJahr:
+      type: object
+      required: [jahr, einheiten]
+      properties:
+        jahr:
+          type: integer
+        einheiten:
+          type: array
+          items:
+            type: object
+            required:
+              [einheit, termine, kommend, teilnehmende, leitende, monate]
+            properties:
+              einheit:
+                allOf:
+                  - $ref: "#/components/schemas/AuswertungEinheitKurz"
+                  - type: object
+                    required: [bezirk]
+                    properties:
+                      bezirk:
+                        type: object
+                        required: [id, name]
+                        properties:
+                          id:
+                            type: string
+                            format: uuid
+                          name:
+                            type: string
+              termine:
+                type: integer
+                description: Aktive, begonnene Programme des Jahres.
+              kommend:
+                type: integer
+                description: Aktive Programme des Jahres, die noch nicht begonnen haben.
+              teilnehmende:
+                oneOf:
+                  - $ref: "#/components/schemas/AuswertungZahlen"
+                  - type: "null"
+              leitende:
+                oneOf:
+                  - $ref: "#/components/schemas/AuswertungZahlen"
+                  - type: "null"
+              monate:
+                type: array
+                minItems: 12
+                maxItems: 12
+                items:
+                  type: object
+                  required: [monat, termine, teilnehmende, leitende]
+                  properties:
+                    monat:
+                      type: integer
+                      minimum: 1
+                      maximum: 12
+                    termine:
+                      type: integer
+                    teilnehmende:
+                      oneOf:
+                        - $ref: "#/components/schemas/AuswertungZahlen"
+                        - type: "null"
+                    leitende:
+                      oneOf:
+                        - $ref: "#/components/schemas/AuswertungZahlen"
+                        - type: "null"
+    AuswertungPerson:
+      type: object
+      required: [person, von, bis, zahlen, termine]
+      properties:
+        person:
+          type: object
+          required: [id, name, art, rolle, einheit]
+          properties:
+            id:
+              type: string
+              format: uuid
+            name:
+              type: string
+            art:
+              type: string
+              enum: [teilnehmende, leitende]
+            rolle:
+              type: [string, "null"]
+              enum: [kommandant, stellvertretung, leitung, null]
+            einheit:
+              $ref: "#/components/schemas/AuswertungEinheitKurz"
+        von:
+          type: string
+          format: date
+        bis:
+          type: string
+          format: date
+        zahlen:
+          allOf:
+            - $ref: "#/components/schemas/AuswertungZahlen"
+            - type: object
+              required: [termine]
+              properties:
+                termine:
+                  type: integer
+        termine:
+          type: array
+          description: Programme im Bezug, nach Beginn.
+          items:
+            type: object
+            required: [id, titel, ganztaegig, beginn, tagVon, antwort]
+            properties:
+              id:
+                type: string
+                format: uuid
+              titel:
+                type: string
+              ganztaegig:
+                type: boolean
+              beginn:
+                type: [string, "null"]
+                format: date-time
+              tagVon:
+                type: [string, "null"]
+                format: date
+              antwort:
+                type: string
+                enum: [ja, nein, offen]
   parameters:
     AppVersion:
       name: X-App-Version
@@ -2635,6 +3395,48 @@ components:
       schema:
         type: string
         format: uuid
+    AuswertungVon:
+      name: von
+      in: query
+      required: true
+      description: Erster Tag des Zeitraums (Schweizer Kalendertag, inklusive). Von bis Bis höchstens 366 Tage.
+      schema:
+        type: string
+        format: date
+        example: "2026-01-01"
+    AuswertungBis:
+      name: bis
+      in: query
+      required: true
+      description: Letzter Tag des Zeitraums (inklusive), nicht vor `von`.
+      schema:
+        type: string
+        format: date
+        example: "2026-12-31"
+    AuswertungBezirk:
+      name: bezirkId
+      in: query
+      required: false
+      description: Nur Einheiten dieses Bezirks. Ein Bezirk ohne eigene Einheiten der Person ergibt eine leere Auswertung.
+      schema:
+        type: string
+        format: uuid
+    AuswertungEinheit:
+      name: einheitId
+      in: query
+      required: false
+      description: Nur diese Einheit; 404, wenn sie unbekannt oder unsichtbar ist, 403 ohne Recht darin.
+      schema:
+        type: string
+        format: uuid
+    AuswertungRolle:
+      name: rolle
+      in: query
+      required: false
+      description: Nur Teilnehmende oder nur Leitende (Kommandant/in, Stellvertretungen, Leitung).
+      schema:
+        type: string
+        enum: [teilnehmende, leitende]
   securitySchemes:
     sitzung:
       type: apiKey

@@ -81,7 +81,7 @@ afterEach(() => ausgabe.mockRestore());
 
 const ALLE = { jfA: true, kfA: true, jfB: true, kfB: true } as const;
 
-// true: mit Google-Beschreibung (Kommando, Leitende, Kantonsadmin), false: ohne; fehlt der Eintrag, ist das Programm unsichtbar (404)
+// Wer das Programm sieht; fehlt der Eintrag, ist es unsichtbar (404). Der Wert hält fest, ob die Person eine Rolle in der Einheit hat (true) oder nur Eltern oder Teilnehmende ist (false)
 const SICHT: Record<
   Exclude<
     Persona,
@@ -129,38 +129,33 @@ describe("Liste und Detail: jede Einheit mal jede Persona", () => {
     const sicht = SICHT[persona];
     expect(liste.status).toBe(200);
     const { programme: zeilen } = (await liste.json()) as {
-      programme: { id: string; googleBeschreibung: string | null }[];
+      programme: { id: string }[];
     };
     // Das Konto des Kantonsadmins sieht alle Einheiten, auch die Programme anderer Testdateien im selben Fenster
     const eigene = new Set(NAMEN.map((n) => programme[n].id));
     expect(zeilen.filter((z) => eigene.has(z.id)).map((z) => z.id)).toEqual(
       NAMEN.filter((n) => n in sicht).map((n) => programme[n].id),
     );
-    for (const zeile of zeilen.filter((z) => eigene.has(z.id))) {
-      const name = NAMEN.find((n) => programme[n].id === zeile.id) as Name;
-      expect(zeile.googleBeschreibung, name).toBe(
-        sicht[name] ? programme[name].marke : null,
-      );
-    }
+    // Die Google-Spalten gibt die API nie aus
+    expect(JSON.stringify(zeilen)).not.toContain("google");
     for (const name of NAMEN) {
       const res = await detail(name);
-      const beschreibung = sicht[name];
-      if (beschreibung === undefined) {
+      if (sicht[name] === undefined) {
         expect(res.status, name).toBe(404);
         continue;
       }
       expect(res.status, name).toBe(200);
-      const koerper = (await res.json()) as {
-        googleBeschreibung: string | null;
-      };
-      expect(koerper.googleBeschreibung, name).toBe(
-        beschreibung ? programme[name].marke : null,
-      );
+      // Thema, Info und Aufgebot sehen alle, die das Programm sehen
+      expect(await res.json(), name).toMatchObject({
+        thema: "Thema",
+        info: "Info",
+        aufgebot: "Aufgebot",
+      });
     }
   });
 
-  test("keine Marke einer Google-Beschreibung erreicht Eltern", async () => {
-    const { headers } = konten.elternJfA;
+  test("keine Marke einer Google-Beschreibung erreicht jemanden", async () => {
+    const { headers } = konten.kommandoJfA;
     const antworten = [
       await app.request(`/api/v1/programme?${FENSTER}`, { headers }),
       await app.request(`/api/v1/programme/${programme.jfA.id}`, { headers }),
@@ -189,23 +184,28 @@ describe("Liste und Detail: jede Einheit mal jede Persona", () => {
         "ende",
         "tagVon",
         "tagBis",
-        "googleOrt",
-        "googleBeschreibung",
-        "einheit",
+        "anmeldungAb",
         "teilnahmeOffen",
+        "einheit",
         "teilnehmende",
+        "thema",
+        "info",
+        "aufgebot",
+        "kontakt",
       ].sort(),
     );
-    expect(koerper.googleBeschreibung).toBeNull();
-    // Der Google-Ort bleibt sichtbar
-    expect(koerper.googleOrt).toBe("Google-Ort");
     expect(koerper.einheit).toEqual({
       id: welt.einheit.jfA,
       name: "JF A",
       typ: "jf",
     });
     expect(koerper.teilnehmende).toEqual([
-      { id: welt.teilnehmende.jfA, vorname: "Person", status: null },
+      {
+        id: welt.teilnehmende.jfA,
+        vorname: "Person",
+        status: null,
+        abzeichen: null,
+      },
     ]);
   });
 

@@ -4,7 +4,7 @@ import * as schema from "../../src/db/schema.js";
 
 export interface TestProgramm {
   id: string;
-  // Eindeutige Google-Beschreibung: Taucht die Marke in einer Antwort auf, stammt sie sicher aus diesem Programm
+  // Eindeutige Google-Beschreibung: Die API gibt sie nie aus; taucht die Marke in einer Antwort auf, ist das ein Leck
   marke: string;
 }
 
@@ -44,6 +44,9 @@ export async function legeProgrammAn(
       tagBis: ganztaegig ? (tagBis ?? tagVon) : null,
       googleOrt: "Google-Ort",
       googleBeschreibung: marke,
+      thema: "Thema",
+      info: "Info",
+      aufgebot: "Aufgebot",
     })
     .returning({ id: schema.programm.id });
   return { id: zeile.id, marke };

@@ -1,5 +1,5 @@
 {
-  "id": "f497d4ad-0821-463b-9497-192465e1b24f",
+  "id": "a6a646d6-5b65-4c60-bb8e-64385dce5c03",
   "prevId": "fb6592bd-890e-4da8-a6b7-b118f44bd00b",
   "version": "7",
   "dialect": "postgresql",
@@ -278,12 +278,6 @@
         "lodur_url_verschluesselt": {
           "name": "lodur_url_verschluesselt",
           "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "lodur_url_gesetzt_am": {
-          "name": "lodur_url_gesetzt_am",
-          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -685,13 +679,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "status": {
-          "name": "status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'aktiv'"
-        },
         "thema": {
           "name": "thema",
           "type": "text",
@@ -710,11 +697,12 @@
           "primaryKey": false,
           "notNull": false
         },
-        "inhalt_hash": {
-          "name": "inhalt_hash",
+        "status": {
+          "name": "status",
           "type": "text",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true,
+          "default": "'aktiv'"
         }
       },
       "indexes": {},

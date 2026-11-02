@@ -19,8 +19,15 @@
     {
       "idx": 2,
       "version": "7",
-      "when": 1793577885074,
-      "tag": "0002_lodur_sync",
+      "when": 1793577946955,
+      "tag": "0002_termin_texte",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1793582854270,
+      "tag": "0003_lodur_sync",
       "breakpoints": true
     }
   ]

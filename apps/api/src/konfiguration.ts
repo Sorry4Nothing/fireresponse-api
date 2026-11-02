@@ -32,6 +32,8 @@ const schema = z.object({
       ),
     )
     .optional(),
+  // Tage vor dem Termin, ab denen sich anmelden lässt; ein Wert für alle Einheiten
+  ANMELDEFENSTER_TAGE: z.coerce.number().int().min(1).max(365).default(42),
 });
 
 // Mit http setzt better-auth Cookies ohne Secure, darum in Produktion nur https (#222); lokal bleibt http://localhost

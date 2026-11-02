@@ -45,6 +45,7 @@ const app = erstelleApp({
   auth,
   fcm,
   kodiereBild: kodiereProfilbild,
+  anmeldefensterTage: konfiguration.ANMELDEFENSTER_TAGE,
   seiten,
   lodurErlaubteHosts: erlaubteHosts,
 });
