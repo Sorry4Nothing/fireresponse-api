@@ -58,6 +58,8 @@ paths:
             text/html:
               schema:
                 type: string
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
   /konto-loeschen:
     get:
       operationId: getKontoLoeschenSeite
@@ -78,6 +80,8 @@ paths:
             text/html:
               schema:
                 type: string
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
   /support:
     get:
       operationId: getSupportSeite
@@ -95,6 +99,8 @@ paths:
             text/html:
               schema:
                 type: string
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
   /admin:
     get:
       operationId: getAdminSeite
@@ -1626,10 +1632,10 @@ paths:
         gleiche Reihenfolge, gleiche Fassung. Die verantwortliche Stelle und ihre E-Mail-Adresse sind wie dort eingesetzt.
         `version` ist die Fassung der Einwilligung (`EINWILLIGUNG_VERSION`), dieselbe wie bei `GET /api/v1/einwilligung`.
         Der erste Abschnitt trägt den Titel der Erklärung und den Hinweis zum Entwurfsstand.
-        Cache: `Cache-Control: public, max-age=3600`. Kein eigenes Rate-Limit, wie die Seite `GET /datenschutz`.
+        Cache: `Cache-Control: public, max-age=3600`. Drosselung: 30 Anfragen je Minute und Adresse, gemeinsam mit den Seiten (429, siehe `X-App-Version`).
         Die Prüfung der App-Version gilt wie überall unter `/api/*`: Ist `X-App-Version` älter als der Mindeststand, antwortet die Route mit 426.
 
-        Statuscodes: 200, 426.
+        Statuscodes: 200, 426, 429.
       responses:
         "200":
           description: Fassung und Abschnitte.
@@ -1642,6 +1648,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Datenschutz"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
         "426":
           $ref: "#/components/responses/AppVeraltet426"
   /api/v1/einwilligung:
@@ -3587,6 +3595,8 @@ paths:
             text/html:
               schema:
                 type: string
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
   /api/v1/admin/konten:
     get:
       operationId: sucheAdminKonto
@@ -5952,6 +5962,11 @@ components:
         (nicht für `/health`, die Seiten und `/.well-known`). Ist die Version älter als der Mindeststand des
         Servers, antwortet er mit 426 `APP_VERALTET`. Eine Angabe in anderem Format gilt als zu alt (426).
         Ohne den Header läuft die Anfrage weiter. Die App schickt den Header immer.
+
+        **Drosselung.** Der Server zählt Anfragen je Absender-Adresse (`X-Forwarded-For` des Edge-Caddys) und Minute. Über `/api/v1/*` und `/admin/*`
+        sind es 600, für `GET /api/v1/datenschutz` und die Seiten (`/datenschutz`, `/nutzungsbedingungen`, `/konto-loeschen`, `/support`) zusammen 30.
+        Danach antwortet jede dieser Routen mit 429 `ZU_VIELE_ANFRAGEN` und dem Header `X-Retry-After` (Sekunden bis zum nächsten Fenster); die App wartet so lange.
+        `/health` und `/api/auth/*` (eigene Limits, siehe dort) zählen nicht hier mit. Die 429 steht nicht bei jeder Operation einzeln.
       schema:
         type: string
         pattern: ^\d+\.\d+\.\d+$

@@ -1,4 +1,9 @@
 import { datenschutzText } from "./datenschutz-text.js";
+import {
+  erstelleDrosselung,
+  LIMIT_ALLGEMEIN,
+  LIMIT_OEFFENTLICH,
+} from "./drosselung.js";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { HTTPException } from "hono/http-exception";
@@ -112,6 +117,9 @@ export function erstelleApp({
   const kleinesLimit = bodyLimit({ maxSize: 64 * 1024 });
   // Einmal beim Start aus der fertig gerenderten Seite; die Seite ändert sich nur mit einem neuen Start
   const datenschutz = datenschutzText(seiten.datenschutz);
+  // Zwei Zähler: die öffentlichen Seiten und der Text (streng) und alles unter /api/v1 und /admin (allgemein); /health bleibt frei
+  const oeffentlich = erstelleDrosselung(LIMIT_OEFFENTLICH);
+  const allgemein = erstelleDrosselung(LIMIT_ALLGEMEIN);
   return (
     // nutzerId setzt personAusSitzung, sobald es die Sitzung gelesen hat
     new Hono<{ Variables: { nutzerId?: string } }>()
@@ -164,6 +172,8 @@ export function erstelleApp({
           ? next()
           : kleinesLimit(c, next),
       )
+      .use("/api/v1/*", allgemein)
+      .use("/admin/*", allgemein)
       .use("/api/*", async (c, next) => {
         const version = c.req.header("X-App-Version");
         // Ohne Header weiter: 426 nur für eine ältere Version; den Header setzt der Client selbst, aussperren kann die Prüfung also niemanden
@@ -179,7 +189,7 @@ export function erstelleApp({
         ),
       )
       // Öffentlich, vor der Sitzung: Die App zeigt den Text vor der Einwilligung. Kein eigenes Rate-Limit, wie die Seite /datenschutz: statisch, ohne Datenbank, und der Reverse-Proxy begrenzt
-      .get("/api/v1/datenschutz", (c) => {
+      .get("/api/v1/datenschutz", oeffentlich, (c) => {
         c.header("Cache-Control", "public, max-age=3600");
         return c.json(datenschutz);
       })
@@ -277,10 +287,12 @@ export function erstelleApp({
         }
       })
       // Seiten für die Stores, ohne Login und ausserhalb der Versionsprüfung
-      .get("/datenschutz", (c) => c.html(seiten.datenschutz))
-      .get("/nutzungsbedingungen", (c) => c.html(seiten.nutzungsbedingungen))
-      .get("/konto-loeschen", (c) => c.html(seiten.kontoLoeschen))
-      .get("/support", (c) => c.html(seiten.support))
+      .get("/datenschutz", oeffentlich, (c) => c.html(seiten.datenschutz))
+      .get("/nutzungsbedingungen", oeffentlich, (c) =>
+        c.html(seiten.nutzungsbedingungen),
+      )
+      .get("/konto-loeschen", oeffentlich, (c) => c.html(seiten.kontoLoeschen))
+      .get("/support", oeffentlich, (c) => c.html(seiten.support))
       // Verwaltung im Browser: nur die statische Hülle, Daten kommen über /api/v1/admin/*
       .route("/admin", erstelleAdminSeiten(seiten.admin))
       // Eigene Routen statt Dateien, damit der Content-Type JSON ist
