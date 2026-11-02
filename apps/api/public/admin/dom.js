@@ -58,6 +58,13 @@ const ICONS = {
     "M9 9.5h.01M15 9.5h.01",
   ],
   system: ["M3 12h4l2.5-6 5 12 2.5-6h4"],
+  einheit: ["M4 21V9l8-5 8 5v12", "M9 21v-6h6v6M3 21h18"],
+  zeitregeln: [["circle", { cx: 12, cy: 13, r: 8 }], "M12 9v4l2.5 2", "M9 2h6"],
+  hochladen: [
+    "M12 16V5",
+    "m7.5 9.5 4.5-4.5 4.5 4.5",
+    "M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3",
+  ],
   uebersicht: [
     ["rect", { x: 3, y: 3, width: 8, height: 10, rx: 2 }],
     ["rect", { x: 13, y: 3, width: 8, height: 6, rx: 2 }],
@@ -842,23 +849,37 @@ export function bestaetigen({
 }
 
 // Zeigt ein Geheimnis (Startpasswort) genau einmal; beim Schliessen wird der Text aus der Seite gelöscht
-export function geheimnisDialog({ titel, beschreibung, wert }) {
+// wert: ein Text, oder eintraege: [{ label, wert }, …] für mehrere Geheimnisse (z. B. mehrere neue Konten)
+export function geheimnisDialog({ titel, beschreibung, wert, eintraege }) {
   const zurueck = ausloeser();
   const titelId = neueId("titel");
-  // Ein Absatz statt <output>: Das hätte die Rolle «status» und sagte das Passwort ungefragt an
-  const anzeige = el("p", { class: "geheimnis" }, wert);
+  const liste = eintraege ?? [{ wert }];
   const rueck = el("p", { class: "hilfe", role: "status" });
-  const kopieren = knopf("Kopieren", {
-    symbol: "kopieren",
-    onclick: async () => {
-      try {
-        await navigator.clipboard.writeText(wert);
-        rueck.textContent = "Kopiert.";
-      } catch {
-        rueck.textContent =
-          "Kopieren ist nicht möglich. Markiere das Passwort von Hand.";
-      }
-    },
+  const anzeigen = [];
+  const bloecke = liste.map((e) => {
+    // Ein Absatz statt <output>: Das hätte die Rolle «status» und sagte das Passwort ungefragt an
+    const anzeige = el("p", { class: "geheimnis" }, e.wert);
+    anzeigen.push(anzeige);
+    const kopieren = knopf("Kopieren", {
+      symbol: "kopieren",
+      kontext: e.label,
+      onclick: async () => {
+        try {
+          await navigator.clipboard.writeText(e.wert);
+          rueck.textContent = "Kopiert.";
+        } catch {
+          rueck.textContent =
+            "Kopieren ist nicht möglich. Markiere das Passwort von Hand.";
+        }
+      },
+    });
+    return el(
+      "div",
+      { class: "geheimnis-block" },
+      e.label && el("p", { class: "fett" }, e.label),
+      anzeige,
+      kopieren,
+    );
   });
   const schliessen = el(
     "button",
@@ -874,17 +895,17 @@ export function geheimnisDialog({ titel, beschreibung, wert }) {
     { "aria-labelledby": titelId },
     el("h2", { id: titelId, tabindex: "-1" }, titel),
     el("p", { class: "beschreibung" }, beschreibung),
-    anzeige,
+    bloecke,
     rueck,
-    el("div", { class: "dialog-knoepfe" }, kopieren, schliessen),
+    el("div", { class: "dialog-knoepfe" }, schliessen),
   );
   dialog.addEventListener("close", () => {
-    anzeige.textContent = "";
+    for (const anzeige of anzeigen) anzeige.textContent = "";
     dialog.remove();
     if (zurueck?.isConnected) zurueck.focus();
     else document.querySelector("h1")?.focus();
   });
   document.body.append(dialog);
   dialog.showModal();
-  kopieren.focus();
+  bloecke[0].querySelector("button").focus();
 }
