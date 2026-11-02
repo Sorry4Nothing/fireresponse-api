@@ -1241,7 +1241,7 @@ paths:
         - Programme
       description: |
         Liefert die Felder des Listeneintrags (mit `teilnehmende` samt Rang-Abzeichen) und zusätzlich `thema`, `info`, `aufgebot`,
-        die Kontaktperson des Termins (`kontakt`) und (nur für Kommando und Leitende der Einheit) `eigeneAnmeldung`.
+        die Kontaktperson des Termins (`kontakt`) und (nur für Kommando und Leitende der Einheit) `eigeneAnmeldung`, das auch der Listeneintrag trägt.
         Die Kontaktperson ist die Kommandantin oder der Kommandant, solange sie oder er nicht «nein» gesagt hat; sonst die erste
         Stellvertretung ohne «nein»; haben alle «nein» gesagt, wieder die Kommandantin oder der Kommandant. «Offen» ist keine Absage.
         Die Telefonnummer des Kontakts sehen nur Eltern und Teilnehmende mit aktiver Person in der Einheit, sonst ist `telefon` `null`.
@@ -4066,7 +4066,7 @@ components:
     ProgrammListeneintrag:
       type: object
       description: |
-        Programm, wie es Liste und Detail liefern, mit `teilnehmende` (derselben Regel in beiden). Alle Schlüssel sind immer vorhanden. Entweder ist `ganztaegig`
+        Programm, wie es Liste und Detail liefern, mit `teilnehmende` und `eigeneAnmeldung` (derselben Regel in beiden). Alle Schlüssel ausser `eigeneAnmeldung` sind immer vorhanden. Entweder ist `ganztaegig`
         wahr, dann sind `tagVon` und `tagBis` gesetzt und `beginn` und `ende` `null`, oder `ganztaegig` ist falsch,
         dann sind `beginn` und `ende` gesetzt und `tagVon` und `tagBis` `null`.
       required:
@@ -4136,6 +4136,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ProgrammTeilnehmende"
+        eigeneAnmeldung:
+          type: string
+          enum: [ja, nein, offen]
+          description: "Die eigene Anmeldung als Leitung. Der Schlüssel fehlt, ausser für Kommando, Stellvertretung und Leitung der Einheit des Termins; er fehlt auch bei `anmeldbar: false`. In Liste und Detail dieselbe Regel."
     ProgrammListe:
       type: object
       required:
@@ -4169,10 +4173,6 @@ components:
               oneOf:
                 - $ref: "#/components/schemas/Kontakt"
                 - type: "null"
-            eigeneAnmeldung:
-              type: string
-              enum: [ja, nein, offen]
-              description: Nur für Kommando und Leitende der Einheit.
     ProgrammAntwort:
       type: object
       description: Antwort «ja» oder «nein» für eine Teilnahme oder eine Leitungsanmeldung.
