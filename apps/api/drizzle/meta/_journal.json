@@ -36,6 +36,13 @@
       "when": 1793616451817,
       "tag": "0004_einheit_logo",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1793623777657,
+      "tag": "0005_standard_raenge_vier",
+      "breakpoints": true
     }
   ]
 }
