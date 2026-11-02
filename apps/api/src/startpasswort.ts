@@ -29,21 +29,18 @@ export function normalisiereStartpasswort(text: string) {
   return text.replace(/[-\s]/g, "").toUpperCase();
 }
 
-// AES-256-GCM mit einem Schlüssel aus BETTER_AUTH_SECRET: Die Verwaltung zeigt ein offenes Startpasswort wieder an. Ein Wechsel des Geheimnisses macht offene Startpasswörter unlesbar; die Anzeige bleibt dann leer, die Anmeldung unberührt
-const schluessel = () =>
+// AES-256-GCM mit einem Schlüssel aus BETTER_AUTH_SECRET, je Zweck ein eigener: Die Verwaltung zeigt ein offenes Startpasswort wieder an, der Sync liest den Lodur-Link. Ein Wechsel des Geheimnisses macht beides unlesbar; die Anzeige bleibt dann leer, die Anmeldung unberührt
+const schluessel = (zweck: string) =>
   Buffer.from(
-    hkdfSync(
-      "sha256",
-      process.env.BETTER_AUTH_SECRET ?? "",
-      "",
-      "startpasswort-anzeige",
-      32,
-    ),
+    hkdfSync("sha256", process.env.BETTER_AUTH_SECRET ?? "", "", zweck, 32),
   );
 
-export function verschluesseleStartpasswort(klartext: string) {
+export function verschluessele(
+  klartext: string,
+  zweck = "startpasswort-anzeige",
+) {
   const iv = randomBytes(12);
-  const chiffre = createCipheriv("aes-256-gcm", schluessel(), iv);
+  const chiffre = createCipheriv("aes-256-gcm", schluessel(zweck), iv);
   const daten = Buffer.concat([
     chiffre.update(klartext, "utf8"),
     chiffre.final(),
@@ -51,13 +48,16 @@ export function verschluesseleStartpasswort(klartext: string) {
   return Buffer.concat([iv, chiffre.getAuthTag(), daten]).toString("base64url");
 }
 
-export function entschluesseleStartpasswort(text: string | null) {
+export function entschluessele(
+  text: string | null,
+  zweck = "startpasswort-anzeige",
+) {
   if (!text) return null;
   try {
     const roh = Buffer.from(text, "base64url");
     const dechiffre = createDecipheriv(
       "aes-256-gcm",
-      schluessel(),
+      schluessel(zweck),
       roh.subarray(0, 12),
     );
     dechiffre.setAuthTag(roh.subarray(12, 28));
@@ -70,7 +70,12 @@ export function entschluesseleStartpasswort(text: string | null) {
   }
 }
 
-// Felder für ein neues Startpasswort: Pflichtwechsel an, 7 Tage gültig, und die Bremse beginnt von vorn; das Startpasswort selbst bleibt verschlüsselt, bis die Person es ersetzt
+export const verschluesseleStartpasswort = (klartext: string) =>
+  verschluessele(klartext);
+export const entschluesseleStartpasswort = (text: string | null) =>
+  entschluessele(text);
+
+// Felder für ein neues Startpasswort (#18, #20): Pflichtwechsel an, 7 Tage gültig, und die Bremse beginnt von vorn; das Startpasswort selbst bleibt verschlüsselt, bis die Person es ersetzt
 export function startpasswortFelder(
   jetzt = new Date(),
   startpasswort?: string,

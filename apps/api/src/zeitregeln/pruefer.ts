@@ -14,6 +14,7 @@ import {
 } from "../db/schema.js";
 import { fehlerCode, log } from "../log.js";
 import { type Fcm, sendePush } from "../push.js";
+import { ANMELDEFENSTER_STANDARD, fensterOffen } from "../anmeldefenster.js";
 import { aktivesKonto, programmBeginn } from "../rechte.js";
 import { ausloesezeit, kurzDatum } from "./ausloesezeit.js";
 
@@ -34,8 +35,13 @@ export const titelAusRegel = (
 
 // Sendet jede fällige Erinnerung genau einmal: Die Zeile in zeitregel_gesendet entsteht vor dem Versand (INSERT … ON CONFLICT DO NOTHING ist die Sperre, auch bei zwei Servern). Stürzt der Prozess dazwischen ab, fällt diese eine Erinnerung aus, doppelt kommt sie nie.
 // Fällig heisst: Auslösezeit erreicht und das Programm hat noch nicht begonnen; ein Lauf nach einem Ausfall holt sie damit nach
+// Nur für Programme im Anmeldefenster (`anmeldefensterTage`): Vorher lässt sich nicht antworten, eine Erinnerung wäre sinnlos
 export async function sendeFaelligeErinnerungen(
-  { db, fcm }: { db: Db; fcm: Fcm },
+  {
+    db,
+    fcm,
+    anmeldefensterTage = ANMELDEFENSTER_STANDARD,
+  }: { db: Db; fcm: Fcm; anmeldefensterTage?: number },
   jetzt: Date,
 ) {
   // Nur Programme, die noch Anmeldungen annehmen (wie teilnahmeOffen)
@@ -53,6 +59,7 @@ export async function sendeFaelligeErinnerungen(
         eq(programm.status, "aktiv"),
         roh`${programmBeginn} > ${jetzt.toISOString()}`,
         roh`${programmBeginn} <= ${new Date(jetzt.getTime() + VORLAUF_MS).toISOString()}`,
+        fensterOffen(anmeldefensterTage, jetzt),
       ),
     );
   if (programme.length === 0) return;
@@ -146,6 +153,7 @@ export async function sendeFaelligeErinnerungen(
           eltern.map((e) => e.id),
           {
             typ: "programm",
+            kanal: "termine",
             id: p.id,
             titel: titelAusRegel(regel.text, p.titel, beginn),
             ...(regel.beschreibung && {
@@ -168,10 +176,12 @@ export async function sendeFaelligeErinnerungen(
 export async function pruefeZeitregeln({
   datenbankUrl,
   fcm,
+  anmeldefensterTage,
   jetzt = new Date(),
 }: {
   datenbankUrl: string;
   fcm: Fcm;
+  anmeldefensterTage?: number;
   jetzt?: Date;
 }): Promise<"fertig" | "gesperrt"> {
   // Eigene Verbindung mit max 1: Sperre und Freigabe müssen auf derselben Sitzung laufen
@@ -181,7 +191,10 @@ export async function pruefeZeitregeln({
       await sql`select pg_try_advisory_lock(${SPERRE_ZEITREGELN}) as erhalten`;
     if (!sperre.erhalten) return "gesperrt";
     try {
-      await sendeFaelligeErinnerungen({ db: erstelleDb(sql), fcm }, jetzt);
+      await sendeFaelligeErinnerungen(
+        { db: erstelleDb(sql), fcm, anmeldefensterTage },
+        jetzt,
+      );
       return "fertig";
     } finally {
       // Scheitert nur mit der Verbindung, und dann fällt die Sperre mit ihr

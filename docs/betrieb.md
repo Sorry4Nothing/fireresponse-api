@@ -91,6 +91,18 @@ Jedes Release rollt `deploy/deploy.sh vX.Y.Z` aus, nach `git fetch --tags && git
 
 Das Image des Edge-Caddys und seine Seiten-Dateien gehören nicht zu diesem Skript (siehe «Edge-Caddy»).
 
+### Firebase-Projekt für die Pushes
+
+Die Pushes laufen über ein eigenes Firebase-Projekt, das nur FireResponse nutzt. Einmal einrichten:
+
+1. In der Firebase-Konsole ein Projekt anlegen und Cloud Messaging aktivieren. Für iOS den APNs-Authentifizierungsschlüssel (`.p8`) des Apple Developer Programs hochladen. Die Apps registrieren je ihre Bundle-ID bzw. Paketnamen im Projekt; die Konfigurationsdateien (`google-services.json`, `GoogleService-Info.plist`) gehören zu den Apps, nicht in dieses Repo.
+2. Unter «Projekteinstellungen», «Dienstkonten» einen neuen privaten Schlüssel für das Firebase-Admin-SDK erzeugen. Die JSON-Datei liegt nur auf dem Server unter `deploy/secrets/fcm-service-account.json` (Ordner 700, Datei 400, Besitzer `1000:1000`), nie im Repo, nie im Chat, nie in einer E-Mail. Geht die Datei verloren, erzeugt man in der Konsole einen neuen Schlüssel.
+3. `docker-compose.prod.yml` setzt `FCM_SCHLUESSEL_DATEI` auf den Pfad im Container. Nach dem Ablegen der Datei die API neu starten; im Log steht beim Start nicht mehr `ohne-schluessel`.
+4. Die Apps legen die Android-Kanäle `termine` und `anmeldungen` an. Die Kanal-IDs stehen in der Android-Konfiguration des Pushes (`android.notification.channelId`).
+5. Test: Mit dem Konto des Kommandos auf einem Gerät anmelden (das Gerät registriert sein Push-Token), dann mit einem Elternkonto der Einheit ein künftiges Programm im Anmeldefenster beantworten. Das Gerät des Kommandos zeigt «Neue Anmeldung» mit dem Text «In Fire-Response».
+
+Push-Texte tragen nie Namen und nie den Titel eines Termins: Sie stehen je nach Handy auf dem gesperrten Bildschirm und laufen über Apple und Google. Schlüssel tauschen: siehe «Datenpanne».
+
 ### Deploy aus GitHub
 
 Statt von Hand rollt der Workflow «Deploy» ([`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml)) einen Tag aus, nachdem eine Person ihn in GitHub freigegeben hat. Er prüft, dass der Tag `vX.Y.Z` heisst, auf `main` liegt und sein Image im GHCR existiert, und verbindet sich dann per SSH. Der Server führt für diesen Schlüssel nur [`deploy/ssh-deploy.sh`](../deploy/ssh-deploy.sh) aus: Es nimmt den Tag als einziges Argument, checkt ihn aus und startet `deploy/deploy.sh vX.Y.Z`. Der Ablauf auf dem Server bleibt derselbe wie von Hand.
@@ -193,7 +205,7 @@ Bleibt nach einem Abbruch ein Lock im Archiv zurück: `docker compose -f docker-
 
 ## Überwachung
 
-`/health` antwortet ohne Login mit `ok` (Status 200) oder `fehler` (Status 503). `fehler` heisst: Die Datenbank ist nicht erreichbar oder ihre Tabellen fehlen. Den Grund nennt nur das Log der API, nie die Antwort. Ist die Datenbank nicht erreichbar, dauert die Antwort rund 5 Sekunden.
+`/health` antwortet ohne Login mit `ok` (Status 200), `fehler` oder `sync-veraltet` (Status 503). `fehler` heisst: Die Datenbank ist nicht erreichbar oder ihre Tabellen fehlen. `sync-veraltet` heisst: Der Lodur-Sync einer Einheit mit Link ist seit über 60 Minuten nicht gelungen; welche Einheit und warum, zeigt die Verwaltung (`GET /api/v1/admin/einheiten/{einheitId}/lodur`, Feld `syncFehler`) und das Log (`"ereignis":"lodur-sync"`, nur ein Code). Den Grund nennt nur das Log der API, nie die Antwort. Ist die Datenbank nicht erreichbar, dauert die Antwort rund 5 Sekunden.
 
 Ein kostenloser Uptime-Dienst ruft `/health` auf; er sieht nur `ok` oder `fehler`. Welcher Dienst, ist offen; infrage kommen etwa UptimeRobot oder Better Stack. Vor der Wahl die aktuellen Bedingungen des Gratis-Plans lesen (Intervall, Zahl der Monitore, erlaubte Nutzung, Standort der Server). Der Dienst sieht nur die öffentliche Adresse und die Antwort `ok` oder `fehler`, keine Personendaten. Anforderungen:
 
@@ -282,7 +294,7 @@ Der Ablauf gilt, sobald Daten in falsche Hände geraten sein könnten, etwa durc
 1. **Alle Sitzungen beenden,** in `deploy/`: `docker compose -f docker-compose.prod.yml exec api node --import tsx src/cli/sitzungen-beenden.ts`. Der Befehl meldet «Beendete Sitzungen: n». Alle müssen sich neu anmelden; Konten, Passwörter und zweite Faktoren bleiben. In der Entwicklung: `npm run sitzungen:beenden -w apps/api`.
 2. **Die verantwortliche Stelle informieren,** und mit ihr die Bezirke, deren Einheiten betroffen sein können. Bedeutet die Panne wahrscheinlich ein hohes Risiko für die betroffenen Personen, geht so rasch als möglich eine Meldung an den EDÖB über <https://databreach.edoeb.admin.ch/report> (Art. 24 Abs. 1 DSG), ohne auf die Schritte 3 und 4 zu warten; noch fehlende Angaben folgen so rasch als möglich (Art. 15 Abs. 2 DSV).
 3. **Geheimnisse wechseln,** jedes einzeln:
-   - Auth-Geheimnis: in `BETTER_AUTH_SECRET` einen neuen Zufallswert setzen und die API neu starten. Alte Cookies gelten dann nicht mehr, und die gespeicherten TOTP-Geheimnisse und Ersatzcodes lassen sich nicht mehr entschlüsseln: Kein Konto mit Verwaltungsrolle besteht den zweiten Faktor, bis er neu eingerichtet ist (Schritt 4). Den alten Wert vollständig entfernen, auch nicht als ältere Version in `BETTER_AUTH_SECRETS` behalten: Wer ihn kennt, könnte damit weiterhin Codes berechnen.
+   - Auth-Geheimnis: in `BETTER_AUTH_SECRET` einen neuen Zufallswert setzen und die API neu starten. Alte Cookies gelten dann nicht mehr, und die gespeicherten TOTP-Geheimnisse und Ersatzcodes lassen sich nicht mehr entschlüsseln: Kein Konto mit Verwaltungsrolle besteht den zweiten Faktor, bis er neu eingerichtet ist (Schritt 4), und die gespeicherten Lodur-Links lassen sich nicht mehr lesen (Sync-Fehler `entschluesselung`): Das Kommando trägt sie neu ein. Den alten Wert vollständig entfernen, auch nicht als ältere Version in `BETTER_AUTH_SECRETS` behalten: Wer ihn kennt, könnte damit weiterhin Codes berechnen.
    - Passwörter der Datenbankrollen: in `deploy/.env` neue Werte für `API_DB_PASSWORD` und `MIGRATION_DB_PASSWORD` setzen und `deploy/deploy.sh <Tag>` des laufenden Tags ausführen; es setzt die Rollenpasswörter und startet neu.
    - Schlüssel des Firebase-Dienstkontos für FCM: einen neuen Schlüssel erzeugen, ihn nach `deploy/secrets/fcm-service-account.json` legen, die API neu starten und erst dann den alten Schlüssel löschen.
    - restic- und S3-Schlüssel: einen neuen S3-Zugangsschlüssel beim Anbieter anlegen und in `deploy/.env` eintragen, den alten löschen; einen neuen restic-Schlüssel anlegen (`key add`) und den alten entfernen (`key remove`).

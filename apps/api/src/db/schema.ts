@@ -51,6 +51,8 @@ export const einheit = pgTable(
     name: text("name").notNull(),
     // AES-GCM-verschlüsselt wie das Startpasswort; nie im Klartext in der Datenbank, nie in Log oder Antwort
     lodurUrlVerschluesselt: text("lodur_url_verschluesselt"),
+    // Bezugspunkt für /health, solange der erste Abruf nach dem Eintragen des Links noch aussteht
+    lodurUrlGesetztAm: zeitpunkt("lodur_url_gesetzt_am"),
     syncOkAm: zeitpunkt("sync_ok_am"),
     // Nur ein Fehlercode, nie eine Meldung
     syncFehler: text("sync_fehler"),
@@ -329,7 +331,7 @@ export const teilnehmendeKonto = pgTable(
   ],
 );
 
-// Bis die Termine aus Lodur kommen (E3/E4), bleibt die Form des Programms; es gehört genau einer Einheit
+// Ein Termin aus dem Lodur-Kalender der Einheit. shortcut: Tabelle und Spalte google_event_id behalten ihre Namen aus der Planung vor Lodur, die Spalte trägt die Lodur-UID; Umbenennung zusammen mit programm -> termin
 export const programm = pgTable(
   "programm",
   {
@@ -350,13 +352,15 @@ export const programm = pgTable(
     googleOrt: text("google_ort"),
     // Aus dem HTML der Google-Beschreibung; gilt als intern
     googleBeschreibung: text("google_beschreibung"),
-    // Die drei Texte der Termin-Ansicht; leer, solange die Quelle sie nicht liefert
+    // «Thema/Dienst», «Info» und «Aufgebot» aus der Lodur-Beschreibung (Sync); «Verantwortlich» wird nie gespeichert. Leer, solange die Quelle sie nicht liefert
     thema: text("thema"),
     info: text("info"),
     aufgebot: text("aufgebot"),
     status: text("status", { enum: ["aktiv", "abgesagt", "pruefen"] })
       .notNull()
       .default("aktiv"),
+    // SHA-256 über die Felder, die der Sync übernimmt: CREATED, DTSTAMP und LAST-MODIFIED sind in Lodur immer der Abrufzeitpunkt
+    inhaltHash: text("inhalt_hash"),
   },
   (t) => [
     unique("programm_einheit_google_event_eindeutig").on(

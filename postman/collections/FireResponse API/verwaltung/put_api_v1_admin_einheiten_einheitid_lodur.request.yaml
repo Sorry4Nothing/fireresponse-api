@@ -1,0 +1,22 @@
+$kind: http-request
+name: "PUT /api/v1/admin/einheiten/:einheitId/lodur"
+order: 85000
+method: PUT
+url: "{{baseUrl}}/api/v1/admin/einheiten/{{einheit_jfA}}/lodur"
+headers:
+  - key: "Cookie"
+    value: "{{cookie}}"
+  - key: "expo-origin"
+    value: "{{expoOrigin}}"
+  - key: "X-Forwarded-For"
+    value: "{{ip}}"
+  - key: "X-App-Version"
+    value: "{{appVersion}}"
+  - key: "Content-Type"
+    value: "application/json"
+body:
+  type: json
+  content: |-
+    {
+      "url": "https://kalender.example.org/ical/matrix"
+    }

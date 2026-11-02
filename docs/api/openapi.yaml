@@ -19,6 +19,7 @@ paths:
       description: |
         Öffentlich, ohne Anmeldung, ausserhalb der Versionsprüfung (kein `X-App-Version` nötig).
         Antwortet «ok» (200), wenn die Datenbank erreichbar ist. Sonst «fehler» mit 503. Für Überwachung, nicht für die App.
+        Schlägt auch Alarm, wenn der Lodur-Sync einer Einheit mit Link seit über 60 Minuten nicht gelungen ist (vier Läufe): «sync-veraltet» mit 503. Vor dem ersten Erfolg zählt der Zeitpunkt, an dem der Link eingetragen wurde. Welche Einheit betroffen ist, steht nur in der Verwaltung (`syncFehler`), nie in dieser Antwort.
       responses:
         "200":
           description: Alles in Ordnung.
@@ -36,6 +37,7 @@ paths:
                 type: string
                 enum:
                   - fehler
+                  - sync-veraltet
   /datenschutz:
     get:
       operationId: getDatenschutzSeite
@@ -928,7 +930,7 @@ paths:
         Mindestens ein Feld muss im Body stehen. Der Body ist strikt: Jedes andere Feld ergibt 400, ebenso ein
         leerer Body oder ein Schalter, der kein Boolean ist.
 
-        **Push-Schalter.** `pushProgramme` (Pushes zu Programmen) ist ein Boolean und standardmässig an. Die API wertet ihn bei jedem Versand aus; das Push-Token bleibt dabei bestehen. Ein Push trägt als Daten `typ` (`programm`) und `id` (Programm-ID), woraus die App das Ziel öffnet.
+        **Push-Schalter.** `pushProgramme` (Pushes zu Programmen) ist ein Boolean und standardmässig an. Die API wertet ihn bei jedem Versand aus; das Push-Token bleibt dabei bestehen. Ein Push trägt als Daten `typ` (`programm`) und `id` (Programm-ID), woraus die App das Ziel öffnet. Der Schalter gilt für Erinnerungen, Absagen und Änderungen von Programmen (Android-Kanal `termine`). Absage und Änderung tragen nie Titel oder Namen: Titel «Termin abgesagt» bzw. «Termin geändert», Text «In Fire-Response». Die Absage erreicht alle Aktiven der Einheit, die Änderung nur, wer schon geantwortet hat.
 
         **Anmelde-Push.** `pushAnmeldungen` (Push an Kommando und Leitende bei An- und Abmeldung für ein Programm) ist ein Boolean und standardmässig an. `GET /api/v1/ich` gibt den Schalter nur Personen mit einer Rolle in einer Einheit zurück; setzen lässt er sich von jeder Person, ohne Wirkung ohne Rolle.
 
@@ -1401,7 +1403,7 @@ paths:
 
         Setzt der Aufruf die Antwort neu oder ändert er sie, geht ein Push an Kommando und Leitende der Einheit
         (aktives Konto, `pushAnmeldungen` an), ausser an die Person, die selbst aufruft:
-        Titel «Neue Anmeldung» bei «ja», «Neue Abmeldung» bei «nein», Text «{Programm} am {Datum}», ohne Namen. Bleibt der
+        Titel «Neue Anmeldung» bei «ja», «Neue Abmeldung» bei «nein», Text «In Fire-Response» (Android-Kanal `anmeldungen`), ohne Programm und ohne Namen. Bleibt der
         Wert gleich, geht kein Push hinaus. Ein Fehler beim Push lässt den Aufruf nicht scheitern.
 
         Reihenfolge der Prüfung: Eingabe (400); Programm nicht sichtbar oder Person nicht die eigene (404, ohne Unterscheidung);
@@ -1637,6 +1639,8 @@ paths:
       description: |
         Kommando der Einheit und Kantonsadmin. Liefert alle Regeln der Einheit, sortiert nach Wochentag und Uhrzeit.
 
+        Der Server prüft die Regeln jede Minute und schickt die Erinnerung an Konten mit offener Antwort, nur für Programme im Anmeldefenster (`ANMELDEFENSTER_TAGE`), die noch nicht begonnen haben.
+
         Statuscodes: 200 bei Erfolg. 403 für Leitende und Eltern der Einheit (und ohne zweiten Faktor, Code `ZWEITER_FAKTOR_FEHLT`); 404, wenn die Einheit unbekannt oder unsichtbar ist.
       tags:
         - Verwaltung
@@ -1752,6 +1756,106 @@ paths:
           description: Gelöscht.
         "400":
           $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/admin/einheiten/{einheitId}/lodur:
+    get:
+      operationId: holeAdminLodurLink
+      summary: Stand des Lodur-Links der Einheit
+      description: |
+        Kantonsadmin, Kommandant und Stellvertretungen der Einheit. Liefert, ob ein Link gesetzt ist, ihn maskiert (nur der Host) und den Stand des Syncs. Der Link selbst kommt nie zurück.
+
+        Statuscodes: 200 bei Erfolg. 403 für Leitende und Eltern der Einheit (und ohne zweiten Faktor, Code `ZWEITER_FAKTOR_FEHLT`); 404, wenn die Einheit unbekannt oder unsichtbar ist.
+      tags:
+        - Verwaltung
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/EinheitIdPfad"
+      responses:
+        "200":
+          description: Stand des Links und des Syncs.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminLodurStand"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+    put:
+      operationId: setzeAdminLodurLink
+      summary: Lodur-Link der Einheit setzen
+      description: |
+        Kantonsadmin, Kommandant und Stellvertretungen der Einheit. Speichert den ganzen Link verschlüsselt (AES-GCM) und ersetzt einen bisherigen. Der Stand des Syncs beginnt von vorn; der nächste Lauf (alle 15 Minuten) holt den Kalender. Es gibt keinen manuellen Auslöser. Das Setzen steht im Audit-Log, ohne den Link.
+
+        Der Link muss `https` sein, ohne Port und ohne Zugangsdaten (`@`), und sein Host muss in `LODUR_ERLAUBTE_HOSTS` stehen (SR-26). Die Antwort wiederholt den Link nie.
+
+        Statuscodes: 200 bei Erfolg. 400 bei ungültigem Body oder ungültigem Link (Code `LODUR_LINK_UNGUELTIG`). 403 für Leitende und Eltern. 404 bei unbekannter oder unsichtbarer Einheit.
+      tags:
+        - Verwaltung
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/EinheitIdPfad"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminLodurSetzen"
+      responses:
+        "200":
+          description: Link gespeichert.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminLodurStand"
+        "400":
+          description: Ungültiger Body, oder der Link ist ungültig oder sein Host nicht erlaubt.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/Fehler"
+                  - $ref: "#/components/schemas/AdminLodurLinkUngueltig"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+    delete:
+      operationId: loescheAdminLodurLink
+      summary: Lodur-Link der Einheit entfernen
+      description: |
+        Kantonsadmin, Kommandant und Stellvertretungen der Einheit. Entfernt den Link und den Stand des Syncs. Die Termine bleiben; es kommen keine neuen. Das Entfernen steht im Audit-Log.
+
+        Statuscodes: 204 bei Erfolg (auch ohne gesetzten Link). 403 für Leitende und Eltern. 404 bei unbekannter oder unsichtbarer Einheit.
+      tags:
+        - Verwaltung
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/EinheitIdPfad"
+      responses:
+        "204":
+          description: Entfernt.
         "401":
           $ref: "#/components/responses/NichtAngemeldet401"
         "403":
@@ -4274,6 +4378,53 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/AdminZeitregel"
+    AdminLodurSetzen:
+      type: object
+      additionalProperties: false
+      required: [url]
+      properties:
+        url:
+          type: string
+          maxLength: 4096
+          description: Der ganze Lodur-Link; `https`, ohne Port und Zugangsdaten, Host aus `LODUR_ERLAUBTE_HOSTS`.
+    AdminLodurStand:
+      type: object
+      additionalProperties: false
+      required: [gesetzt, maskiert, syncOkAm, syncFehler]
+      properties:
+        gesetzt:
+          type: boolean
+        maskiert:
+          type: [string, "null"]
+          description: Nur `https://<host>/…`, nie Pfad oder Schlüssel. `null` ohne Link oder wenn das Geheimnis gewechselt wurde.
+        syncOkAm:
+          type: [string, "null"]
+          format: date-time
+          description: Letzter gelungener Abruf; `null` vor dem ersten.
+        syncFehler:
+          type: [string, "null"]
+          description: Code des letzten gescheiterten Abrufs, sonst `null`.
+          enum:
+            - url-ungueltig
+            - entschluesselung
+            - weiterleitung
+            - http-fehler
+            - zeitueberschreitung
+            - netzwerk
+            - zu-gross
+            - kein-kalender
+            - leer
+            - intern
+            - null
+    AdminLodurLinkUngueltig:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          enum: [LODUR_LINK_UNGUELTIG]
+        message:
+          type: string
     AdminAngelegt:
       type: object
       required:
