@@ -120,6 +120,20 @@ const VERWALTEN_JF_A = (erlaubt: number) =>
     ohneLogin: 401,
   }) as Record<Persona, number>;
 
+// Auswertung ohne Objekt in der URL: Wer eine Einheit verwaltet (Kantonsadmin, Kommandant, Stellvertretung) bekommt die Zahlen der eigenen Einheiten, auch das Kommando von KF A und JF B; Leitende und Eltern 403. Die Zahlen jeder Einheit prüft test/auswertung.test.ts
+const AUSWERTEN = {
+  ...alle(403),
+  kantonsadmin: 200,
+  kommandoJfA: 200,
+  stellvertretung1JfA: 200,
+  stellvertretung2JfA: 200,
+  kommandoKfA: 200,
+  kommandoJfB: 200,
+  deaktiviert: 401,
+  ohneLogin: 401,
+} as Record<Persona, number>;
+const JAHR_2025 = "von=2025-01-01&bis=2025-12-31";
+
 const MATRIX: Record<string, Zeile> = {
   "GET /health": { erwartet: alle(200) },
   // Statische Seiten und .well-known: offen für alle, auch deaktiviert und ohne Login
@@ -131,6 +145,7 @@ const MATRIX: Record<string, Zeile> = {
   "GET /admin/admin.css": { erwartet: alle(200) },
   "GET /admin/admin.js": { erwartet: alle(200) },
   "GET /admin/api.js": { erwartet: alle(200) },
+  "GET /admin/auswertung.js": { erwartet: alle(200) },
   "GET /admin/dom.js": { erwartet: alle(200) },
   "GET /admin/favicon.svg": { erwartet: alle(200) },
   "GET /admin/hintergrund.svg": { erwartet: alle(200) },
@@ -330,6 +345,34 @@ const MATRIX: Record<string, Zeile> = {
     urlJeAnfrage: async () =>
       `/api/v1/admin/einheiten/${welt.einheit.jfA}/zeitregeln/${await wegwerfRegelId()}`,
     erwartet: VERWALTEN_JF_A(204),
+  },
+  // Auswertung auf Basis der Anmeldungen (E7), nur lesend; Inhalte und Mandantentrennung in test/auswertung.test.ts
+  "GET /api/v1/admin/auswertung/filter": { erwartet: AUSWERTEN },
+  "GET /api/v1/admin/auswertung/termine": {
+    url: () => `/api/v1/admin/auswertung/termine?${JAHR_2025}`,
+    erwartet: AUSWERTEN,
+  },
+  "GET /api/v1/admin/auswertung/quoten": {
+    url: () => `/api/v1/admin/auswertung/quoten?${JAHR_2025}`,
+    erwartet: AUSWERTEN,
+  },
+  "GET /api/v1/admin/auswertung/jahr": {
+    url: () => "/api/v1/admin/auswertung/jahr?jahr=2025",
+    erwartet: AUSWERTEN,
+  },
+  "GET /api/v1/admin/auswertung/termine/:id": {
+    url: () => `/api/v1/admin/auswertung/termine/${programmId}`,
+    erwartet: VERWALTEN_JF_A(200),
+  },
+  "GET /api/v1/admin/auswertung/einheiten/:einheitId/teilnehmende/:id": {
+    url: (w) =>
+      `/api/v1/admin/auswertung/einheiten/${w.einheit.jfA}/teilnehmende/${w.teilnehmende.jfA}?${JAHR_2025}`,
+    erwartet: VERWALTEN_JF_A(200),
+  },
+  "GET /api/v1/admin/auswertung/einheiten/:einheitId/leitende/:id": {
+    url: (w) =>
+      `/api/v1/admin/auswertung/einheiten/${w.einheit.jfA}/leitende/${standard.kommandoJfA.id}?${JAHR_2025}`,
+    erwartet: VERWALTEN_JF_A(200),
   },
   // Profilbild (#173): Jede Person mit Sitzung lädt ihr eigenes hoch und löscht es; nur die Person selbst, nie eine andere. Typ, Grösse und Rate-Limit prüft test/profilbild.test.ts
   "PUT /api/v1/ich/bild": {
@@ -638,6 +681,7 @@ describe.runIf(process.env.POSTMAN_EXPORT)("Postman-Export", () => {
       patchRegelId,
       bildZielId,
       elternJfAUserId: standard.elternJfA.id!,
+      kommandoJfAUserId: standard.kommandoJfA.id!,
     };
     const ersetze = (text: string) =>
       Object.entries(ids).reduce(

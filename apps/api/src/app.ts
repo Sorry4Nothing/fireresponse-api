@@ -12,6 +12,7 @@ import { log } from "./log.js";
 import type { Fcm } from "./push.js";
 import { erstelleMetriken } from "./metriken.js";
 import { personAusSitzung, zweiterFaktorPflicht } from "./rechte.js";
+import { erstelleAuswertungRouten } from "./routes/admin/auswertung.js";
 import { erstelleEinheitenRouten } from "./routes/admin/einheiten.js";
 import { erstelleSystemRouten } from "./routes/admin/system.js";
 import { erstelleZeitregelRouten } from "./routes/admin/zeitregeln.js";
@@ -166,6 +167,7 @@ export function erstelleApp({
       )
       .route("/api/v1", erstelleKontaktRouten({ db }))
       .route("/api/v1/einwilligung", erstelleEinwilligungRouten({ db }))
+      .route("/api/v1/admin/auswertung", erstelleAuswertungRouten({ db }))
       .route("/api/v1/admin/einheiten", erstelleEinheitenRouten({ db }))
       .route(
         "/api/v1/admin/einheiten/:einheitId/zeitregeln",
