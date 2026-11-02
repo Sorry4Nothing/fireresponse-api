@@ -1,6 +1,6 @@
 $kind: http-request
 name: "POST /api/auth/two-factor/verify-backup-code"
-order: 22000
+order: 24000
 method: POST
 url: "{{baseUrl}}/api/auth/two-factor/verify-backup-code"
 headers:

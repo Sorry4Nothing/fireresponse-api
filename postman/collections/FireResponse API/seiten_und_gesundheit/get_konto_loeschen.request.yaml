@@ -1,6 +1,6 @@
 $kind: http-request
 name: "GET /konto-loeschen"
-order: 3000
+order: 4000
 method: GET
 url: "{{baseUrl}}/konto-loeschen"
 headers:

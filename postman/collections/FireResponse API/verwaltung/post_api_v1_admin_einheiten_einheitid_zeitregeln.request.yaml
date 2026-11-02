@@ -1,6 +1,6 @@
 $kind: http-request
 name: "POST /api/v1/admin/einheiten/:einheitId/zeitregeln"
-order: 39000
+order: 41000
 method: POST
 url: "{{baseUrl}}/api/v1/admin/einheiten/{{einheit_jfA}}/zeitregeln"
 headers:

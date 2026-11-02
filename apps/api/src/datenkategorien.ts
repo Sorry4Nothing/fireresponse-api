@@ -57,9 +57,9 @@ export const KATEGORIEN = {
   programme: {
     titel: "Programme",
     zweck:
-      "Information über Zeit und Ort der Programme. Sie stammen aus dem Kalender der Einheit.",
+      "Information über Zeit und Thema der Programme (Titel, Zeit, Thema, Info, Aufgebot). Sie stammen aus dem Lodur-Kalender der Einheit: Die API ruft ihn alle 15 Minuten ab und gleicht Änderungen und Absagen ab. Der Eintrag Verantwortlich wird nie gespeichert.",
     frist:
-      "Bis die Leitung das Programm löscht. Der Kalender der Einheit bleibt unverändert.",
+      "Bis die Leitung das Programm löscht. Der Kalender der Einheit bleibt unverändert; entfernt das Kommando den Link, bleiben die Programme, es kommen keine neuen.",
     apple: [],
     google: [],
   },
@@ -100,8 +100,9 @@ export const KATEGORIEN = {
   einheiten: {
     titel: "Angaben der Bezirke und Einheiten",
     zweck:
-      "Der Bezirk, die Einheit (Jugend- oder Kinderfeuerwehr), ihre Ränge mit Abzeichen und der verschlüsselte Link zum Kalender.",
-    frist: "Bis das Kommando die Angaben ändert oder löscht.",
+      "Der Bezirk, die Einheit (Jugend- oder Kinderfeuerwehr), ihre Ränge mit Abzeichen und der Link zum Lodur-Kalender mit dem Stand des Abrufs (Zeitpunkt des letzten Erfolgs, Fehlercode). Der Link ist verschlüsselt gespeichert und kommt nie in eine Antwort; die API ruft nur Hosts von der Liste des Betreibers ab.",
+    frist:
+      "Bis das Kommando die Angaben ändert oder löscht. Entfernt das Kommando den Link, löscht die API ihn mit dem Stand des Abrufs.",
     apple: [],
     google: [],
   },

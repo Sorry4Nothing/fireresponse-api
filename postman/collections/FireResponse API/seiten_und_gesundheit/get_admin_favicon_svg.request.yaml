@@ -1,6 +1,6 @@
 $kind: http-request
 name: "GET /admin/favicon.svg"
-order: 10000
+order: 11000
 method: GET
 url: "{{baseUrl}}/admin/favicon.svg"
 headers:
