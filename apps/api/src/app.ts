@@ -58,8 +58,7 @@ const SICHERHEITS_KOPFZEILEN = {
   "Content-Security-Policy": "frame-ancestors 'none'",
 };
 
-const ABZEICHEN_PFAD =
-  /^\/api\/v1\/admin\/einheiten\/[^/]+\/logo$/;
+const ABZEICHEN_PFAD = /^\/api\/v1\/admin\/einheiten\/[^/]+\/logo$/;
 
 // Lesende Methoden ändern nichts; der Origin zählt nur bei den übrigen
 const LESEND = new Set(["GET", "HEAD", "OPTIONS"]);
