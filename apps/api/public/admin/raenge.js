@@ -41,22 +41,27 @@ function stern(x, radius) {
   });
 }
 
+// Blauer Grund mit Rand: ganz allein das Abzeichen des Rangs ohne Sterne und Text
+function abzeichenGrund() {
+  return svg("rect", {
+    x: 1,
+    y: 1,
+    width: 98,
+    height: 128,
+    rx: 3,
+    fill: "#0A1230",
+    stroke: "#1B2A5C",
+    "stroke-width": 2,
+  });
+}
+
 // Das Abzeichen der Vorlage mit n Sternen (Hochformat 100:130); Zierde, der Text steht daneben
 function sterneAbzeichen(n) {
   const radius = n === 5 ? 7 : 8;
   const abstand = n === 5 ? 20 : n === 4 ? 24 : n === 3 ? 30 : 34;
   const mitte = 50 - ((n - 1) * abstand) / 2;
   return [
-    svg("rect", {
-      x: 1,
-      y: 1,
-      width: 98,
-      height: 128,
-      rx: 3,
-      fill: "#0A1230",
-      stroke: "#1B2A5C",
-      "stroke-width": 2,
-    }),
+    abzeichenGrund(),
     svg(
       "g",
       {
@@ -502,7 +507,16 @@ function zeichne(bereich, ctx, einheit, raenge, neu) {
       return el(
         "li",
         { class: "karte rang-karte", "data-fokus": r.id },
-        abzeichen(r, "g") ?? el("span", { class: "rb rb--g rb--leer" }, "–"),
+        abzeichen(r, "g") ??
+          svg(
+            "svg",
+            {
+              class: "rb rb--g",
+              viewBox: "0 0 100 130",
+              "aria-hidden": "true",
+            },
+            abzeichenGrund(),
+          ),
         el(
           "div",
           { class: "rang-text" },
