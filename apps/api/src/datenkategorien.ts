@@ -152,6 +152,8 @@ export const SPALTEN: Record<string, Partial<Record<KategorieId, string[]>>> = {
       "lodur_url_gesetzt_am",
       "sync_ok_am",
       "sync_fehler",
+      "logo_bild",
+      "logo_bild_typ",
     ],
   },
   einheit_rolle: {
