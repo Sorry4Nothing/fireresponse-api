@@ -8,6 +8,10 @@ export const KONFLIKT = {
     code: "BEZIRK_VORHANDEN",
     message: "Einen Bezirk mit diesem Namen gibt es schon.",
   },
+  BEZIRK_BELEGT: {
+    code: "BEZIRK_BELEGT",
+    message: "Der Bezirk hat noch Einheiten und lässt sich nicht löschen.",
+  },
   EINHEIT_VORHANDEN: {
     code: "EINHEIT_VORHANDEN",
     message: "Dieser Bezirk hat schon eine Einheit dieser Art.",
