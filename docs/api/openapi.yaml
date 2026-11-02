@@ -761,7 +761,7 @@ paths:
         Mindestens ein Feld muss im Body stehen. Der Body ist strikt: Jedes andere Feld ergibt 400, ebenso ein
         leerer Body oder ein Schalter, der kein Boolean ist.
 
-        **Push-Schalter.** `pushProgramme` (Pushes zu Programmen) ist ein Boolean und standardmässig an. Die API wertet ihn bei jedem Versand aus; das Push-Token bleibt dabei bestehen. Ein Push trägt als Daten `typ` (`programm`) und `id` (Programm-ID), woraus die App das Ziel öffnet.
+        **Push-Schalter.** `pushProgramme` (Pushes zu Programmen) ist ein Boolean und standardmässig an. Die API wertet ihn bei jedem Versand aus; das Push-Token bleibt dabei bestehen. Ein Push trägt als Daten `typ` (`programm`) und `id` (Programm-ID), woraus die App das Ziel öffnet. Der Schalter gilt für Erinnerungen, Absagen und Änderungen von Programmen (Android-Kanal `termine`). Absage und Änderung tragen nie Titel oder Namen: Titel «Termin abgesagt» bzw. «Termin geändert», Text «In Fire-Response». Die Absage erreicht alle Aktiven der Einheit, die Änderung nur, wer schon geantwortet hat.
 
         **Anmelde-Push.** `pushAnmeldungen` (Push an Kommando und Leitende bei An- und Abmeldung für ein Programm) ist ein Boolean und standardmässig an. `GET /api/v1/ich` gibt den Schalter nur Personen mit einer Rolle in einer Einheit zurück; setzen lässt er sich von jeder Person, ohne Wirkung ohne Rolle.
 
@@ -1234,7 +1234,7 @@ paths:
 
         Setzt der Aufruf die Antwort neu oder ändert er sie, geht ein Push an Kommando und Leitende der Einheit
         (aktives Konto, `pushAnmeldungen` an), ausser an die Person, die selbst aufruft:
-        Titel «Neue Anmeldung» bei «ja», «Neue Abmeldung» bei «nein», Text «{Programm} am {Datum}», ohne Namen. Bleibt der
+        Titel «Neue Anmeldung» bei «ja», «Neue Abmeldung» bei «nein», Text «In Fire-Response» (Android-Kanal `anmeldungen`), ohne Programm und ohne Namen. Bleibt der
         Wert gleich, geht kein Push hinaus. Ein Fehler beim Push lässt den Aufruf nicht scheitern.
 
         Reihenfolge der Prüfung: Eingabe (400); Programm nicht sichtbar oder Person nicht die eigene (404, ohne Unterscheidung);
@@ -1469,6 +1469,8 @@ paths:
       summary: Erinnerungsregeln der Einheit
       description: |
         Kommando der Einheit und Kantonsadmin. Liefert alle Regeln der Einheit, sortiert nach Wochentag und Uhrzeit.
+
+        Der Server prüft die Regeln jede Minute und schickt die Erinnerung an Konten mit offener Antwort, nur für Programme im Anmeldefenster (`ANMELDEFENSTER_TAGE`), die noch nicht begonnen haben.
 
         Statuscodes: 200 bei Erfolg. 403 für Leitende und Eltern der Einheit (und ohne zweiten Faktor, Code `ZWEITER_FAKTOR_FEHLT`); 404, wenn die Einheit unbekannt oder unsichtbar ist.
       tags:
