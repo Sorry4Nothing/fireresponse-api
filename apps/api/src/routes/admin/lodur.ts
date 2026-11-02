@@ -4,6 +4,7 @@ import { z } from "zod";
 import type { Db } from "../../db/client.js";
 import { auditLog, einheit } from "../../db/schema.js";
 import { eingabe } from "../../eingabe.js";
+import { fehlerCode, log } from "../../log.js";
 import {
   LodurFehler,
   maskiere,
@@ -26,9 +27,12 @@ const UNGUELTIG = {
 export function erstelleLodurRouten({
   db,
   erlaubteHosts,
+  abgleich,
 }: {
   db: Db;
   erlaubteHosts: readonly string[];
+  // Der erste Abruf beim Setzen des Links, damit die Antwort zeigt, ob er funktioniert; ohne ihn holt erst der nächste Takt den Kalender
+  abgleich?: (einheitId: string, verschluesselt: string) => Promise<void>;
 }) {
   async function stand(einheitId: string) {
     const [e] = await db
@@ -69,12 +73,13 @@ export function erstelleLodurRouten({
           if (fehler instanceof LodurFehler) return c.json(UNGUELTIG, 400);
           throw fehler;
         }
+        const verschluesselt = verschluessele(url, ZWECK_LODUR_LINK);
         await db.transaction(async (tx) => {
-          // Ein neuer Link beginnt ohne Stand; der nächste Lauf holt den Kalender
+          // Ein neuer Link beginnt ohne Stand; der Abruf unten setzt ihn
           await tx
             .update(einheit)
             .set({
-              lodurUrlVerschluesselt: verschluessele(url, ZWECK_LODUR_LINK),
+              lodurUrlVerschluesselt: verschluesselt,
               lodurUrlGesetztAm: new Date(),
               syncOkAm: null,
               syncFehler: null,
@@ -89,6 +94,23 @@ export function erstelleLodurRouten({
             zielId: einheitId,
           });
         });
+        if (abgleich) {
+          try {
+            await abgleich(einheitId, verschluesselt);
+          } catch (fehler) {
+            // Der Link bleibt gespeichert; die Antwort nennt nur den Code, nie die Meldung (sie könnte den Link enthalten)
+            const code = fehler instanceof LodurFehler ? fehler.code : "intern";
+            log(undefined, {
+              ereignis: "lodur-sync",
+              code,
+              ...(code === "intern" && { ursache: fehlerCode(fehler) }),
+            });
+            await db
+              .update(einheit)
+              .set({ syncFehler: code })
+              .where(eq(einheit.id, einheitId));
+          }
+        }
         return c.json(await stand(einheitId));
       },
     )
