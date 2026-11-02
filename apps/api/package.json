@@ -20,7 +20,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@types/node": "^26.6.5",
+    "@types/node": "^26.6.6",
     "drizzle-kit": "^0.31.11",
     "typescript-eslint": "^8.72.1",
     "vitest": "^5.0.5",
@@ -32,7 +32,7 @@
     "drizzle-orm": "^0.45.4",
     "firebase-admin": "^14.5.0",
     "hono": "4.13.14",
-    "postgres": "^3.4.9",
+    "postgres": "^4.0.0",
     "sharp": "0.35.5",
     "tsx": "^4.23.15",
     "zod": "^4.6.7"
