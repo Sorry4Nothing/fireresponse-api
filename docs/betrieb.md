@@ -41,6 +41,8 @@ Entscheid und verworfene Alternativen:
 
 Die Dateien liegen als Vorlage in [`deploy/edge/`](../deploy/edge/): `docker-compose.yml`, `Caddyfile` (importiert nur `sites/*.caddy`) und `fireresponse.caddy` (die Seite der API). Der Alias `fireresponse-api` im Netz `edge-fireresponse` (`deploy/docker-compose.prod.yml`) ist eindeutig, weil der Edge-Caddy an mehreren Netzen hängt und der Dienstname `api` sonst bei mehreren Stacks gleich hiesse.
 
+**Drosselung.** Die API zählt Anfragen je Absender-Adresse (erster Eintrag von `X-Forwarded-For`, den der Edge-Caddy setzt): 600 je Minute über `/api/v1/*` und `/admin/*`, 30 je Minute für die öffentlichen Seiten und `GET /api/v1/datenschutz`, danach 429 `ZU_VIELE_ANFRAGEN`. Die Zähler liegen im Speicher der einen Instanz und sind nach einem Neustart leer; bei mehr als einer Instanz müssten sie in die Datenbank. Das Limit der Anmeldung (`/api/auth`) und diese Drosselung vertrauen dem Header: Die Adresse ist nur echt, wenn die API ausschliesslich über den Edge-Caddy erreichbar ist. Darum veröffentlicht `deploy/docker-compose.prod.yml` keinen Port (ein Test prüft das) und `deploy.sh` stoppt jeden Dienst, der einen veröffentlicht. Der Edge-Caddy selbst begrenzt nicht (das Standard-Image hat kein Rate-Limit-Modul).
+
 Einrichtung, einmal, in einem eigenen Ordner ausserhalb des Checkouts, denn der Checkout wechselt mit jedem Release den Stand:
 
 1. `mkdir -p <Edge-Ordner>/sites`, dorthin `deploy/edge/docker-compose.yml` und `deploy/edge/Caddyfile` kopieren, nach `<Edge-Ordner>/sites/` die Datei `deploy/edge/fireresponse.caddy`. Die Seiten weiterer Stacks kommen als weitere `*.caddy`-Dateien dazu, ihre Netze `edge-<name>` in `docker-compose.yml` unter `networks` und im Dienst `caddy`.
@@ -273,6 +275,7 @@ Einen Alarm für gehäufte 401 (nicht angemeldet, Anmeldung fehlgeschlagen) und 
 Worauf achten:
 
 - Viele 401 auf `/api/auth/sign-in/username`: Jemand rät Passwörter. Wartezeit und Rate-Limit bremsen; die IP-Adressen dazu stehen nur im Log des Edge-Caddys.
+- Viele 429 in den Logs der API (Feld `status`): Eine Adresse überschreitet die Drosselung. Im Log steht die Route, die Adresse nur im Log des Edge-Caddys.
 - Viele 403 bei derselben `nutzerId`: Ein Konto versucht, was es nicht darf. Die ID ist die Spalte `id` der Tabelle `user`. Deutet es auf ein gekapertes Konto, gilt «Datenpanne».
 - 403 ohne `nutzerId` auf einer ändernden Route unter `/api/v1`: Die Anfrage kam mit einem fremden `Origin`, etwa von einer anderen Webseite im Browser einer angemeldeten Person.
 

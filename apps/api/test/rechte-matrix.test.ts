@@ -955,6 +955,7 @@ const MIDDLEWARE = new Set([
   "ALL /api/*",
   "ALL /api/v1/*",
   "ALL /api/v1/admin/*",
+  "ALL /admin/*",
 ]);
 
 type Instanz = { routes: { method: string; path: string }[] };
