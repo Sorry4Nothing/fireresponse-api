@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
+import { eq } from "drizzle-orm";
 import postgres from "postgres";
 import sharp from "sharp";
 import {
@@ -66,8 +67,8 @@ interface Zeile {
   // Literale Werte: beobachtet und gegen better-auth gegengelesen, nie aus rechte.ts berechnet
   erwartet: Record<Persona, number>;
   body?: (konto: PersonaKonto) => Record<string, unknown>;
-  // Statt body: Der Body ist das Bild selbst (Profilbild-Upload; «abzeichen»: ein SVG für den Rang)
-  bild?: true | "abzeichen";
+  // Statt body: Der Body ist das Bild selbst (Profilbild-Upload; «abzeichen»: ein SVG für den Rang; «logo»: ein quadratisches SVG für die Einheit)
+  bild?: true | "abzeichen" | "logo";
   // Für Zeilen, die die Sitzungen der geteilten Personas beenden oder ihre Daten ändern würden: eigene Personas in einer eigenen Welt
   frischePersonas?: true;
   // Pflicht für jede Route mit Pfad-Parameter: ein Objekt der Welt
@@ -340,6 +341,11 @@ const MATRIX: Record<string, Zeile> = {
     url: () => `/api/v1/raenge/${abzeichenRangId}/abzeichen`,
     erwartet: { ...SEHEN_JF_A, ...SPERREN },
   },
+  // Logo von JF A: wer die Einheit sieht, sieht es; liegt vor den Zeilen PUT und DELETE, die es ändern
+  "GET /api/v1/einheiten/:einheitId/logo": {
+    url: (w) => `/api/v1/einheiten/${w.einheit.jfA}/logo`,
+    erwartet: { ...SEHEN_JF_A, ...SPERREN },
+  },
   // Betriebszahlen: nur das Konto des Kantonsadmins mit zweitem Faktor; Inhalt in test/admin-system.test.ts
   "GET /api/v1/admin/system": {
     erwartet: {
@@ -557,6 +563,15 @@ const MATRIX: Record<string, Zeile> = {
       `/api/v1/admin/einheiten/${w.einheit.jfA}/raenge/${bildRangId}/abzeichen`,
     erwartet: VERWALTEN_JF_A(204),
   },
+  "PUT /api/v1/admin/einheiten/:einheitId/logo": {
+    url: (w) => `/api/v1/admin/einheiten/${w.einheit.jfA}/logo`,
+    bild: "logo",
+    erwartet: VERWALTEN_JF_A(204),
+  },
+  "DELETE /api/v1/admin/einheiten/:einheitId/logo": {
+    url: (w) => `/api/v1/admin/einheiten/${w.einheit.jfA}/logo`,
+    erwartet: VERWALTEN_JF_A(204),
+  },
   // Ohne Konto: Das Anlegen der Eltern und des eigenen Kontos prüft test/konten-anlegen.test.ts
   "POST /api/v1/admin/einheiten/:einheitId/teilnehmende": {
     url: (w) => `/api/v1/admin/einheiten/${w.einheit.jfA}/teilnehmende`,
@@ -696,6 +711,9 @@ const MATRIX: Record<string, Zeile> = {
 
 const abzeichenSvg = new TextEncoder().encode(
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 130"><rect width="100" height="130" fill="#0A1230"/></svg>',
+);
+const logoSvg = new TextEncoder().encode(
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#0A1230"/></svg>',
 );
 let welt: Welt;
 let standard: Record<Persona, PersonaKonto>;
@@ -882,6 +900,10 @@ beforeAll(async () => {
     })
     .returning({ id: schema.rang.id });
   alleRangIds = [welt.rangId, abzeichenRangId, bildRangId];
+  await db
+    .update(schema.einheit)
+    .set({ logoBild: logoSvg, logoBildTyp: "svg" })
+    .where(eq(schema.einheit.id, welt.einheit.jfA));
   [{ id: leererBezirkId }] = await db
     .insert(schema.bezirk)
     .values({ name: `Leerer Bezirk ${randomUUID().slice(0, 8)}` })
@@ -1040,7 +1062,13 @@ describe("Matrix: jede Route mal jede Persona", () => {
           ? { ...konto.headers, "content-type": "application/json" }
           : konto.headers,
         body: zeile.bild
-          ? new Uint8Array(zeile.bild === "abzeichen" ? abzeichenSvg : testBild)
+          ? new Uint8Array(
+              zeile.bild === "abzeichen"
+                ? abzeichenSvg
+                : zeile.bild === "logo"
+                  ? logoSvg
+                  : testBild,
+            )
           : zeile.body && JSON.stringify(zeile.body(konto)),
       });
       ergebnis[persona] = antwort.status;

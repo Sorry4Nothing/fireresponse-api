@@ -1493,6 +1493,41 @@ paths:
           $ref: "#/components/responses/NichtGefunden404"
         "426":
           $ref: "#/components/responses/AppVeraltet426"
+  /api/v1/einheiten/{einheitId}/logo:
+    get:
+      operationId: einheitLogoLesen
+      summary: Logo der Einheit lesen
+      tags:
+        - Programme
+      description: |
+        Das gespeicherte, bereinigte Logo der Einheit (PNG oder SVG). Die Adresse steht als `logoUrl` in `/ich` und in der Liste der Einheiten der Verwaltung. Die Antwort trägt `Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; sandbox` und `X-Content-Type-Options: nosniff`, damit auch ein SVG nie als Seite läuft.
+
+        Wer aufrufen darf: jede Person, die die Einheit sieht (Rolle in der Einheit, aktive teilnehmende Person darin oder Kantonsadmin-Konto); sonst 404, ebenso ohne Logo. Statuscodes: 200, 400, 401, 403, 404, 426.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/EinheitIdPfad"
+      responses:
+        "200":
+          description: Das Bild.
+          content:
+            image/svg+xml:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
   /api/v1/raenge/{id}/abzeichen:
     get:
       operationId: abzeichenBildLesen
@@ -3232,6 +3267,86 @@ paths:
           $ref: "#/components/responses/AppVeraltet426"
         "429":
           $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/admin/einheiten/{einheitId}/logo:
+    put:
+      operationId: setzeAdminEinheitLogo
+      summary: Logo der Einheit hochladen
+      tags:
+        - Verwaltung
+      description: |
+        Kommando, Stellvertretungen und Kantonsadmin (mit zweitem Faktor). Der Body ist das Bild selbst, SVG oder PNG, höchstens 500 KB (sonst 413); der Typ ergibt sich aus den Bytes, nie aus dem Header. Quadratisch, bei PNG mindestens 128 × 128 und höchstens 4000 × 4000 Pixel.
+
+        Der Server prüft und bereinigt wie beim Abzeichen eines Rangs (SR-23); gespeichert wird das Ergebnis, nie die Eingabe. Es ersetzt ein früheres Logo. Ein ungültiges Bild ist 415 `LOGO_UNGUELTIG` mit einer deutschen Meldung.
+
+        Statuscodes: 204, 400, 401, 403, 404, 413, 415, 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/EinheitIdPfad"
+      requestBody:
+        required: true
+        content:
+          image/svg+xml:
+            schema:
+              type: string
+              format: binary
+          image/png:
+            schema:
+              type: string
+              format: binary
+      responses:
+        "204":
+          description: Gespeichert.
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "413":
+          description: Die Datei ist grösser als 500 KB (code ZU_GROSS).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Fehler"
+        "415":
+          description: Die Datei ist kein gültiges, quadratisches SVG oder PNG (code LOGO_UNGUELTIG).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Fehler"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+    delete:
+      operationId: entferneAdminEinheitLogo
+      summary: Logo der Einheit entfernen
+      tags:
+        - Verwaltung
+      description: |
+        Kommando, Stellvertretungen und Kantonsadmin (mit zweitem Faktor). Entfernt das Logo; ohne Logo ebenfalls 204.
+
+        Statuscodes: 204, 400, 401, 403, 404, 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/EinheitIdPfad"
+      responses:
+        "204":
+          description: Entfernt.
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
   /nutzungsbedingungen:
     get:
       operationId: getNutzungsbedingungenSeite
@@ -4677,7 +4792,7 @@ components:
     IchEinheit:
       type: object
       description: Eine Einheit (Jugend- oder Kinderfeuerwehr eines Bezirks), in der die Person Kommandant, Stellvertretung oder Leitung ist.
-      required: [id, name, typ, bezirk, rolle]
+      required: [id, name, typ, bezirk, rolle, logoUrl]
       properties:
         id:
           type: string
@@ -4694,6 +4809,9 @@ components:
         rolle:
           type: string
           enum: [kommandant, stellvertretung, leitung]
+        logoUrl:
+          type: [string, "null"]
+          description: Pfad zum Logo (`GET /api/v1/einheiten/{einheitId}/logo`), mit `?v=` als Stand des Bildes; `null` ohne Logo.
     IchTeilnehmende:
       type: object
       description: Eine aktive teilnehmende Person, für die das Konto antwortet.
@@ -5196,6 +5314,7 @@ components:
                 typ,
                 bezirkId,
                 bezirk,
+                logoUrl,
                 kommandant,
                 teilnehmende,
                 rolle,
@@ -5218,6 +5337,9 @@ components:
               bezirk:
                 type: string
                 description: Name des Bezirks.
+              logoUrl:
+                type: [string, "null"]
+                description: Pfad zum Logo (`GET /api/v1/einheiten/{einheitId}/logo`), mit `?v=` als Stand des Bildes; `null` ohne Logo.
               kommandant:
                 description: Kommandantin oder Kommandant; `null`, solange keine Person eingesetzt ist.
                 oneOf:

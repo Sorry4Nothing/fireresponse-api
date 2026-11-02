@@ -23,6 +23,7 @@ import { erstelleEinheitenRouten } from "./routes/admin/einheiten.js";
 import { erstelleLeitendeRouten } from "./routes/admin/leitende.js";
 import { erstellePersonenRouten } from "./routes/admin/personen.js";
 import { erstelleRangRouten } from "./routes/admin/raenge.js";
+import { erstelleLogoRouten } from "./routes/logo.js";
 import { erstelleStellvertretungsRouten } from "./routes/admin/stellvertretungen.js";
 import { erstelleTeilnehmendeRouten } from "./routes/admin/teilnehmende.js";
 import { erstelleKontenRouten } from "./routes/admin/konten.js";
@@ -56,7 +57,7 @@ const SICHERHEITS_KOPFZEILEN = {
 };
 
 const ABZEICHEN_PFAD =
-  /^\/api\/v1\/admin\/einheiten\/[^/]+\/raenge\/[^/]+\/abzeichen$/;
+  /^\/api\/v1\/admin\/einheiten\/[^/]+(?:\/raenge\/[^/]+\/abzeichen|\/logo)$/;
 
 // Lesende Methoden ändern nichts; der Origin zählt nur bei den übrigen
 const LESEND = new Set(["GET", "HEAD", "OPTIONS"]);
@@ -149,7 +150,7 @@ export function erstelleApp({
           metriken.erfasse(eintrag);
         }
       })
-      // Ausnahmen: der Upload des Profilbilds (5 MB) und der Abzeichen der Ränge (500 KB), die die Routen selbst begrenzen
+      // Ausnahmen: der Upload des Profilbilds (5 MB) und der Abzeichen der Ränge und Logos der Einheiten (je 500 KB), die die Routen selbst begrenzen
       .use((c, next) =>
         c.req.method === "PUT" &&
         (c.req.path === "/api/v1/ich/bild" || ABZEICHEN_PFAD.test(c.req.path))
@@ -192,6 +193,7 @@ export function erstelleApp({
         erstelleProgrammRouten({ db, fcm, anmeldefensterTage }),
       )
       .route("/api/v1", erstelleKontaktRouten({ db }))
+      .route("/api/v1", erstelleLogoRouten({ db }))
       .route("/api/v1/einwilligung", erstelleEinwilligungRouten({ db }))
       .route("/api/v1/admin/auswertung", erstelleAuswertungRouten({ db }))
       .route("/api/v1/admin/bezirke", erstelleBezirkRouten({ db }))
