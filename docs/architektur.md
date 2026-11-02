@@ -23,6 +23,15 @@ FireResponse besteht aus einer App für iOS und Android und einem Server mit API
 - Die Web-Verwaltung unter `/admin` besteht aus statischen Dateien aus `apps/api/public/admin`, ohne Build-Schritt. Sie enthalten keine Daten: Die Seite meldet sich über `/api/auth` an und ruft `/api/v1/admin/*` auf, mit Sitzung und zweitem Faktor. Die Antworten tragen eine strenge Content-Security-Policy (kein Inline-Skript, kein Inline-Stil, `frame-ancestors 'none'`).
 - «Übersicht» und «System» der Verwaltung zeigen Betriebszahlen der laufenden API über `GET /api/v1/admin/system` und `/api/v1/admin/system/requests`: Bestand, Prozess, Datenbank und Anfragen nach Routenmuster mit Dauer und Fehlern. Die Anfragezähler liegen nur im Arbeitsspeicher der API (24 Stunden in Minuten-Eimern, ohne Query, Body, Header, IP und Personen) und sind nach jedem Neustart leer.
 
+### Lodur-Kalender
+
+- Die Termine jeder Einheit kommen aus ihrem Lodur-Kalender (ICS). Das Kommando oder der Kantonsadmin trägt den ganzen Link der Einheit ein (`PUT /api/v1/admin/einheiten/{einheitId}/lodur`). Die API speichert ihn mit AES-GCM verschlüsselt (Schlüssel aus `BETTER_AUTH_SECRET`, eigener Zweck), zeigt danach nur den Host und schreibt ihn nie ins Log. Ein Wechsel des Geheimnisses macht gespeicherte Links unlesbar; der Sync meldet dann `entschluesselung`, und das Kommando trägt den Link neu ein.
+- SSRF-Schutz (SR-26): erlaubt sind nur `https`, nur ein Host aus `LODUR_ERLAUBTE_HOSTS`, kein Port, keine Zugangsdaten im Link. Der Abruf folgt keiner Weiterleitung, bricht nach 15 Sekunden ab und liest höchstens 5 MB. Die Allowlist gilt bei jedem Abruf, nicht nur beim Speichern.
+- Ein Job in der API läuft beim Start und danach alle 15 Minuten, ohne manuellen Auslöser. Ein Advisory Lock verhindert zwei gleichzeitige Läufe. Jede Einheit läuft für sich; scheitert eine, steht in `einheit.sync_fehler` genau ein Code (`http-fehler`, `weiterleitung`, `zu-gross`, …), nie eine Meldung, und die nächste Einheit läuft trotzdem.
+- Lodur setzt `CREATED`, `DTSTAMP` und `LAST-MODIFIED` bei jedem Abruf neu. Änderungen erkennt darum nur `programm.inhalt_hash` (SHA-256 über Titel, Zeiten, Thema/Dienst, Info und Aufgebot). `Verantwortlich` wird nie gespeichert.
+- Künftige Termine übernehmen jede Änderung. Hat noch niemand geantwortet, bleibt es still; gibt es Antworten, bleiben sie, und alle, die geantwortet haben, bekommen einen Push («Übung geändert»). Vergangene Termine ändert der Sync nie. Fehlt die UID eines künftigen Termins, wird er `abgesagt`; die Anmeldungen bleiben, und alle Konten der Einheit bekommen einen Push («Übung abgesagt»). Ein Kalender ohne jeden Termin sagt nichts ab, sondern endet mit dem Code `leer`. Die Pushes tragen nur das Datum, nie Titel, Inhalte oder Namen.
+- `/health` antwortet mit 503 und `sync-veraltet`, wenn der Sync einer Einheit mit Link seit über 60 Minuten nicht gelungen ist.
+
 ### PostgreSQL
 
 - PostgreSQL 18 hält die Daten von FireResponse.
@@ -41,7 +50,7 @@ FireResponse besteht aus einer App für iOS und Android und einem Server mit API
 - Die API schickt Pushes mit firebase-admin direkt an FCM (HTTP v1). FCM stellt sie über APNs (Apple) und an Android-Geräte zu.
 - Meldet FCM ein Token als nicht mehr registriert, löscht die API es. Ohne Schlüsseldatei des Dienstkontos (`FCM_SCHLUESSEL_DATEI`) startet die API und sendet keine Pushes.
 - Pushes haben einen Titel und einen Text (`notification.body`). Sie enthalten nie Namen von Kindern. Der Text einer Erinnerung stammt von den Admins; sie schreiben keine Namen hinein.
-- Deep Link: Jeder Push trägt als Daten genau `typ` und `id`. Bei `typ: "programm"` ist `id` die Programm-ID. Die App baut daraus das Ziel (Programm-Detail), auch beim Kaltstart; die API liefert keine URL. Android-Kanal: `programme`. Die App legt ihn an und kann ihn stummschalten. Bei einer Änderung oder Absage eines Programms geht kein Push hinaus.
+- Deep Link: Jeder Push trägt als Daten genau `typ` und `id`. Bei `typ: "programm"` ist `id` die Programm-ID. Die App baut daraus das Ziel (Programm-Detail), auch beim Kaltstart; die API liefert keine URL. Android-Kanal: `programme`. Die App legt ihn an und kann ihn stummschalten. Änderungen und Absagen, die der Lodur-Sync übernimmt, lösen Pushes aus (siehe «Lodur-Kalender»).
 - Schalter: Jede Person steuert `pushProgramme` selbst (`PATCH /api/v1/ich`, standardmässig an). Die API prüft ihn beim Senden: Wer den Schalter ausschaltet, bekommt diese Art Push nicht mehr, ohne dass das Token gelöscht wird.
 - Anmelde-Push: Ändert sich die Teilnahme einer teilnehmenden Person an einem Programm (`PUT /api/v1/programme/{id}/teilnahmen/{teilnehmendeId}`, gleicher Wert zählt nicht), bekommen Kommando und Leitende der Einheit des Programms einen Push (Titel «Neue Anmeldung» bzw. «Neue Abmeldung», Text «Programm am Datum», nie die Person). Ausgenommen sind die handelnde Person und alle mit ausgeschaltetem `pushAnmeldungen` (Standard an, `GET /api/v1/ich` gibt ihn nur Personen mit einer Rolle in einer Einheit zurück). Typ `programm`, Kanal `programme`.
 
@@ -60,4 +69,5 @@ FireResponse besteht aus einer App für iOS und Android und einem Server mit API
 | API             | Pwned Passwords (Have I Been Pwned) | HTTPS                        | Neue Passwörter mit bekannten Datenlecks abgleichen; gesendet werden nur die ersten 5 Zeichen des SHA-1-Hashs |
 | App             | Firebase (FCM)                      | HTTPS                        | Push-Token holen                                                                                              |
 | API             | FCM                                 | HTTPS, firebase-admin        | Pushes senden                                                                                                 |
+| API             | Lodur (Host aus der Allowlist)      | HTTPS, ohne Weiterleitung    | Kalender der Einheit alle 15 Minuten abrufen                                                                  |
 | FCM             | Gerät                               | über APNs (Apple) und Google | Pushes zustellen                                                                                              |

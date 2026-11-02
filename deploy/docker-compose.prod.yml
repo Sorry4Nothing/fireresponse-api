@@ -42,6 +42,7 @@ services:
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?fehlt in deploy/.env}
       BETTER_AUTH_URL: ${BETTER_AUTH_URL:?fehlt in deploy/.env}
       FCM_SCHLUESSEL_DATEI: /run/secrets/fcm-service-account.json
+      LODUR_ERLAUBTE_HOSTS: ${LODUR_ERLAUBTE_HOSTS:-}
       PORT: "3000"
     # Für den Cache von tsx
     tmpfs:

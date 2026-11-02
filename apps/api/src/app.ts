@@ -13,6 +13,7 @@ import type { Fcm } from "./push.js";
 import { erstelleMetriken } from "./metriken.js";
 import { personAusSitzung, zweiterFaktorPflicht } from "./rechte.js";
 import { erstelleEinheitenRouten } from "./routes/admin/einheiten.js";
+import { erstelleLodurRouten } from "./routes/admin/lodur.js";
 import { erstelleSystemRouten } from "./routes/admin/system.js";
 import { erstelleZeitregelRouten } from "./routes/admin/zeitregeln.js";
 import { erstelleEinwilligungRouten } from "./routes/einwilligung.js";
@@ -60,6 +61,7 @@ export function erstelleApp({
   fcm,
   kodiereBild,
   seiten,
+  lodurErlaubteHosts = [],
 }: {
   appMinVersion: string;
   sql: Sql;
@@ -75,6 +77,8 @@ export function erstelleApp({
     kontoLoeschen: string;
     support: string;
   };
+  // Hosts, die ein Lodur-Link haben darf (LODUR_ERLAUBTE_HOSTS); leer heisst: kein Link möglich
+  lodurErlaubteHosts?: readonly string[];
 }) {
   // Zahlen der laufenden Instanz; nach einem Neustart leer
   const metriken = erstelleMetriken();
@@ -163,11 +167,26 @@ export function erstelleApp({
         "/api/v1/admin/einheiten/:einheitId/zeitregeln",
         erstelleZeitregelRouten({ db }),
       )
+      .route(
+        "/api/v1/admin/einheiten/:einheitId/lodur",
+        erstelleLodurRouten({ db, erlaubteHosts: lodurErlaubteHosts }),
+      )
       .route("/api/v1/admin/system", erstelleSystemRouten({ sql, metriken }))
       .route("/api/v1/push-token", erstellePushTokenRouten({ db }))
       .get("/health", async (c) => {
         try {
-          await sql`select 1`;
+          // Alarm, wenn der Sync einer Einheit seit einer Stunde (vier Läufe) nicht gelungen ist; vor dem ersten Erfolg zählt der Zeitpunkt, an dem der Link eingetragen wurde
+          const [stand] = await sql<{ veraltet: boolean }[]>`
+            select exists(
+              select 1 from einheit
+              where lodur_url_verschluesselt is not null
+                and coalesce(sync_ok_am, lodur_url_gesetzt_am) < now() - interval '60 minutes'
+            ) as veraltet`;
+          if (stand!.veraltet) {
+            // Ohne Einheit und ohne Link: /health ist offen
+            log(c, { ereignis: "health", code: "sync-veraltet" });
+            return c.text("sync-veraltet", 503);
+          }
           return c.text("ok");
         } catch (fehler) {
           // Nur der Code: postgres-js nennt Host und Port in message, address und port

@@ -1,0 +1,14 @@
+$kind: http-request
+name: "DELETE /api/v1/admin/einheiten/:einheitId/lodur"
+order: 42000
+method: DELETE
+url: "{{baseUrl}}/api/v1/admin/einheiten/{{einheit_jfA}}/lodur"
+headers:
+  - key: "Cookie"
+    value: "{{cookie}}"
+  - key: "expo-origin"
+    value: "{{expoOrigin}}"
+  - key: "X-Forwarded-For"
+    value: "{{ip}}"
+  - key: "X-App-Version"
+    value: "{{appVersion}}"

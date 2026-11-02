@@ -136,3 +136,31 @@ test("VERANTWORTLICHE_STELLE und KONTAKT_EMAIL sind freiwillig und müssen gült
     "Fehlende oder ungültige Umgebungsvariablen: VERANTWORTLICHE_STELLE",
   );
 });
+
+test("LODUR_ERLAUBTE_HOSTS ist freiwillig, kommagetrennt, kleingeschrieben und nur aus Hostnamen", () => {
+  expect(ladeKonfiguration(GUELTIG).LODUR_ERLAUBTE_HOSTS).toBeUndefined();
+  expect(
+    ladeKonfiguration({
+      ...GUELTIG,
+      LODUR_ERLAUBTE_HOSTS: " Kalender.Example.org , zwei.example.net,",
+    }).LODUR_ERLAUBTE_HOSTS,
+  ).toEqual(["kalender.example.org", "zwei.example.net"]);
+  expect(
+    ladeKonfiguration({ ...GUELTIG, LODUR_ERLAUBTE_HOSTS: "" })
+      .LODUR_ERLAUBTE_HOSTS,
+  ).toEqual([]);
+  // Kein Schema, kein Port, kein Pfad, keine Zugangsdaten, keine Adresse, kein Platzhalter
+  for (const falsch of [
+    "https://kalender.example.org",
+    "kalender.example.org:443",
+    "kalender.example.org/pfad",
+    "nutzer@kalender.example.org",
+    "127.0.0.1",
+    "localhost",
+    "*.example.org",
+  ]) {
+    expect(meldung({ ...GUELTIG, LODUR_ERLAUBTE_HOSTS: falsch }), falsch).toBe(
+      "Fehlende oder ungültige Umgebungsvariablen: LODUR_ERLAUBTE_HOSTS",
+    );
+  }
+});
