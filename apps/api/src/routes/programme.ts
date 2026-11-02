@@ -217,15 +217,35 @@ export function erstelleProgrammRouten({
           ),
         )
         .orderBy(programmBeginn, programm.id);
-      const eigene = await eigeneTeilnehmende(
-        person,
-        programme.map((p) => p.id),
-      );
+      const ids = programme.map((p) => p.id);
+      const eigene = await eigeneTeilnehmende(person, ids);
+      // Eine Abfrage für alle Termine des Fensters statt eine je Termin
+      const leitung = new Map<string, "ja" | "nein">();
+      if (ids.length > 0 && person.einheiten.length > 0) {
+        const zeilen = await db
+          .select({
+            programmId: leitungAnmeldung.programmId,
+            status: leitungAnmeldung.status,
+          })
+          .from(leitungAnmeldung)
+          .where(
+            and(
+              eq(leitungAnmeldung.userId, person.id),
+              inArray(leitungAnmeldung.programmId, ids),
+            ),
+          );
+        for (const z of zeilen) leitung.set(z.programmId, z.status);
+      }
       return c.json({
         programme: programme.map((p) => ({
           ...ausgabe(p),
           // Ohne Anmeldung gibt es nichts zu beantworten
           teilnehmende: p.anmeldbar ? (eigene.get(p.id) ?? []) : [],
+          // Wie im Detail: nur wer sich anmelden dürfte, bekommt den Schlüssel; undefined fällt aus dem JSON
+          eigeneAnmeldung:
+            p.anmeldbar && hatRolleIn(person, p.einheitId)
+              ? (leitung.get(p.id) ?? "offen")
+              : undefined,
         })),
       });
     })
