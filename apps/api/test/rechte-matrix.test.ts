@@ -145,7 +145,6 @@ const MATRIX: Record<string, Zeile> = {
   "GET /admin/admin.css": { erwartet: alle(200) },
   "GET /admin/admin.js": { erwartet: alle(200) },
   "GET /admin/api.js": { erwartet: alle(200) },
-  "GET /admin/auswertung.js": { erwartet: alle(200) },
   "GET /admin/dom.js": { erwartet: alle(200) },
   "GET /admin/favicon.svg": { erwartet: alle(200) },
   "GET /admin/hintergrund.svg": { erwartet: alle(200) },
@@ -346,6 +345,29 @@ const MATRIX: Record<string, Zeile> = {
       `/api/v1/admin/einheiten/${welt.einheit.jfA}/zeitregeln/${await wegwerfRegelId()}`,
     erwartet: VERWALTEN_JF_A(204),
   },
+  // Profilbild (#173): Jede Person mit Sitzung lädt ihr eigenes hoch und löscht es; nur die Person selbst, nie eine andere. Typ, Grösse und Rate-Limit prüft test/profilbild.test.ts
+  "PUT /api/v1/ich/bild": {
+    bild: true,
+    erwartet: { ...alle(204), ...SPERREN },
+  },
+  "DELETE /api/v1/ich/bild": {
+    // Löscht das Bild der Persona; die Personas der Zeile darunter behalten ihres, darum eigene
+    frischePersonas: true,
+    erwartet: { ...alle(204), ...SPERREN },
+  },
+  // Ziel ist eine Stellvertretung von JF A mit Bild, also ein Kontakt der Einheit: Es sehen sie das Kantonsadmin-Konto, Kommando und Leitende der Einheit und Eltern und Teilnehmende darin (test/profilbild.test.ts)
+  "GET /api/v1/personen/:id/bild": {
+    url: () => `/api/v1/personen/${bildZielId}/bild`,
+    erwartet: { ...SEHEN_JF_A, ...SPERREN },
+  },
+  "PUT /api/v1/push-token": {
+    // Eigenes Token pro Persona: Die Zeile schreibt nur auf die eigene Sitzung, darum keine frischen Personas
+    body: (konto) => ({
+      token: `fcm-test-token-${konto.benutzername ?? "ohne-login"}`,
+      plattform: "ios",
+    }),
+    erwartet: { ...alle(204), ...SPERREN },
+  },
   // Auswertung auf Basis der Anmeldungen (E7), nur lesend; Inhalte und Mandantentrennung in test/auswertung.test.ts
   "GET /api/v1/admin/auswertung/filter": { erwartet: AUSWERTEN },
   "GET /api/v1/admin/auswertung/termine": {
@@ -374,29 +396,8 @@ const MATRIX: Record<string, Zeile> = {
       `/api/v1/admin/auswertung/einheiten/${w.einheit.jfA}/leitende/${standard.kommandoJfA.id}?${JAHR_2025}`,
     erwartet: VERWALTEN_JF_A(200),
   },
-  // Profilbild (#173): Jede Person mit Sitzung lädt ihr eigenes hoch und löscht es; nur die Person selbst, nie eine andere. Typ, Grösse und Rate-Limit prüft test/profilbild.test.ts
-  "PUT /api/v1/ich/bild": {
-    bild: true,
-    erwartet: { ...alle(204), ...SPERREN },
-  },
-  "DELETE /api/v1/ich/bild": {
-    // Löscht das Bild der Persona; die Personas der Zeile darunter behalten ihres, darum eigene
-    frischePersonas: true,
-    erwartet: { ...alle(204), ...SPERREN },
-  },
-  // Ziel ist eine Stellvertretung von JF A mit Bild, also ein Kontakt der Einheit: Es sehen sie das Kantonsadmin-Konto, Kommando und Leitende der Einheit und Eltern und Teilnehmende darin (test/profilbild.test.ts)
-  "GET /api/v1/personen/:id/bild": {
-    url: () => `/api/v1/personen/${bildZielId}/bild`,
-    erwartet: { ...SEHEN_JF_A, ...SPERREN },
-  },
-  "PUT /api/v1/push-token": {
-    // Eigenes Token pro Persona: Die Zeile schreibt nur auf die eigene Sitzung, darum keine frischen Personas
-    body: (konto) => ({
-      token: `fcm-test-token-${konto.benutzername ?? "ohne-login"}`,
-      plattform: "ios",
-    }),
-    erwartet: { ...alle(204), ...SPERREN },
-  },
+  // Statische Datei der Verwaltung (Auswertung)
+  "GET /admin/auswertung.js": { erwartet: alle(200) },
 };
 
 let welt: Welt;
