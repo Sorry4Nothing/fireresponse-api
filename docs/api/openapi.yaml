@@ -1611,6 +1611,39 @@ paths:
           $ref: "#/components/responses/NichtGefunden404"
         "426":
           $ref: "#/components/responses/AppVeraltet426"
+  /api/v1/datenschutz:
+    get:
+      operationId: datenschutzLesen
+      summary: Datenschutzerklärung als strukturierter Text
+      tags:
+        - Allgemein
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+      description: |
+        Öffentlich, ohne Anmeldung und ohne Sitzung; die App zeigt den Text vor der Einwilligung. Alle Personen erhalten 200.
+        Der Inhalt stammt aus derselben Quelle wie die HTML-Seite `GET /datenschutz` (ein Test vergleicht beide): gleiche Abschnitte,
+        gleiche Reihenfolge, gleiche Fassung. Die verantwortliche Stelle und ihre E-Mail-Adresse sind wie dort eingesetzt.
+        `version` ist die Fassung der Einwilligung (`EINWILLIGUNG_VERSION`), dieselbe wie bei `GET /api/v1/einwilligung`.
+        Der erste Abschnitt trägt den Titel der Erklärung und den Hinweis zum Entwurfsstand.
+        Cache: `Cache-Control: public, max-age=3600`. Kein eigenes Rate-Limit, wie die Seite `GET /datenschutz`.
+        Die Prüfung der App-Version gilt wie überall unter `/api/*`: Ist `X-App-Version` älter als der Mindeststand, antwortet die Route mit 426.
+
+        Statuscodes: 200, 426.
+      responses:
+        "200":
+          description: Fassung und Abschnitte.
+          headers:
+            Cache-Control:
+              description: "`public, max-age=3600`"
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Datenschutz"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
   /api/v1/einwilligung:
     get:
       operationId: einwilligungLesen
@@ -5064,6 +5097,25 @@ components:
           type: string
           enum: [eltern, selbst]
           description: "`eltern`, wenn das Konto für die Person antwortet, `selbst`, wenn es das Konto der Person ist."
+    Datenschutz:
+      type: object
+      required: [version, abschnitte]
+      properties:
+        version:
+          type: integer
+          description: Fassung der Erklärung; dieselbe Zahl wie `version` in `Einwilligung`. Steigt sie, fragt die App neu.
+        abschnitte:
+          type: array
+          description: Die Abschnitte in der Reihenfolge der Seite.
+          items:
+            type: object
+            required: [titel, text]
+            properties:
+              titel:
+                type: string
+              text:
+                type: string
+                description: Klartext ohne HTML. Absätze und Listenpunkte (beginnen mit «– ») sind durch eine Leerzeile getrennt.
     Einwilligung:
       type: object
       required: [version, text, gueltig]

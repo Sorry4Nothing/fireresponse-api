@@ -39,6 +39,12 @@ Je Route steht, welche Persona welchen Status bekommt. 2xx heisst erlaubt, 401 n
 | `GET /admin/datum.js`                         | Skript der Verwaltung – Datumslogik des Datepickers                            | **200** alle      |
 | `GET /admin/datumfeld.js`                     | Skript der Verwaltung – Datumsfeld mit Kalender                                | **200** alle      |
 
+## App: datenschutz
+
+| Route                     | Zweck                                        | Status je Persona |
+| ------------------------- | -------------------------------------------- | ----------------- |
+| `GET /api/v1/datenschutz` | Datenschutzerklärung als strukturierter Text | **200** alle      |
+
 ## Anmeldung (better-auth)
 
 | Route                                          | Zweck                                            | Status je Persona                                                                                                                                                                                                                                                                                                                                           |

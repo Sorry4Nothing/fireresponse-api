@@ -168,6 +168,8 @@ const MATRIX: Record<string, Zeile> = {
   "GET /health": { erwartet: alle(200) },
   // Statische Seiten und .well-known: offen für alle, auch deaktiviert und ohne Login
   "GET /datenschutz": { erwartet: alle(200) },
+  // Öffentlich, vor der Sitzung; der Inhalt kommt aus derselben Quelle wie die Seite (test/seiten.test.ts)
+  "GET /api/v1/datenschutz": { erwartet: alle(200) },
   "GET /nutzungsbedingungen": { erwartet: alle(200) },
   "GET /konto-loeschen": { erwartet: alle(200) },
   "GET /support": { erwartet: alle(200) },
