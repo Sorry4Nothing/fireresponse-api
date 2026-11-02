@@ -1,6 +1,6 @@
 $kind: http-request
 name: "GET /admin/admin.css"
-order: 7000
+order: 8000
 method: GET
 url: "{{baseUrl}}/admin/admin.css"
 headers:

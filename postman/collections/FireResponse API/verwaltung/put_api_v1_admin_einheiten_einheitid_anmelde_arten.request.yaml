@@ -1,6 +1,6 @@
 $kind: http-request
 name: "PUT /api/v1/admin/einheiten/:einheitId/anmelde-arten"
-order: 92000
+order: 93000
 method: PUT
 url: "{{baseUrl}}/api/v1/admin/einheiten/{{einheit_jfA}}/anmelde-arten"
 headers:

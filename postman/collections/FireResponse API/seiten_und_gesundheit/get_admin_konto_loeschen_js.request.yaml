@@ -1,6 +1,6 @@
 $kind: http-request
 name: "GET /admin/konto-loeschen.js"
-order: 17000
+order: 18000
 method: GET
 url: "{{baseUrl}}/admin/konto-loeschen.js"
 headers:
