@@ -15,7 +15,11 @@ import {
 import { erstelleDb } from "../src/db/client.js";
 import * as schema from "../src/db/schema.js";
 import { inhaltHash, SPERRE_LODUR, syncLodur } from "../src/lodur-sync.js";
-import { ZWECK_LODUR_LINK, type Abruf } from "../src/lodur-url.js";
+import {
+  ZWECK_LODUR_LINK,
+  type Abruf,
+  type Aufloesen,
+} from "../src/lodur-url.js";
 import type { Fcm } from "../src/push.js";
 import { verschluessele } from "../src/startpasswort.js";
 import { API_URL } from "./hilfen/datenbank.js";
@@ -35,6 +39,8 @@ const HOST = "kalender.example.org";
 const HOSTS = [HOST];
 // Feste Zeit, nie die Uhr: Termine vor dem 2. November 2026 sind vergangen, danach künftig
 const JETZT = new Date("2026-11-02T12:00:00Z");
+// Kein Test geht ins Netz: Der Host löst auf eine öffentliche Adresse auf
+const OEFFENTLICH: Aufloesen = async () => ["93.184.216.34"];
 const LINK = `https://${HOST}/ical/geheim-${randomUUID()}`;
 
 let nachrichten: TokenMessage[];
@@ -155,7 +161,11 @@ async function neueWelt(link: string | null = LINK) {
     )[0]!;
   const lauf = (
     text: string | (() => Response),
-    optionen: { jetzt?: Date; hosts?: string[] } = {},
+    optionen: {
+      jetzt?: Date;
+      hosts?: string[];
+      aufloesen?: Aufloesen;
+    } = {},
   ) => {
     const abruf: Abruf = vi.fn(async () =>
       typeof text === "string" ? new Response(text) : text(),
@@ -166,6 +176,7 @@ async function neueWelt(link: string | null = LINK) {
       erlaubteHosts: optionen.hosts ?? HOSTS,
       fcm,
       abruf,
+      aufloesen: optionen.aufloesen ?? OEFFENTLICH,
       jetzt: optionen.jetzt ?? JETZT,
     }).then((ergebnis) => ({ ergebnis, abruf }));
   };
@@ -274,7 +285,10 @@ describe("Sync einer Einheit", () => {
       .insert(schema.leitungAnmeldung)
       .values({ programmId: id, userId: kommando, status: "ja" });
 
-    await w.lauf(kalender([{ ...ZUKUNFT, aufgebot: "17:30" }]));
+    // Das Datum im Push ist das neue
+    await w.lauf(
+      kalender([{ ...ZUKUNFT, start: "20261115T180000Z", aufgebot: "17:30" }]),
+    );
 
     expect(await w.aktuell("z1")).toMatchObject({ aufgebot: "17:30" });
     const antworten = await db
@@ -285,7 +299,7 @@ describe("Sync einer Einheit", () => {
     // Eltern beider Elternteile und das Kommando, nicht wer nichts geantwortet hat, nicht wer Pushes ausgeschaltet hat
     expect(empfaenger()).toEqual(["kommando", "mutter", "vater"]);
     expect(nachrichten[0]).toMatchObject({
-      notification: { title: "Übung geändert", body: "Sa 14.11." },
+      notification: { title: "Übung geändert", body: "So 15.11." },
       data: { typ: "programm", id },
     });
     // Weder Titel noch Thema noch Name im Push
@@ -467,6 +481,21 @@ describe("Fehler pro Einheit", () => {
     expect((await w.einheitZeile()).syncFehler).toBe("url-ungueltig");
   });
 
+  test("ein erlaubter Host, der auf eine interne Adresse zeigt, wird nicht abgerufen (SR-26)", async () => {
+    const w = await neueWelt();
+    const { abruf } = await w.lauf(kalender([ZUKUNFT]), {
+      aufloesen: async () => ["93.184.216.34", "10.0.0.5"],
+    });
+    expect(abruf).not.toHaveBeenCalled();
+    expect((await w.einheitZeile()).syncFehler).toBe("url-ungueltig");
+    await w.lauf(kalender([ZUKUNFT]), {
+      aufloesen: async () => {
+        throw new Error("ENOTFOUND");
+      },
+    });
+    expect((await w.einheitZeile()).syncFehler).toBe("netzwerk");
+  });
+
   test("ein Link, den das Geheimnis nicht mehr öffnet, endet mit «entschluesselung»", async () => {
     const w = await neueWelt();
     await db
@@ -503,6 +532,7 @@ describe("Fehler pro Einheit", () => {
         erlaubteHosts: HOSTS,
         fcm,
         abruf,
+        aufloesen: OEFFENTLICH,
         jetzt: JETZT,
       });
 

@@ -1,9 +1,11 @@
 import { describe, expect, test, vi } from "vitest";
 import {
   holeKalender,
+  istNichtOeffentlich,
   LodurFehler,
   MAX_BYTES,
   maskiere,
+  pruefeAdresse,
   pruefeLodurUrl,
   type Abruf,
 } from "../src/lodur-url.js";
@@ -199,5 +201,61 @@ describe("Verschlüsselung des Links", () => {
     expect(entschluessele(`${a.slice(0, -2)}AA`, "lodur-link")).toBeNull();
     expect(entschluessele(null, "lodur-link")).toBeNull();
     expect(entschluessele("kein-chiffre", "lodur-link")).toBeNull();
+  });
+});
+
+describe("pruefeAdresse (SR-26)", () => {
+  test.each([
+    "0.0.0.0",
+    "10.1.2.3",
+    "100.64.0.1",
+    "127.0.0.1",
+    "169.254.169.254",
+    "172.16.0.1",
+    "172.31.255.255",
+    "192.168.1.1",
+    "198.18.0.1",
+    "224.0.0.1",
+    "255.255.255.255",
+    "::",
+    "::1",
+    "fc00::1",
+    "fd12:3456::1",
+    "fe80::1",
+    "::ffff:127.0.0.1",
+    "::ffff:7f00:1",
+  ])("%s ist nicht öffentlich", (ip) => {
+    expect(istNichtOeffentlich(ip)).toBe(true);
+  });
+
+  test.each([
+    "93.184.216.34",
+    "8.8.8.8",
+    "172.15.0.1",
+    "172.32.0.1",
+    "100.63.0.1",
+    "2606:2800:21f:cb07:6820:80da:af6b:8b2c",
+  ])("%s ist öffentlich", (ip) => {
+    expect(istNichtOeffentlich(ip)).toBe(false);
+  });
+
+  test("eine einzige interne Adresse oder keine Auflösung genügt zur Ablehnung", async () => {
+    await expect(
+      pruefeAdresse("h.example.org", async () => ["93.184.216.34"]),
+    ).resolves.toBeUndefined();
+    for (const adressen of [["93.184.216.34", "127.0.0.1"], []]) {
+      expect(
+        await codeAsync(() =>
+          pruefeAdresse("h.example.org", async () => adressen),
+        ),
+      ).toBe("url-ungueltig");
+    }
+    expect(
+      await codeAsync(() =>
+        pruefeAdresse("h.example.org", async () => {
+          throw new Error("ENOTFOUND");
+        }),
+      ),
+    ).toBe("netzwerk");
   });
 });

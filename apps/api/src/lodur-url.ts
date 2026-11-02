@@ -1,3 +1,6 @@
+import { lookup } from "node:dns/promises";
+import { isIPv4 } from "node:net";
+
 // Der Lodur-Link ist ein Geheimnis (er gibt den Kalender frei) und zugleich eine Adresse, die der Server abruft. Hier steht, was die API davon annimmt und wie sie ihn abruft (SR-26): nur https, nur ein Host aus LODUR_ERLAUBTE_HOSTS, kein Port, keine Zugangsdaten, keine Weiterleitung, Zeitlimit und Grössenlimit.
 
 // Nur diese Codes landen in Log und in einheit.sync_fehler, nie eine Meldung (sie könnte den Link enthalten)
@@ -23,6 +26,11 @@ export const ZWECK_LODUR_LINK = "lodur-link";
 
 export type Abruf = (url: URL, optionen: RequestInit) => Promise<Response>;
 
+// Löst einen Host in seine IP-Adressen auf; im Test eine Attrappe
+export type Aufloesen = (host: string) => Promise<string[]>;
+export const dnsAufloesen: Aufloesen = async (host) =>
+  (await lookup(host, { all: true })).map((a) => a.address);
+
 const MAX_LAENGE = 2048;
 export const MAX_BYTES = 5 * 1024 * 1024;
 export const ZEITLIMIT_MS = 15_000;
@@ -34,7 +42,7 @@ export function pruefeLodurUrl(
 ): URL {
   const ungueltig = () => new LodurFehler("url-ungueltig");
   // Leerzeichen, Steuerzeichen und Backslash lesen Parser verschieden (WHATWG macht aus «\» einen «/»)
-  if (text.length > MAX_LAENGE || /[\s\\\u0000-\u001f\u007f]/.test(text)) {
+  if (text.length > MAX_LAENGE || /[\s\\\p{Cc}]/u.test(text)) {
     throw ungueltig();
   }
   const rest = /^https:\/\/([^/?#]*)/i.exec(text);
@@ -67,6 +75,51 @@ export const maskiere = (url: string) => {
     return null;
   }
 };
+
+// Loopback, private, Link-Local- und weitere nicht öffentliche Bereiche (IPv4, IPv6, IPv4-mapped)
+export function istNichtOeffentlich(ip: string): boolean {
+  if (isIPv4(ip)) {
+    const [a, b, c] = ip.split(".").map(Number) as [number, number, number];
+    return (
+      a === 0 ||
+      a === 10 ||
+      a === 127 ||
+      (a === 100 && b >= 64 && b <= 127) ||
+      (a === 169 && b === 254) ||
+      (a === 172 && b >= 16 && b <= 31) ||
+      (a === 192 && b === 0 && c === 0) ||
+      (a === 192 && b === 168) ||
+      (a === 198 && (b === 18 || b === 19)) ||
+      a >= 224
+    );
+  }
+  const v6 = ip.toLowerCase();
+  const gemappt = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/.exec(v6);
+  if (gemappt) return istNichtOeffentlich(gemappt[1]!);
+  return (
+    v6 === "::" ||
+    v6 === "::1" ||
+    v6.startsWith("::ffff:") ||
+    /^f[cd]/.test(v6) ||
+    /^fe[89ab]/.test(v6)
+  );
+}
+
+// SR-26: Auch ein erlaubter Host darf nicht auf eine interne Adresse zeigen. shortcut: Die Auflösung gilt für diese Prüfung, fetch löst danach selbst noch einmal auf (DNS-Rebinding bliebe möglich); schliessen mit einem eigenen Dispatcher, der die geprüfte Adresse verbindet, sobald Hosts Dritter in die Allowlist kommen
+export async function pruefeAdresse(
+  host: string,
+  aufloesen: Aufloesen = dnsAufloesen,
+) {
+  let adressen: string[];
+  try {
+    adressen = await aufloesen(host);
+  } catch {
+    throw new LodurFehler("netzwerk");
+  }
+  if (adressen.length === 0 || adressen.some(istNichtOeffentlich)) {
+    throw new LodurFehler("url-ungueltig");
+  }
+}
 
 // Der Aufrufer prüft die URL vorher mit pruefeLodurUrl
 export async function holeKalender(

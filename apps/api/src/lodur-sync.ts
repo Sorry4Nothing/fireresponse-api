@@ -16,9 +16,11 @@ import { IcsFehler, leseIcs, type IcsErgebnis, type IcsTermin } from "./ics.js";
 import {
   holeKalender,
   LodurFehler,
+  pruefeAdresse,
   pruefeLodurUrl,
   ZWECK_LODUR_LINK,
   type Abruf,
+  type Aufloesen,
 } from "./lodur-url.js";
 import { fehlerCode, log } from "./log.js";
 import { type Fcm, sendePush } from "./push.js";
@@ -35,6 +37,7 @@ export type SyncOptionen = {
   fcm?: Fcm;
   erlaubteHosts: readonly string[];
   abruf?: Abruf;
+  aufloesen?: Aufloesen;
 };
 
 // Was der Sync ändern darf, gehört in diesen Hash; «Verantwortlich» fehlt, weil es nie gespeichert wird
@@ -230,28 +233,40 @@ export async function uebernimm(
 
   if (!fcm) return;
   // Nach dem Speichern, und ohne Inhalt: Der Push steht je nach Handy auf dem gesperrten Bildschirm. Stürzt der Prozess dazwischen ab, fällt dieser Push aus
-  const sende = async (v: Vorhanden, empfaenger: string[], titel: string) => {
+  const sende = async (
+    id: string,
+    beginn: Date,
+    empfaenger: string[],
+    titel: string,
+  ) => {
     if (empfaenger.length === 0) return;
     await sendePush({ db, fcm }, empfaenger, {
       typ: "programm",
-      id: v.id,
+      id,
       titel,
-      text: kurzDatum(new Date(Number(v.beginnMs))),
+      text: kurzDatum(beginn),
     });
   };
-  for (const { v } of geaendert) {
-    // Ohne Antworten bleibt es still
-    await sende(v, await mitAntwort(db, v.id), "Übung geändert");
+  for (const { v, t } of geaendert) {
+    // Das neue Datum; ganztägig um 12:00 UTC, damit die Schweizer Zeit denselben Tag ergibt. Ohne Antworten bleibt es still
+    await sende(
+      v.id,
+      t.beginn ?? new Date(`${t.tagVon}T12:00:00Z`),
+      await mitAntwort(db, v.id),
+      "Übung geändert",
+    );
   }
   if (abgesagt.length > 0) {
     const alle = await ganzeEinheit(db, einheitId);
-    for (const v of abgesagt) await sende(v, alle, "Übung abgesagt");
+    for (const v of abgesagt) {
+      await sende(v.id, new Date(Number(v.beginnMs)), alle, "Übung abgesagt");
+    }
   }
 }
 
 // Ein Abruf: entschlüsseln, prüfen, holen, lesen, übernehmen. Wirft LodurFehler mit dem einen Code
 export async function synchronisiereEinheit(
-  { db, fcm, erlaubteHosts, abruf }: SyncOptionen,
+  { db, fcm, erlaubteHosts, abruf, aufloesen }: SyncOptionen,
   einheitId: string,
   verschluesselt: string,
   jetzt = new Date(),
@@ -260,6 +275,7 @@ export async function synchronisiereEinheit(
   if (link === null) throw new LodurFehler("entschluesselung");
   // Die Allowlist gilt bei jedem Abruf, nicht nur beim Speichern: Sie kann sich seither geändert haben
   const url = pruefeLodurUrl(link, erlaubteHosts);
+  await pruefeAdresse(url.hostname, aufloesen);
   let kalender: IcsErgebnis;
   try {
     kalender = leseIcs(await holeKalender(url, abruf));
