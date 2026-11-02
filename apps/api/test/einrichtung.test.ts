@@ -255,36 +255,34 @@ test("vom leeren System bis zur ersten Einheit mit Kommando, Stellvertretung, Te
   });
   expect(leitende.status).toBe(201);
 
-  // 5. Teilnehmende mit Eltern, über den CSV-Import (Vorschau, dann Import)
+  // 5. Teilnehmende mit Eltern, einzeln angelegt: Ben teilt das Elternkonto von Anna
   const nachname = `Muster${suffix}`;
-  const zeilen = [
-    {
-      vorname: "Anna",
-      nachname,
+  const anna = await sende(kdt.cookie, "POST", `${basis}/teilnehmende`, {
+    vorname: "Anna",
+    nachname,
+    antwort: {
       art: "eltern",
-      elternVorname: "Eva",
-      elternNachname: nachname,
+      eltern: [{ vorname: "Eva", nachname, benutzername: `eva.${suffix}` }],
     },
-    {
-      vorname: "Ben",
-      nachname,
-      art: "eltern",
-      elternVorname: "Eva",
-      elternNachname: nachname,
-    },
-    { vorname: "Cleo", nachname: `Eigen${suffix}`, art: "selbst" },
-  ];
-  const vorschau = await (
-    await sende(kdt.cookie, "POST", `${basis}/import/vorschau`, { zeilen })
-  ).json();
-  expect(vorschau.summe).toMatchObject({ neu: 3, konten: 2 });
-  const importiert = await sende(kdt.cookie, "POST", `${basis}/import`, {
-    zeilen,
   });
-  expect(importiert.status).toBe(201);
-  const { konten } = await importiert.json();
-  const elternKonto = konten.find((k: { art: string }) => k.art === "eltern");
-  const kindKonto = konten.find((k: { art: string }) => k.art === "selbst");
+  expect(anna.status).toBe(201);
+  const [elternKonto] = (await anna.json()).konten;
+  const ben = await sende(kdt.cookie, "POST", `${basis}/teilnehmende`, {
+    vorname: "Ben",
+    nachname,
+    antwort: {
+      art: "eltern",
+      eltern: [{ bestehendesKonto: elternKonto.benutzername }],
+    },
+  });
+  expect(ben.status).toBe(201);
+  const cleo = await sende(kdt.cookie, "POST", `${basis}/teilnehmende`, {
+    vorname: "Cleo",
+    nachname: `Eigen${suffix}`,
+    antwort: { art: "selbst", benutzername: `cleo.${suffix}` },
+  });
+  expect(cleo.status).toBe(201);
+  const [kindKonto] = (await cleo.json()).konten;
 
   // 6. Die Eltern melden sich an, wechseln das Passwort, stimmen zu und sehen beide Kinder
   let eltern = await meldeAn(

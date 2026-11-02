@@ -1,6 +1,6 @@
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { isAPIError } from "better-auth/api";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { erstelleAuth, platzhalterEmail } from "./auth.js";
 import {
@@ -177,9 +177,4 @@ export async function findeElternKonto(tx: Tx, benutzername: string) {
     )
     .limit(1);
   return selbst ? undefined : konto.id;
-}
-
-// Sperre für Vorgänge, die Bestand lesen und danach schreiben: Zwei gleichzeitige laufen nacheinander
-export async function sperreEinheit(tx: Tx, schluessel: string) {
-  await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${schluessel}))`);
 }

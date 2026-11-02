@@ -193,7 +193,7 @@ main:focus {
   gap: 12px;
 }
 
-/* Zugeklappter Bereich für Nebensächliches (Import: Spalten ändern, weitere Rollen) */
+/* Zugeklappter Bereich für Nebensächliches (weitere Rollen) */
 .mehr > summary {
   display: inline-flex;
   align-items: center;

@@ -588,24 +588,6 @@ const MATRIX: Record<string, Zeile> = {
       body: (konto) => ({ benutzername: benutzerFuer(konto, "kind") }),
       erwartet: VERWALTEN_JF_A(201),
     },
-  "POST /api/v1/admin/einheiten/:einheitId/import/vorschau": {
-    url: (w) => `/api/v1/admin/einheiten/${w.einheit.jfA}/import/vorschau`,
-    body: (konto) => ({
-      zeilen: [
-        { vorname: "Import", nachname: benutzerFuer(konto, "v"), art: "ohne" },
-      ],
-    }),
-    erwartet: VERWALTEN_JF_A(200),
-  },
-  "POST /api/v1/admin/einheiten/:einheitId/import": {
-    url: (w) => `/api/v1/admin/einheiten/${w.einheit.jfA}/import`,
-    body: (konto) => ({
-      zeilen: [
-        { vorname: "Import", nachname: benutzerFuer(konto, "i"), art: "ohne" },
-      ],
-    }),
-    erwartet: VERWALTEN_JF_A(201),
-  },
   "GET /api/v1/admin/einheiten/:einheitId/zeitregeln": {
     url: (w) => `/api/v1/admin/einheiten/${w.einheit.jfA}/zeitregeln`,
     erwartet: VERWALTEN_JF_A(200),

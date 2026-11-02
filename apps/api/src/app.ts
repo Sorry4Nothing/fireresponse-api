@@ -20,7 +20,6 @@ import {
 import { erstelleAuswertungRouten } from "./routes/admin/auswertung.js";
 import { erstelleBezirkRouten } from "./routes/admin/bezirke.js";
 import { erstelleEinheitenRouten } from "./routes/admin/einheiten.js";
-import { erstelleImportRouten } from "./routes/admin/import.js";
 import { erstelleLeitendeRouten } from "./routes/admin/leitende.js";
 import { erstellePersonenRouten } from "./routes/admin/personen.js";
 import { erstelleRangRouten } from "./routes/admin/raenge.js";
@@ -208,10 +207,6 @@ export function erstelleApp({
       .route(
         "/api/v1/admin/einheiten/:einheitId/teilnehmende",
         erstelleTeilnehmendeRouten({ db }),
-      )
-      .route(
-        "/api/v1/admin/einheiten/:einheitId/import",
-        erstelleImportRouten({ db }),
       )
       .route(
         "/api/v1/admin/einheiten/:einheitId/zeitregeln",
