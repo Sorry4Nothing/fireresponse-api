@@ -1,7 +1,9 @@
+import { eq } from "drizzle-orm";
 import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 import { erstelleApp } from "../src/app.js";
 import { erstelleDb } from "../src/db/client.js";
+import * as schema from "../src/db/schema.js";
 import { ladeSeiten } from "../src/seiten.js";
 import {
   APP,
@@ -103,7 +105,7 @@ describe("Einrichten", () => {
     expect(totpURI).toBe(
       `otpauth://totp/FireResponse:${konto.benutzername}?secret=${schluessel}&issuer=FireResponse&digits=6&period=30`,
     );
-    // #11 legt Konten mit @example.org an: Die E-Mail-Adresse stünde mit %40 im Link
+    // Die Tests legen Konten mit @example.org an: Die E-Mail-Adresse stünde mit %40 im Link
     expect(totpURI).not.toContain("%40");
     expect(method).toBe("totp");
     expect(backupCodes).toHaveLength(10);
@@ -279,4 +281,42 @@ describe("Anmeldung mit dem zweiten Faktor", () => {
       expect(await naechste.json()).toMatchObject({ twoFactorRedirect: true });
     },
   );
+});
+
+describe("Kommando und Stellvertretung richten den zweiten Faktor selbst ein", () => {
+  test("das Kommando: ZWEITER_FAKTOR_FEHLT bis zum ersten Code, danach 200 auf der Admin-Route", async () => {
+    const konto = await legePersonaAn(welt, "kommandoKfBOhneZweitenFaktor");
+    const pfad = `/api/v1/admin/einheiten/${welt.einheit.kfB}/zeitregeln`;
+    const gesperrt = await hole(pfad, konto.headers);
+    expect(gesperrt.status).toBe(403);
+    expect(await gesperrt.json()).toMatchObject({
+      code: "ZWEITER_FAKTOR_FEHLT",
+    });
+    const { headers } = await richteEin(konto);
+    expect((await hole(pfad, headers)).status).toBe(200);
+    // Danach verlangt auch die Anmeldung in der App den Code: Der Faktor gehört zum Konto
+    expect(await (await meldeAn(konto)).json()).toMatchObject({
+      twoFactorRedirect: true,
+    });
+  });
+
+  test("eine Stellvertretung ebenso", async () => {
+    // Eine Leitung, die zur Stellvertretung wird: ein Konto mit Verwaltungsrolle, aber ohne Faktor
+    const konto = await legePersonaAn(welt, "leitendeJfA");
+    await db
+      .update(schema.einheitRolle)
+      .set({ typ: "stellvertretung", reihenfolge: 7 })
+      .where(eq(schema.einheitRolle.userId, konto.id!));
+    const pfad = `/api/v1/admin/einheiten/${welt.einheit.jfA}/zeitregeln`;
+    expect((await hole(pfad, konto.headers)).status).toBe(403);
+    const { headers } = await richteEin(konto);
+    expect((await hole(pfad, headers)).status).toBe(200);
+  });
+
+  test("Leitende, Eltern und Teilnehmende erreichen den Pfad nicht: 404", async () => {
+    for (const persona of ["leitendeJfA", "elternJfA"] as const) {
+      const konto = await legePersonaAn(welt, persona);
+      expect((await enable(konto)).status, persona).toBe(404);
+    }
+  });
 });

@@ -11,7 +11,7 @@
     "dev": "tsx watch --env-file-if-exists=.env src/server.ts",
     "db:generieren": "drizzle-kit generate",
     "db:migrieren": "tsx --env-file-if-exists=.env src/db/migrieren.ts",
-    "admin:anlegen": "tsx --env-file-if-exists=.env src/cli/admin-anlegen.ts",
+    "kantonsadmin:anlegen": "tsx --env-file-if-exists=.env src/cli/kantonsadmin-anlegen.ts",
     "sitzungen:beenden": "tsx --env-file-if-exists=.env src/cli/sitzungen-beenden.ts",
     "zweiter-faktor:zuruecksetzen": "tsx --env-file-if-exists=.env src/cli/zweiter-faktor-zuruecksetzen.ts",
     "typecheck": "tsc --noEmit",

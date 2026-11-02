@@ -70,7 +70,7 @@ export function entschluesseleStartpasswort(text: string | null) {
   }
 }
 
-// Felder für ein neues Startpasswort (#18, #20): Pflichtwechsel an, 7 Tage gültig, und die Bremse beginnt von vorn; das Startpasswort selbst bleibt verschlüsselt, bis die Person es ersetzt
+// Felder für ein neues Startpasswort: Pflichtwechsel an, 7 Tage gültig, und die Bremse beginnt von vorn; das Startpasswort selbst bleibt verschlüsselt, bis die Person es ersetzt
 export function startpasswortFelder(
   jetzt = new Date(),
   startpasswort?: string,

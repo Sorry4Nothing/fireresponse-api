@@ -15,7 +15,7 @@ import {
   teilnehmendeKonto,
   user,
 } from "../db/schema.js";
-import { abzeichen, abzeichenFelder } from "../abzeichen.js";
+import { abzeichen, abzeichenFelder } from "../abzeichen-anzeige.js";
 import {
   ANMELDEFENSTER_STANDARD,
   anmeldungAb,

@@ -1,2 +1,4 @@
 # drizzle-kit schreibt diese Dateien selbst, in einer Form, die Prettier ablehnt; gemergte Migrationen ändern sich nie
 apps/api/drizzle/
+# Fremder Code (qrcode-generator, MIT) unverändert; Hinweis im Kopf der Datei
+apps/api/public/admin/qrcode.js

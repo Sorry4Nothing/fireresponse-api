@@ -29,7 +29,7 @@ beforeAll(async () => {
   ohneFaktor = await legePersonaAn(welt, "kantonsadminOhneZweitenFaktor");
 });
 
-// Direkt die Datei statt npm run (kein npm.cmd-Umweg, wie #73); die CLI ruft better-auth nie auf, darum ohne HIBP-Attrappe
+// Direkt die Datei statt npm run (kein npm.cmd-Umweg,); die CLI ruft better-auth nie auf, darum ohne HIBP-Attrappe
 function starte(argumente: string[]) {
   return spawnSync(
     process.execPath,

@@ -17,7 +17,7 @@ const schema = z.object({
   ANMELDEFENSTER_TAGE: z.coerce.number().int().min(1).max(365).default(42),
 });
 
-// Mit http setzt better-auth Cookies ohne Secure, darum in Produktion nur https (#222); lokal bleibt http://localhost
+// Mit http setzt better-auth Cookies ohne Secure, darum in Produktion nur https; lokal bleibt http://localhost
 const produktion = schema.extend({
   BETTER_AUTH_URL: z.url({ protocol: /^https$/ }),
 });
