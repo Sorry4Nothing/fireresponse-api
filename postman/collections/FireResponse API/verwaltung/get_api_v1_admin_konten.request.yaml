@@ -1,8 +1,8 @@
 $kind: http-request
 name: "GET /api/v1/admin/konten"
-order: 49000
+order: 91000
 method: GET
-url: "{{baseUrl}}/api/v1/admin/konten?benutzername=wegwerf.188e67f5"
+url: "{{baseUrl}}/api/v1/admin/konten?benutzername=wegwerf.konto.8b5044bb"
 headers:
   - key: "Cookie"
     value: "{{cookie}}"
