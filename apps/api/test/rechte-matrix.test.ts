@@ -407,6 +407,27 @@ const MATRIX: Record<string, Zeile> = {
       ohneLogin: 401,
     },
   },
+  "PATCH /api/v1/admin/bezirke/:bezirkId": {
+    url: () => `/api/v1/admin/bezirke/${leererBezirkId}`,
+    body: () => ({ name: `Umbenannt ${randomUUID().slice(0, 8)}` }),
+    erwartet: {
+      ...alle(403),
+      kantonsadmin: 204,
+      deaktiviert: 401,
+      ohneLogin: 401,
+    },
+  },
+  // Jede Anfrage verbraucht ihren Bezirk: einer pro Persona
+  "DELETE /api/v1/admin/bezirke/:bezirkId": {
+    urlJeAnfrage: async () =>
+      `/api/v1/admin/bezirke/${await wegwerfBezirkId()}`,
+    erwartet: {
+      ...alle(403),
+      kantonsadmin: 204,
+      deaktiviert: 401,
+      ohneLogin: 401,
+    },
+  },
   // Das Kommando und die Stellvertretungen sehen ihre Einheiten, der Kantonsadmin alle
   "GET /api/v1/admin/einheiten": { erwartet: MIT_VERWALTUNG },
   // Der Bezirk der Zeile hat noch keine Einheit dieser Art; sie entsteht beim ersten Treffer, dem Kantonsadmin
@@ -824,6 +845,15 @@ async function wegwerfKonto({
   return { id: zeile.id, benutzername };
 }
 
+// Ein leerer Bezirk pro Aufruf: das Ziel einer Löschung
+async function wegwerfBezirkId() {
+  const [zeile] = await welt.db
+    .insert(schema.bezirk)
+    .values({ name: `Wegwerf Bezirk ${randomUUID().slice(0, 8)}` })
+    .returning({ id: schema.bezirk.id });
+  return zeile.id;
+}
+
 // Ein Rang pro Aufruf, eigene Reihenfolge: das Ziel einer Löschung
 async function wegwerfRangId() {
   const [zeile] = await welt.db
@@ -989,6 +1019,8 @@ describe("Vollständigkeit", () => {
       expect(zeile.url ?? zeile.urlJeAnfrage, schluessel).toBeDefined();
       // Routen der eigenen Person und der Verwaltung ohne Objekt der Einheit ausgenommen
       if (schluessel.includes("/admin/system")) continue;
+      // Ein Bezirk gehört keiner Einheit: Wer nicht Kantonsadmin ist, bekommt 403
+      if (schluessel.includes("/admin/bezirke/")) continue;
       for (const persona of [
         "kommandoKfA",
         "kommandoJfB",

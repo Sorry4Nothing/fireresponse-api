@@ -1,6 +1,6 @@
 $kind: http-request
 name: "GET /api/v1/admin/auswertung/termine"
-order: 93000
+order: 98000
 method: GET
 url: "{{baseUrl}}/api/v1/admin/auswertung/termine?von=2025-01-01&bis=2025-12-31"
 headers:

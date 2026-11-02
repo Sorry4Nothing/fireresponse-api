@@ -7,6 +7,8 @@ import { TYPNAME } from "./kontext.js";
 
 const AKTIONEN = {
   bezirk_angelegt: "Bezirk angelegt",
+  bezirk_umbenannt: "Bezirk umbenannt",
+  bezirk_geloescht: "Bezirk gelöscht",
   einheit_angelegt: "Einheit angelegt",
   kommando_uebergeben: "Kommando übergeben",
   person_angelegt: "Konto angelegt",

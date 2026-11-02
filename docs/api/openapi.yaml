@@ -2227,6 +2227,83 @@ paths:
           $ref: "#/components/responses/AppVeraltet426"
         "429":
           $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/admin/bezirke/{bezirkId}:
+    patch:
+      operationId: benenneAdminBezirkUm
+      summary: Bezirk umbenennen
+      tags:
+        - Verwaltung
+      description: |
+        Nur das Konto des Kantonsadmins (mit zweitem Faktor). Der Name ist eindeutig, ohne Unterschied zwischen Gross- und Kleinschreibung (409 `BEZIRK_VORHANDEN`); nur die Schreibweise des eigenen Namens zu ändern ist erlaubt.
+        Das Umbenennen steht im Audit-Log.
+
+        Statuscodes: 204, 400, 401, 403, 404, 409, 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - name: bezirkId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminBezirkAnlegen"
+      responses:
+        "204":
+          description: Bezirk umbenannt.
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "409":
+          $ref: "#/components/responses/AdminKonflikt409"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+    delete:
+      operationId: loescheAdminBezirk
+      summary: Bezirk löschen
+      tags:
+        - Verwaltung
+      description: |
+        Nur das Konto des Kantonsadmins (mit zweitem Faktor). Nur ein Bezirk ohne Einheiten lässt sich löschen (409 `BEZIRK_BELEGT`).
+        Das Löschen steht im Audit-Log.
+
+        Statuscodes: 204, 400, 401, 403, 404, 409, 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - name: bezirkId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Bezirk gelöscht.
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "409":
+          $ref: "#/components/responses/AdminKonflikt409"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
   /api/v1/admin/einheiten:
     get:
       operationId: listeAdminEinheiten
@@ -4036,6 +4113,7 @@ components:
             - GLEICHE_PERSON
             - BENUTZERNAME_VERGEBEN
             - BEZIRK_VORHANDEN
+            - BEZIRK_BELEGT
             - EINHEIT_VORHANDEN
             - REIHENFOLGE_BELEGT
             - ELTERN_ANTWORTEN
