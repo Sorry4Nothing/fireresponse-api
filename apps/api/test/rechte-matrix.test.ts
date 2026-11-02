@@ -563,6 +563,11 @@ const MATRIX: Record<string, Zeile> = {
       `/api/v1/admin/einheiten/${w.einheit.jfA}/raenge/${bildRangId}/abzeichen`,
     erwartet: VERWALTEN_JF_A(204),
   },
+  // Das Bild für die Verwaltung unter der Adresse, die logoUrl dort nennt; wie PUT und DELETE ohne die Einwilligungsprüfung der App. Liegt vor ihnen, weil sie das Logo ändern
+  "GET /api/v1/admin/einheiten/:einheitId/logo": {
+    url: (w) => `/api/v1/admin/einheiten/${w.einheit.jfA}/logo`,
+    erwartet: VERWALTEN_JF_A(200),
+  },
   "PUT /api/v1/admin/einheiten/:einheitId/logo": {
     url: (w) => `/api/v1/admin/einheiten/${w.einheit.jfA}/logo`,
     bild: "logo",

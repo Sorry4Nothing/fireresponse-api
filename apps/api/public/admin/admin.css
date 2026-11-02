@@ -2309,6 +2309,13 @@ button.tab[aria-selected="true"] {
   flex: none;
 }
 
+.einheit-logo {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+}
+
 /* Einheit im Dock und Umschalter Bezirk/Einheit */
 
 #einheit-karte {

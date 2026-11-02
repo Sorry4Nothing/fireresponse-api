@@ -606,7 +606,15 @@ function einheitKarte() {
       "aria-haspopup": "dialog",
       onclick: () => zeigeUmschalter(wechselte),
     },
-    icon("einheit"),
+    e.logoUrl
+      ? el("img", {
+          class: "einheit-logo",
+          src: e.logoUrl,
+          alt: "",
+          width: 40,
+          height: 40,
+        })
+      : icon("einheit"),
     el(
       "span",
       { class: "einheit-text" },

@@ -17,6 +17,11 @@ export const logoUrl = sql<
   string | null
 >`case when ${einheit.logoBild} is null then null else '/api/v1/einheiten/' || ${einheit.id} || '/logo?v=' || left(md5(${einheit.logoBild}), 8) end`;
 
+// Wie logoUrl, aber die Adresse der Verwaltung: Sie fragt die Einwilligung der App nicht ab
+export const adminLogoUrl = sql<
+  string | null
+>`case when ${einheit.logoBild} is null then null else '/api/v1/admin/einheiten/' || ${einheit.id} || '/logo?v=' || left(md5(${einheit.logoBild}), 8) end`;
+
 // Eine Einheit entsteht nur zusammen mit ihrer Kommandantin oder ihrem Kommandanten. Aufrufen in einer Transaktion
 export async function legeEinheitAn(
   tx: Tx,
