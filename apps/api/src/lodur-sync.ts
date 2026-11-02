@@ -187,7 +187,7 @@ export async function synchronisiereEinheit(
     await pruefeAdresse(url.hostname, aufloesen);
     const text = await holeKalender(url, abruf);
     try {
-      return /^﻿?\s*BEGIN:VCALENDAR/i.test(text)
+      return /^\uFEFF?\s*BEGIN:VCALENDAR/i.test(text)
         ? leseIcs(text)
         : leseLodurSeite(text);
     } catch (fehler) {
