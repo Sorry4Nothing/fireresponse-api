@@ -733,6 +733,9 @@ const MATRIX: Record<string, Zeile> = {
   },
   // Statische Datei der Verwaltung (Auswertung)
   "GET /admin/auswertung.js": { erwartet: alle(200) },
+  // Statische Dateien der Verwaltung (Datepicker)
+  "GET /admin/datum.js": { erwartet: alle(200) },
+  "GET /admin/datumfeld.js": { erwartet: alle(200) },
 };
 
 const abzeichenSvg = new TextEncoder().encode(

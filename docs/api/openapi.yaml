@@ -178,6 +178,36 @@ paths:
             text/javascript:
               schema:
                 type: string
+  /admin/datum.js:
+    get:
+      operationId: getAdminDatumSkript
+      summary: Skript der Verwaltung – Datumslogik des Datepickers
+      tags:
+        - Allgemein
+      security: []
+      description: Statische Datei der Verwaltung (siehe `GET /admin`), ohne Anmeldung.
+      responses:
+        "200":
+          description: Datei (`text/javascript; charset=UTF-8`).
+          content:
+            text/javascript:
+              schema:
+                type: string
+  /admin/datumfeld.js:
+    get:
+      operationId: getAdminDatumfeldSkript
+      summary: Skript der Verwaltung – Datumsfeld mit Kalender
+      tags:
+        - Allgemein
+      security: []
+      description: Statische Datei der Verwaltung (siehe `GET /admin`), ohne Anmeldung.
+      responses:
+        "200":
+          description: Datei (`text/javascript; charset=UTF-8`).
+          content:
+            text/javascript:
+              schema:
+                type: string
   /admin/dom.js:
     get:
       operationId: getAdminDomSkript
