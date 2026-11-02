@@ -102,13 +102,20 @@ ${block(pruefung, 6)}
 `,
 );
 
-// Beide beenden die Sitzung der Persona, also laufen sie nach allen anderen Anfragen; sign-out gibt auch ohne Sitzung 200
+// Beide beenden die Sitzung der Persona, also laufen sie nach allen anderen Anfragen; sign-out gibt auch ohne Sitzung 200. Die Einwilligung erteilt die Persona ohne Einwilligung selbst, danach gilt die Sperre nicht mehr: sie kommt kurz davor
 const reihenfolge = (z, nr) =>
-  z.schluessel === "POST /api/auth/revoke-sessions"
-    ? 98000
-    : z.schluessel === "POST /api/auth/sign-out"
-      ? 99000
-      : nr * 1000;
+  z.schluessel === "PUT /api/v1/einwilligung"
+    ? 97000
+    : z.schluessel === "POST /api/auth/revoke-sessions"
+      ? 98000
+      : z.schluessel === "POST /api/auth/sign-out"
+        ? 99000
+        : nr * 1000;
+// Die Reihenfolge verlangt genau die Ränge der Einheit, und Ränge verschwinden im Lauf (Löschen, andere Personas): die vorherige Liste merkt sich die Ids; ohne Recht bleibt eine Id, die es nicht gibt
+const RAENGE_LISTE = "GET /api/v1/admin/einheiten/:einheitId/raenge";
+const REIHENFOLGE = "PUT /api/v1/admin/einheiten/:einheitId/raenge/reihenfolge";
+const merke = `const liste = pm.response.code === 200 ? pm.response.json().raenge.map((rang) => rang.id) : ["00000000-0000-4000-8000-000000000000"];
+pm.environment.set("rangIds", JSON.stringify(liste));`;
 const ordner = new Map();
 const json = new Map(); // Ordnername -> [Reihenfolge, Anfrage] für die Datei zum Importieren
 let nr = 0;
@@ -133,16 +140,23 @@ for (const z of matrix.zeilen) {
     ["X-App-Version", "{{appVersion}}"],
     ...(hatBody ? [["Content-Type", "application/json"]] : []),
   ];
-  const inhalt = z.bodyJePersona
-    ? `{{body_${z.n}}}`
-    : JSON.stringify(
-        JSON.parse(text.replace(/\{\{(\w+)\}\}/g, "<<$1>>")),
-        null,
-        2,
-      ).replace(/<<(\w+)>>/g, "{{$1}}");
-  const koerper = hatBody
-    ? `body:\n  type: json\n  content: |-\n${block(inhalt, 4)}\n`
-    : "";
+  const inhalt =
+    z.schluessel === REIHENFOLGE
+      ? '{"ids": {{rangIds}}}'
+      : z.bodyJePersona
+        ? `{{body_${z.n}}}`
+        : JSON.stringify(
+            JSON.parse(text.replace(/\{\{(\w+)\}\}/g, "<<$1>>")),
+            null,
+            2,
+          ).replace(/<<(\w+)>>/g, "{{$1}}");
+  const koerper =
+    (hatBody
+      ? `body:\n  type: json\n  content: |-\n${block(inhalt, 4)}\n`
+      : "") +
+    (z.schluessel === RAENGE_LISTE
+      ? `scripts:\n  - type: afterResponse\n    language: text/javascript\n    code: |-\n${block(merke, 6)}\n`
+      : "");
   const reihe = reihenfolge(z, nr + 1);
   json.set(name, [
     ...(json.get(name) ?? []),
@@ -150,6 +164,14 @@ for (const z of matrix.zeilen) {
       reihe,
       {
         name: z.schluessel,
+        ...(z.schluessel === RAENGE_LISTE && {
+          event: [
+            {
+              listen: "test",
+              script: { type: "text/javascript", exec: merke.split("\n") },
+            },
+          ],
+        }),
         request: {
           method: z.methode,
           header: kopf.map(([key, value]) => ({ key, value })),

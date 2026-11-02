@@ -950,7 +950,6 @@ describe("CSV-Import für Teilnehmende und Eltern", () => {
 
   test("die Vorschau schreibt nichts und nennt je Zeile Status und Benutzername", async () => {
     const nachname = name("Vorschau");
-    const vorher = await db.$count(schema.teilnehmende);
     const antwort = await sende(
       konto("kommandoJfA"),
       "POST",
@@ -1006,7 +1005,13 @@ describe("CSV-Import für Teilnehmende und Eltern", () => {
     });
     // Keine Namen in der Antwort der Vorschau
     expect(JSON.stringify(zeilen)).not.toContain("Anna");
-    expect(await db.$count(schema.teilnehmende)).toBe(vorher);
+    // Nur der eigene Nachname: Die Tabelle teilen sich parallele Tests
+    expect(
+      await db.$count(
+        schema.teilnehmende,
+        eq(schema.teilnehmende.nachname, nachname),
+      ),
+    ).toBe(0);
   });
 
   test("der Import legt Personen, Konten und Verknüpfungen an; ein zweiter Lauf legt nichts mehr an", async () => {
