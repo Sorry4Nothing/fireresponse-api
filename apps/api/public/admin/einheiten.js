@@ -1,6 +1,7 @@
 import { anfrage, fehlertext } from "./api.js";
 import {
   aktionenZelle,
+  ankreuzen,
   auswahl,
   bestaetigen,
   chip,
@@ -9,6 +10,7 @@ import {
   feld,
   filterGruppe,
   geheimnisDialog,
+  gruppe,
   icon,
   knopf,
   neueId,
@@ -463,10 +465,217 @@ function logoAbschnitt(e, ctx, neu, schliesse) {
   );
 }
 
+// Terminkalender (Lodur) und Anmeldung: Link setzen, ersetzen oder entfernen, und wählen, für welche Arten von Terminen die Anmeldung angeboten wird. Die Abschnitte laden ihren Stand selbst und zeichnen sich nach jeder Änderung neu; `geaendert.wert` sagt dem Blatt, dass die Liste der Einheiten beim Schliessen neu geladen werden muss.
+function lodurAbschnitte(e, ctx, geaendert) {
+  const basis = `/api/v1/admin/einheiten/${e.id}`;
+  const linkBlock = el(
+    "div",
+    { class: "abschnitt" },
+    el("h3", {}, "Terminkalender (Lodur)"),
+    el("p", { class: "leise" }, "Lädt …"),
+  );
+  const artenBlock = el("div", { class: "abschnitt" });
+  const neuerFehler = () =>
+    el("p", {
+      class: "hinweis hinweis--fehler",
+      role: "alert",
+      tabindex: "-1",
+      hidden: true,
+    });
+  const linkFehler = neuerFehler();
+  const artenFehler = neuerFehler();
+  const zeigeFehler = (feldFehler, f) => {
+    feldFehler.textContent = typeof f === "string" ? f : fehlertext(f);
+    feldFehler.hidden = false;
+    feldFehler.focus();
+  };
+
+  function linkTeil(stand) {
+    const link = feld({
+      label: stand.gesetzt ? "Link ersetzen" : "Link zur Terminliste",
+      maxlength: 4096,
+      autocomplete: "off",
+      autocapitalize: "none",
+      spellcheck: "false",
+      hilfe:
+        "Der ganze Link zur Übungsliste der Einheit in Lodur; er endet auf «index.php?modul=13&what=10&year=2026». Die Jahreszahl im Link stellt der Sync bei jedem Abruf selbst ein. Der Link bleibt geheim: Danach zeigt die Verwaltung nur den Host.",
+    });
+    return [
+      el(
+        "ul",
+        { class: "chips" },
+        syncChips({
+          lodurHinterlegt: stand.gesetzt,
+          syncFehler: stand.syncFehler,
+          syncOkAm: stand.syncOkAm,
+        }),
+      ),
+      stand.maskiert && el("p", {}, `Hinterlegt: ${stand.maskiert}`),
+      el(
+        "p",
+        { class: "hilfe" },
+        "Der Sync läuft von selbst alle 15 Minuten; einen manuellen Sync gibt es nicht.",
+      ),
+      link.wurzel,
+      linkFehler,
+      el(
+        "div",
+        { class: "aktionen" },
+        stand.gesetzt &&
+          knopf("Link entfernen", {
+            art: "gefahr",
+            onclick: () =>
+              bestaetigen({
+                titel: "Link entfernen?",
+                beschreibung:
+                  "Der Sync holt danach keine Termine mehr. Die bisherigen Termine bleiben im Kalender.",
+                ok: "Entfernen",
+                aktion: () => anfrage("DELETE", `${basis}/lodur`),
+                danach: () => {
+                  geaendert.wert = true;
+                  ctx.melde("Der Link ist entfernt.");
+                  lade();
+                },
+              }),
+          }),
+        knopf(stand.gesetzt ? "Link ersetzen" : "Link speichern", {
+          art: "haupt",
+          onclick: async () => {
+            const url = link.eingabe.value.trim();
+            if (!url) {
+              zeigeFehler(linkFehler, "Bitte den Link einfügen.");
+              return;
+            }
+            linkFehler.hidden = true;
+            try {
+              await anfrage("PUT", `${basis}/lodur`, { url });
+            } catch (f) {
+              zeigeFehler(linkFehler, f);
+              return;
+            }
+            geaendert.wert = true;
+            ctx.melde(
+              "Der Link ist gespeichert. Der Sync holt die Termine innerhalb von 15 Minuten.",
+            );
+            lade();
+          },
+        }),
+      ),
+    ];
+  }
+
+  function artenTeil(stand) {
+    const kopf = el("h3", {}, "Anmeldung");
+    if (stand.arten.length === 0) {
+      return [
+        kopf,
+        el(
+          "p",
+          { class: "leise" },
+          "Noch keine Termine gefunden. Sobald der Sync Termine geholt hat, erscheinen hier ihre Arten (Sitzung, Übung, Kurs …) und du wählst, für welche man sich anmelden kann.",
+        ),
+      ];
+    }
+    const wahlen = stand.arten.map((a) => ({
+      art: a.art,
+      wahl: ankreuzen({
+        label: `${a.art} (${mehrzahl(a.anzahl, "Termin", "Termine")})`,
+        gewaehlt: a.anmeldbar,
+        wert: a.art,
+      }),
+    }));
+    return [
+      kopf,
+      !stand.entschieden &&
+        el(
+          "p",
+          { class: "hinweis hinweis--warn" },
+          "Noch nicht festgelegt: Solange du nichts speicherst, kann man sich für keinen Termin anmelden. Alle Termine bleiben im Kalender sichtbar.",
+        ),
+      gruppe(
+        "Anmeldung anbieten für",
+        el(
+          "div",
+          {},
+          wahlen.map((w) => w.wahl.wurzel),
+        ),
+      ),
+      el(
+        "p",
+        { class: "hilfe" },
+        "Nur Termine der gewählten Arten haben eine Anmeldung, Erinnerungen und eine Auswertung. Die übrigen bleiben im Kalender sichtbar, ohne Anmeldung. Bestehende Antworten bleiben gespeichert.",
+      ),
+      artenFehler,
+      el(
+        "div",
+        { class: "aktionen" },
+        knopf("Auswahl speichern", {
+          art: "haupt",
+          onclick: async () => {
+            artenFehler.hidden = true;
+            try {
+              await anfrage("PUT", `${basis}/anmelde-arten`, {
+                arten: wahlen
+                  .filter((w) => w.wahl.eingabe.checked)
+                  .map((w) => w.art),
+              });
+            } catch (f) {
+              // Eine Art, die es nicht mehr gibt: Liste neu laden, die Meldung bleibt stehen
+              await lade();
+              zeigeFehler(artenFehler, f);
+              return;
+            }
+            geaendert.wert = true;
+            ctx.melde("Die Auswahl ist gespeichert.");
+            lade();
+          },
+        }),
+      ),
+    ];
+  }
+
+  async function lade() {
+    let link, arten;
+    try {
+      [link, arten] = await Promise.all([
+        anfrage("GET", `${basis}/lodur`),
+        anfrage("GET", `${basis}/anmelde-arten`),
+      ]);
+    } catch (f) {
+      linkBlock.replaceChildren(
+        el("h3", {}, "Terminkalender (Lodur)"),
+        el(
+          "p",
+          { class: "hinweis hinweis--fehler", role: "alert" },
+          fehlertext(f),
+        ),
+      );
+      return;
+    }
+    linkFehler.hidden = true;
+    artenFehler.hidden = true;
+    linkBlock.replaceChildren(
+      el("h3", {}, "Terminkalender (Lodur)"),
+      ...linkTeil(link).filter(Boolean),
+    );
+    artenBlock.replaceChildren(...artenTeil(arten).filter(Boolean));
+  }
+
+  lade();
+  return [linkBlock, artenBlock];
+}
+
 function details(e, ctx, neu) {
+  const geaendert = { wert: false };
   const blatt = seitenblatt({
     titel: e.name,
     untertitel: `${TYPNAME[e.typ]} · Bezirk ${e.bezirk}`,
+    // Link und Sync-Stand stehen auch in der Liste dahinter
+    schliessen: async () => {
+      if (!geaendert.wert) return;
+      await ctx.einheitenNeu();
+      neu();
+    },
     inhalt: [
       el(
         "div",
@@ -482,17 +691,7 @@ function details(e, ctx, neu) {
           }),
       ),
       logoAbschnitt(e, ctx, neu, () => blatt.close()),
-      el(
-        "div",
-        { class: "abschnitt" },
-        el("h3", {}, "Terminkalender (Lodur)"),
-        el("ul", { class: "chips" }, syncChips(e)),
-        el(
-          "p",
-          { class: "hilfe" },
-          "Hier steht nur der Stand des Syncs. Er läuft von selbst; einen manuellen Sync gibt es nicht.",
-        ),
-      ),
+      ...lodurAbschnitte(e, ctx, geaendert),
       el(
         "div",
         { class: "abschnitt" },

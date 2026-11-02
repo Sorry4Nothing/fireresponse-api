@@ -139,7 +139,7 @@ export async function holeKalender(
     antwort = await abruf(url, {
       redirect: "manual",
       signal,
-      headers: { Accept: "text/calendar, text/plain;q=0.5" },
+      headers: { Accept: "text/html, text/calendar;q=0.9, text/plain;q=0.5" },
     });
   } catch (fehler) {
     throw abbruch(fehler);
@@ -173,5 +173,26 @@ export async function holeKalender(
   } catch (fehler) {
     throw fehler instanceof LodurFehler ? fehler : abbruch(fehler);
   }
-  return new TextDecoder("utf-8").decode(Buffer.concat(teile));
+  const bytes = Buffer.concat(teile);
+  // Lodur liefert iso-8859-1; der Zeichensatz steht im Header oder im meta-Tag (der Kopf der Seite ist ASCII)
+  const charset =
+    /charset=["']?([\w-]+)/i.exec(
+      antwort.headers.get("content-type") ?? "",
+    )?.[1] ??
+    /<meta[^>]*charset=["']?([\w-]+)/i.exec(
+      bytes.subarray(0, 2048).toString("latin1"),
+    )?.[1];
+  try {
+    return new TextDecoder(charset ?? "utf-8").decode(bytes);
+  } catch {
+    return new TextDecoder("utf-8").decode(bytes);
+  }
+}
+
+// Der gleiche Link für ein anderes Jahr; ohne Parameter year bleibt er, wie er ist. Der Aufrufer prüft das Ergebnis wieder mit pruefeLodurUrl (SR-26)
+export function jahresLink(link: string, jahr: number): string {
+  const url = new URL(link);
+  if (!url.searchParams.has("year")) return link;
+  url.searchParams.set("year", String(jahr));
+  return url.href;
 }

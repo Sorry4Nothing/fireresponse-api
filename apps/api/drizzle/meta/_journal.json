@@ -43,6 +43,13 @@
       "when": 1793623777657,
       "tag": "0005_standard_raenge_vier",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793629708021,
+      "tag": "0006_lodur_html_arten",
+      "breakpoints": true
     }
   ]
 }

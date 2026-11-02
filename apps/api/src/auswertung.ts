@@ -10,9 +10,10 @@ import {
   teilnehmende,
   user,
 } from "./db/schema.js";
+import { anmeldbar } from "./anmeldefenster.js";
 import { aktivesKonto, programmBeginn } from "./rechte.js";
 
-// Die Auswertung zählt nur Anmeldungen, nie Anwesenheit. Bezugsgrösse sind aktive Programme, die schon begonnen haben: Bei künftigen Terminen sagt «offen» noch nichts, abgesagte zählen nicht. Inaktive Teilnehmende und deaktivierte Konten fehlen überall. Die Zahlen hängen an der Person (teilnehmende), nie am antwortenden Konto: Ein Wechsel von den Eltern aufs Kind ändert sie nicht
+// Die Auswertung zählt nur Anmeldungen, nie Anwesenheit. Bezugsgrösse sind aktive Programme mit Anmeldung (freigegebene Art), die schon begonnen haben: Bei künftigen Terminen sagt «offen» noch nichts, abgesagte zählen nicht. Inaktive Teilnehmende und deaktivierte Konten fehlen überall. Die Zahlen hängen an der Person (teilnehmende), nie am antwortenden Konto: Ein Wechsel von den Eltern aufs Kind ändert sie nicht
 
 export type Bereich = {
   // Immer schon auf das Recht der Person gefiltert (einheitenFuer «verwalten»)
@@ -42,10 +43,11 @@ export const mitQuote = (z: Zahlen): ZahlenMitQuote => ({
   quote: quote(z.ja, z.ja + z.nein + z.offen),
 });
 
-// Programme des Bereichs; mit nurBezug nur die, die in die Quote zählen. Setzt einen Join auf einheit voraus
+// Programme des Bereichs mit Anmeldung (freigegebene Art); mit nurBezug nur die, die in die Quote zählen. Setzt einen Join auf einheit voraus
 export function programmeIn(b: Bereich, nurBezug: boolean): SQL {
   return sql`${inArray(programm.einheitId, b.einheiten)}
     ${b.bezirkId === undefined ? sql`` : sql`and ${eq(einheit.bezirkId, b.bezirkId)}`}
+    and ${anmeldbar}
     and ${beginnTag} between ${b.von}::date and ${b.bis}::date
     ${nurBezug ? sql`and ${programm.status} = 'aktiv' and ${begonnen}` : sql``}`;
 }

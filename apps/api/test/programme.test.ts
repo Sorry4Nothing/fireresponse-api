@@ -184,6 +184,8 @@ describe("Liste und Detail: jede Einheit mal jede Persona", () => {
         "ende",
         "tagVon",
         "tagBis",
+        "art",
+        "anmeldbar",
         "anmeldungAb",
         "teilnahmeOffen",
         "einheit",

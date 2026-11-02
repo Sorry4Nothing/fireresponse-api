@@ -669,6 +669,16 @@ const MATRIX: Record<string, Zeile> = {
     url: (w) => `/api/v1/admin/einheiten/${w.einheit.jfA}/lodur`,
     erwartet: VERWALTEN_JF_A(204),
   },
+  // Arten mit Anmeldung: dieselben Rechte wie der Lodur-Link; Auswahl und Fehlerfälle prüft test/admin-anmelde-arten.test.ts
+  "GET /api/v1/admin/einheiten/:einheitId/anmelde-arten": {
+    url: (w) => `/api/v1/admin/einheiten/${w.einheit.jfA}/anmelde-arten`,
+    erwartet: VERWALTEN_JF_A(200),
+  },
+  "PUT /api/v1/admin/einheiten/:einheitId/anmelde-arten": {
+    url: (w) => `/api/v1/admin/einheiten/${w.einheit.jfA}/anmelde-arten`,
+    body: () => ({ arten: ["Übung"] }),
+    erwartet: VERWALTEN_JF_A(200),
+  },
   // Profilbild (#173): Jede Person mit Sitzung lädt ihr eigenes hoch und löscht es; nur die Person selbst, nie eine andere. Typ, Grösse und Rate-Limit prüft test/profilbild.test.ts
   "PUT /api/v1/ich/bild": {
     bild: true,
