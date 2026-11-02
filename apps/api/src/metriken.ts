@@ -1,4 +1,4 @@
-// Betriebszahlen der API im Arbeitsspeicher, für die Übersicht der Verwaltung (#143).
+// Betriebszahlen der API im Arbeitsspeicher, für die Übersicht der Verwaltung.
 // Erfasst werden nur Methode, Routenmuster (nie der Pfad), Statuscode und Dauer: keine Query, kein Body, keine Header, keine IP, keine Personen.
 // Der Speicher ist begrenzt: 24 Stunden in Minuten-Eimern, höchstens MAX_ROUTEN Muster, die letzten MAX_FEHLER Fehler. Nach einem Neustart ist alles leer.
 

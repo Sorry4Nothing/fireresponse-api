@@ -340,7 +340,7 @@ export const programm = pgTable(
       .notNull()
       .references(() => einheit.id, { onDelete: "restrict" }),
     googleEventId: text("google_event_id").notNull(),
-    // Roher recurringEventId; #28 kürzt den Stamm (_R…) erst beim Suchen
+    // Roher recurringEventId; der Sync (E3) kürzt den Stamm (_R…) erst beim Suchen
     googleSerie: text("google_serie"),
     titel: text("titel").notNull(),
     ganztaegig: boolean("ganztaegig").notNull(),
@@ -502,7 +502,7 @@ export const auditLog = pgTable("audit_log", {
   erstelltAm: zeitpunkt("erstellt_am").notNull().defaultNow(),
 });
 
-// Das Profilbild einer Person (#173): höchstens eines, vom Server auf 256 × 256 JPEG neu kodiert; die Zeile geht mit dem Konto
+// Das Profilbild einer Person: höchstens eines, vom Server auf 256 × 256 JPEG neu kodiert; die Zeile geht mit dem Konto
 export const profilbild = pgTable(
   "profilbild",
   {

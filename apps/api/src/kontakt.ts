@@ -1,5 +1,5 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
-import { abzeichen, abzeichenFelder } from "./abzeichen.js";
+import { abzeichen, abzeichenFelder } from "./abzeichen-anzeige.js";
 import { bildUrl } from "./bild.js";
 import type { Db } from "./db/client.js";
 import {

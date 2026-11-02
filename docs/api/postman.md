@@ -37,5 +37,5 @@ Voraussetzung: PostgreSQL aus `docker-compose.yml` läuft, `npm ci` ist gelaufen
 
 - Ein Lauf verbraucht die Sitzungen (am Ende stehen `sign-out` und `revoke-sessions`) und ändert Daten. Für einen zweiten Lauf Schritt 1 wiederholen und die API neu starten.
 - Alle 19 Personas laufen nacheinander gegen dieselbe Datenbank, solange man Schritt 1 nicht dazwischen wiederholt.
-- Das Bild-Hochladen (`PUT /api/v1/ich/bild`) fehlt in der Collection, weil der Body binär ist. Die Matrix prüft es im Test.
+- Das Bild-Hochladen (`PUT /api/v1/ich/bild` und `PUT /api/v1/admin/einheiten/:einheitId/raenge/:rangId/abzeichen`) fehlt in der Collection, weil der Body binär ist. Die Matrix prüft es im Test.
 - Neue Route: Zeile in die Rechte-Matrix, dann `node apps/api/scripts/postman-erzeugen.mjs` nach Schritt 1, danach `npx prettier --write docs/api/endpunkte.md`; das Skript schreibt `endpunkte.md` und die Collection neu. Beide nicht von Hand ändern.

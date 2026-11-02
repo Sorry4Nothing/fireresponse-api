@@ -78,6 +78,9 @@ const CODES = {
     "Zu viele falsche Codes. Bitte gib Benutzername und Passwort nochmals ein.",
   TOTP_NOT_ENABLED: "Für dieses Konto ist kein zweiter Faktor eingerichtet.",
   BACKUP_CODES_NOT_ENABLED: "Für dieses Konto gibt es keine Ersatzcodes.",
+  INVALID_PASSWORD: "Das Passwort stimmt nicht.",
+  TOTP_ALREADY_ENABLED:
+    "Für dieses Konto ist der zweite Faktor schon eingerichtet.",
 };
 
 // Texte sind Deutsch; Fehlercodes ohne eigenen Text zeigen die Meldung der API nur bei 409 (dort steht sie für Menschen)
@@ -99,6 +102,10 @@ export function fehlertext(fehler) {
         fehler.meldung ??
         "Das geht so nicht, weil es mit einem Eintrag kollidiert."
       );
+    case 413:
+      return "Die Datei ist zu gross.";
+    case 415:
+      return fehler.meldung ?? "Dieses Dateiformat ist nicht erlaubt.";
     case 429: {
       const sekunden = Number(fehler.warten);
       const frist =

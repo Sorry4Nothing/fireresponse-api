@@ -1,4 +1,4 @@
-// Erzeugt docs/api/endpunkte.md und postman/collections/FireResponse API/ aus apps/api/.postman-lokal/matrix.json (#186)
+// Erzeugt docs/api/endpunkte.md und postman/collections/FireResponse API/ aus apps/api/.postman-lokal/matrix.json
 // Voraussetzung: POSTMAN_EXPORT=1 vitest run test/rechte-matrix.test.ts -t Postman-Export; Ablauf in docs/api/postman.md
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { parse } from "yaml";

@@ -157,7 +157,7 @@ export function erstelleAuth(database: BetterAuthOptions["database"]) {
       database: { generateId: "uuid" },
       // Sonst prüft better-auth die Herkunft unter NODE_ENV=test nicht
       disableOriginCheck: false,
-      // Heute der Standard, aber tragend: Das Rate-Limit zählt nur über den Header, den Caddy kontrolliert (#68)
+      // Heute der Standard, aber tragend: Das Rate-Limit zählt nur über den Header, den Caddy kontrolliert
       ipAddress: { ipAddressHeaders: ["x-forwarded-for"] },
     },
     databaseHooks: {
@@ -437,15 +437,25 @@ function mitExpoOrigin(anfrage: Request) {
   return new Request(anfrage, { headers: kopfzeilen });
 }
 
-export function erstelleAuthRouten(auth: ReturnType<typeof erstelleAuth>) {
+// verwaltungskonto: Hat das Konto Kommando oder Stellvertretung einer Einheit? Das weiss die Datenbank der App, nicht better-auth
+export function erstelleAuthRouten(
+  auth: ReturnType<typeof erstelleAuth>,
+  verwaltungskonto: (userId: string) => Promise<boolean> = async () => false,
+) {
   const routen = new Hono();
-  // Den zweiten Faktor richten nur Admins ein; für alle anderen ist der Pfad zu
+  // Den zweiten Faktor richten nur Konten der Verwaltung ein (Kantonsadmin, Kommando, Stellvertretungen); für alle anderen ist der Pfad zu
   routen.post("/api/auth/two-factor/enable", async (c, next) => {
     const sitzung = await auth.api.getSession({
       headers: c.req.raw.headers,
       query: { disableRefresh: true },
     });
-    if (sitzung?.user.role !== "admin") return c.notFound();
+    if (
+      !sitzung ||
+      (sitzung.user.role !== "admin" &&
+        !(await verwaltungskonto(sitzung.user.id)))
+    ) {
+      return c.notFound();
+    }
     await next();
   });
   for (const eintrag of offenePfade) {

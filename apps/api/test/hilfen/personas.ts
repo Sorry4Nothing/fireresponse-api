@@ -320,7 +320,7 @@ export async function legePersonaAn(
           einwilligungAm: new Date(),
           einwilligungVersion: EINWILLIGUNG_VERSION,
         }),
-        // Wie nach einem frisch gesetzten Startpasswort (#18): Flag an, 7 Tage gültig
+        // Wie nach einem frisch gesetzten Startpasswort: Flag an, 7 Tage gültig
         ...(startpasswort && startpasswortFelder()),
       },
     },

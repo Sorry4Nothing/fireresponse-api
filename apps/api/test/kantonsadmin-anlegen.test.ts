@@ -15,7 +15,7 @@ import {
 import { API_URL } from "./hilfen/datenbank.js";
 
 bereiteAuthTestsVor();
-// Bis zu zwei CLI-Starts (je bis 60 s) plus eine scrypt-Anmeldung pro Test (#8: unter Last bis 19 s)
+// Bis zu zwei CLI-Starts (je bis 60 s) plus eine scrypt-Anmeldung pro Test (unter Last bis 19 s)
 vi.setConfig({ testTimeout: 180_000 });
 
 const db = erstelleDb(postgres(API_URL));
@@ -32,7 +32,7 @@ const UMGEBUNG = {
   BETTER_AUTH_URL: "http://localhost:4020",
 };
 
-// Direkt die Datei statt npm run (kein npm.cmd-Umweg, wie #73); die Attrappe ersetzt fetch im Kindprozess
+// Direkt die Datei statt npm run (kein npm.cmd-Umweg,); die Attrappe ersetzt fetch im Kindprozess
 function starte(argumente: string[], umgebung: Record<string, string> = {}) {
   return spawnSync(
     process.execPath,
@@ -41,7 +41,7 @@ function starte(argumente: string[], umgebung: Record<string, string> = {}) {
       "tsx",
       "--import",
       "./test/hilfen/hibp-attrappe.ts",
-      "src/cli/admin-anlegen.ts",
+      "src/cli/kantonsadmin-anlegen.ts",
       ...argumente,
     ],
     {
@@ -54,7 +54,7 @@ function starte(argumente: string[], umgebung: Record<string, string> = {}) {
   );
 }
 
-// Kein randomUUID für den Benutzernamen: Der Standard-Validator lässt «-» nicht zu (#18 erweitert ihn erst)
+// Kein randomUUID für den Benutzernamen: Der Standard-Validator lässt «-» nicht zu
 const neuerBenutzername = () => `cli.${randomBytes(4).toString("hex")}`;
 function startpasswortAus(stdout: string) {
   const zeilen = stdout
@@ -62,7 +62,7 @@ function startpasswortAus(stdout: string) {
     .filter((zeile) => zeile.startsWith("Startpasswort: "));
   expect(zeilen).toHaveLength(1);
   const passwort = zeilen[0].slice("Startpasswort: ".length);
-  // Genau die Form und das Alphabet von erzeugeStartpasswort (#15)
+  // Genau die Form und das Alphabet von erzeugeStartpasswort
   expect(passwort).toMatch(
     /^[23456789ACDEFGHJKMNPQRTUVWXY]{4}(-[23456789ACDEFGHJKMNPQRTUVWXY]{4}){2}$/,
   );
@@ -152,7 +152,7 @@ test("die CLI legt den Kantonsadmin an, und die Anmeldung mit dem Startpasswort 
 test.each([
   ["mit «--passwort»", ["--passwort", "geheim"]],
   ["mit einem positionalen Argument", ["geheim"]],
-  ["mit einer Abteilung", ["--abteilung", "Zweitabteilung"]],
+  ["mit einer Einheit", ["--einheit", "Zweiteinheit"]],
   ["ohne Namen", []],
 ])(
   "ein Aufruf %s zeigt die Verwendung und legt nichts an",
@@ -176,7 +176,7 @@ test.each([
 test("ein zu kurzer Benutzername bricht ab, ohne etwas anzulegen", async () => {
   const ergebnis = starte(["--benutzername", "ab", "--name", "Testperson CLI"]);
   expect(ergebnis.status).toBe(1);
-  expect(ergebnis.stderr).toContain("Admin nicht angelegt:");
+  expect(ergebnis.stderr).toContain("Kantonsadmin nicht angelegt:");
   expect(ergebnis.stdout + ergebnis.stderr).not.toContain("Startpasswort:");
   expect(await benutzerMitNamen("ab")).toHaveLength(0);
 });
@@ -188,17 +188,17 @@ test("ist HIBP nicht erreichbar, bleibt kein halber Benutzer und kein Audit-Eint
     { HIBP_ATTRAPPE: "fehler" },
   );
   expect(ergebnis.status).toBe(1);
-  expect(ergebnis.stderr).toContain("Admin nicht angelegt:");
+  expect(ergebnis.stderr).toContain("Kantonsadmin nicht angelegt:");
   expect(ergebnis.stdout + ergebnis.stderr).not.toContain("Startpasswort:");
-  // createUser legt den User vor der HIBP-Prüfung an (#14); die Transaktion nimmt ihn samt Audit-Eintrag zurück
+  // createUser legt den User vor der HIBP-Prüfung an; die Transaktion nimmt ihn samt Audit-Eintrag zurück
   expect(await benutzerMitNamen(benutzername)).toHaveLength(0);
 });
 
-test("«admin:anlegen» in package.json startet genau diese Datei", () => {
+test("«kantonsadmin:anlegen» in package.json startet genau diese Datei", () => {
   const paket = JSON.parse(
     readFileSync(new URL("../package.json", import.meta.url), "utf8"),
   ) as { scripts: Record<string, string> };
-  expect(paket.scripts["admin:anlegen"]).toBe(
-    "tsx --env-file-if-exists=.env src/cli/admin-anlegen.ts",
+  expect(paket.scripts["kantonsadmin:anlegen"]).toBe(
+    "tsx --env-file-if-exists=.env src/cli/kantonsadmin-anlegen.ts",
   );
 });

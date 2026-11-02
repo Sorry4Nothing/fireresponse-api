@@ -2298,3 +2298,290 @@ button.tab[aria-selected="true"] {
 .sl-reihenfolge .name {
   flex: 1 1 10rem;
 }
+
+/* Die erste Spalte einer Tabelle bricht Namen nie mitten im Wort */
+
+.tabelle .wer {
+  min-width: 14rem;
+}
+
+.wer .i {
+  flex: none;
+}
+
+/* Einheit im Dock und Umschalter Bezirk/Einheit */
+
+#einheit-karte {
+  margin-top: 12px;
+}
+
+.einheit-wahl {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 48px;
+  padding: 8px 10px;
+  background: var(--karte);
+  color: var(--text);
+  border: 1px solid var(--rand-leise);
+  border-radius: 12px;
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.einheit-wahl:hover {
+  background: var(--erhoben);
+}
+
+.einheit-wahl .i {
+  flex: none;
+}
+
+.einheit-text,
+.umschalter-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.einheit-text .name {
+  font-size: 0.875rem;
+  line-height: 1.125rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.umschalter {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.umschalter h3 {
+  margin: 0 0 8px;
+}
+
+.umschalter-liste {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.umschalter-eintrag {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 56px;
+  padding: 8px 16px;
+  background: var(--surface);
+  color: var(--text);
+  border: 2px solid var(--rand-leise);
+  border-radius: 16px;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.umschalter-eintrag:hover {
+  background: var(--karte);
+}
+
+.umschalter-eintrag[aria-pressed="true"] {
+  background: var(--blau-f);
+  border-color: var(--fokus);
+}
+
+.umschalter-text {
+  flex: 1;
+}
+
+/* Abzeichen der Ränge (Hochformat 100:130) */
+
+.rb {
+  display: block;
+  flex: none;
+  border-radius: 3px;
+}
+
+.rb--k {
+  width: 20px;
+  height: 26px;
+}
+
+.rb--m {
+  width: 28px;
+  height: 36px;
+}
+
+.rb--g {
+  width: 55px;
+  height: 72px;
+}
+
+.rb--x {
+  width: 100px;
+  height: 130px;
+}
+
+.rb--leer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--leise);
+  border: 2px dashed var(--rand-leise);
+}
+
+.rang-liste,
+.konten-liste {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rang-liste {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 720px), 1fr));
+}
+
+.rang-karte {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+}
+
+.rang-text {
+  display: flex;
+  flex: 1 1 240px;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.rang-text h3 {
+  margin: 0;
+}
+
+.rang-zelle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.abzeichen-zeile {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 20px;
+}
+
+.abzeichen-zeile > .formular {
+  flex: 1 1 200px;
+}
+
+.abzeichen-vorschau {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 100px;
+  min-height: 130px;
+}
+
+.zweispaltig {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+/* Startpasswörter, Aufgaben, Ersatzcodes */
+
+.geheimnis-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.aufgaben {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.reihenfolge-nr {
+  min-width: 1.5rem;
+  color: var(--leise);
+  font-variant-numeric: tabular-nums;
+}
+
+/* QR-Code des zweiten Faktors: gross und mittig, immer dunkel auf hellem Grund (die Farben stehen im Bild selbst, auch im Dunkelmodus) */
+
+.qr-rahmen {
+  display: flex;
+  justify-content: center;
+}
+
+.qr {
+  display: block;
+  width: min(100%, 20rem);
+  height: auto;
+  border-radius: 12px;
+}
+
+.qr-ausweg {
+  padding: 0 4px;
+}
+
+.qr-ausweg summary {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--akzent);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.qr-ausweg summary:focus-visible {
+  outline: 3px solid var(--fokus);
+  outline-offset: 2px;
+}
+
+.qr-ausweg[open] .geheimnis {
+  margin-top: 8px;
+}
+
+.ersatzcodes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 12px 16px;
+  background: var(--surface);
+  border-radius: 12px;
+  list-style: none;
+}
+
+.anmeldung h2 {
+  font-size: 1.125rem;
+  line-height: 1.5rem;
+}
+
+.eltern-block {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--rand-leise);
+  border-radius: 16px;
+}
+
+.eltern-block h3 {
+  margin: 0;
+}

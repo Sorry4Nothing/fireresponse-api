@@ -1,0 +1,14 @@
+$kind: http-request
+name: "GET /admin/qrcode.js"
+order: 18000
+method: GET
+url: "{{baseUrl}}/admin/qrcode.js"
+headers:
+  - key: "Cookie"
+    value: "{{cookie}}"
+  - key: "expo-origin"
+    value: "{{expoOrigin}}"
+  - key: "X-Forwarded-For"
+    value: "{{ip}}"
+  - key: "X-App-Version"
+    value: "{{appVersion}}"
