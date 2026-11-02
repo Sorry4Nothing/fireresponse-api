@@ -11,6 +11,7 @@ import {
   user,
 } from "./db/schema.js";
 import { anmeldbar } from "./anmeldefenster.js";
+import { ladeAdminRaenge, type AdminRang } from "./rang-anzeige.js";
 import { aktivesKonto, programmBeginn } from "./rechte.js";
 
 // Die Auswertung zählt nur Anmeldungen, nie Anwesenheit. Bezugsgrösse sind aktive Programme mit Anmeldung (freigegebene Art), die schon begonnen haben: Bei künftigen Terminen sagt «offen» noch nichts, abgesagte zählen nicht. Inaktive Teilnehmende und deaktivierte Konten fehlen überall. Die Zahlen hängen an der Person (teilnehmende), nie am antwortenden Konto: Ein Wechsel von den Eltern aufs Kind ändert sie nicht
@@ -78,6 +79,7 @@ export type PersonenZeile = {
   id: string;
   name: string;
   rolle: "kommandant" | "stellvertretung" | "leitung" | null;
+  rang: AdminRang | null;
   einheit: { id: string; name: string; typ: "jf" | "kf" };
   termine: number;
 } & ZahlenMitQuote;
@@ -86,16 +88,22 @@ type PersonRoh = Zahlen & {
   id: string;
   name: string;
   rolle: PersonenZeile["rolle"];
+  rangId: string | null;
   einheitId: string;
   einheitName: string;
   einheitTyp: "jf" | "kf";
 };
 
-const alsZeile = (art: PersonenZeile["art"], z: PersonRoh): PersonenZeile => ({
+const alsZeile = (
+  art: PersonenZeile["art"],
+  z: PersonRoh,
+  raenge: Map<string, AdminRang>,
+): PersonenZeile => ({
   art,
   id: z.id,
   name: z.name,
   rolle: z.rolle,
+  rang: (z.rangId && raenge.get(z.rangId)) || null,
   einheit: { id: z.einheitId, name: z.einheitName, typ: z.einheitTyp },
   termine: z.ja + z.nein + z.offen,
   ...mitQuote(z),
@@ -109,14 +117,18 @@ export async function quotenTeilnehmende(
   const zeilen = await db.execute<PersonRoh>(sql`
     select ${teilnehmende.id} as "id",
       ${teilnehmende.vorname} || ' ' || ${teilnehmende.nachname} as "name",
-      null as "rolle",
+      null as "rolle", ${teilnehmende.rangId} as "rangId",
       ${einheit.id} as "einheitId", ${einheit.name} as "einheitName", ${einheit.typ} as "einheitTyp",
       ${zaehlerTn}
     ${vonTeilnehmenden}
     where ${programmeIn(b, true)}
     group by ${teilnehmende.id}, ${einheit.id}
     order by ${einheit.name}, ${teilnehmende.nachname}, ${teilnehmende.vorname}, ${teilnehmende.id}`);
-  return zeilen.map((z) => alsZeile("teilnehmende", z));
+  const raenge = await ladeAdminRaenge(
+    db,
+    zeilen.map((z) => z.rangId),
+  );
+  return zeilen.map((z) => alsZeile("teilnehmende", z, raenge));
 }
 
 export async function quotenLeitende(
@@ -124,14 +136,18 @@ export async function quotenLeitende(
   b: Bereich,
 ): Promise<PersonenZeile[]> {
   const zeilen = await db.execute<PersonRoh>(sql`
-    select ${user.id} as "id", ${user.name} as "name", ${einheitRolle.typ} as "rolle",
+    select ${user.id} as "id", ${user.name} as "name", ${einheitRolle.typ} as "rolle", ${einheitRolle.rangId} as "rangId",
       ${einheit.id} as "einheitId", ${einheit.name} as "einheitName", ${einheit.typ} as "einheitTyp",
       ${zaehlerLe}
     ${vonLeitenden}
     where ${programmeIn(b, true)}
-    group by ${user.id}, ${einheit.id}, ${einheitRolle.typ}
+    group by ${user.id}, ${einheit.id}, ${einheitRolle.typ}, ${einheitRolle.rangId}
     order by ${einheit.name}, ${user.name}, ${user.id}`);
-  return zeilen.map((z) => alsZeile("leitende", z));
+  const raenge = await ladeAdminRaenge(
+    db,
+    zeilen.map((z) => z.rangId),
+  );
+  return zeilen.map((z) => alsZeile("leitende", z, raenge));
 }
 
 export type JahrZeile = {

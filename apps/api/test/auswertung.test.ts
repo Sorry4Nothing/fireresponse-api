@@ -517,11 +517,39 @@ describe("Datenminimierung", () => {
           "nein",
           "offen",
           "quote",
+          "rang",
           "rolle",
           "termine",
         ].sort(),
       );
     }
+  });
+
+  test("Personenzeilen tragen den Rang mit Abzeichen, ohne Rang null", async () => {
+    const [r1] = await db
+      .insert(schema.rang)
+      .values({
+        einheitId: welt.einheit.jfA,
+        name: "Oberleutnant",
+        kuerzel: "Oblt",
+        typ: "miliz",
+        reihenfolge: 1,
+        abzeichenSterne: 2,
+      })
+      .returning({ id: schema.rang.id });
+    await db
+      .update(schema.einheitRolle)
+      .set({ rangId: r1!.id })
+      .where(eq(schema.einheitRolle.userId, konto.kommandoJfA.id!));
+    const r = await hole("kommandoJfA", `/quoten?${JAHR}`);
+    const kommando = r.json.personen.find(
+      (p: Json) => p.id === konto.kommandoJfA.id,
+    );
+    expect(kommando.rang.id).toBe(r1!.id);
+    expect(kommando.rang.abzeichen).toEqual({ art: "sterne", sterne: 2 });
+    expect(
+      r.json.personen.find((p: Json) => p.art === "teilnehmende").rang,
+    ).toBeNull();
   });
 });
 

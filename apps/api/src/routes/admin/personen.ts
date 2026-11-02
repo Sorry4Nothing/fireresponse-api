@@ -164,7 +164,7 @@ export function erstellePersonenRouten({ db }: { db: Db }) {
             if (!ziel.rolleHier) throw new HTTPException(400);
             if (aenderung.rangId !== null) {
               const [eigener] = await tx
-                .select({ id: rang.id })
+                .select({ id: rang.id, typ: rang.typ })
                 .from(rang)
                 .where(
                   and(
@@ -172,7 +172,10 @@ export function erstellePersonenRouten({ db }: { db: Db }) {
                     eq(rang.einheitId, einheitId),
                   ),
                 );
-              if (!eigener) throw new HTTPException(400);
+              // Leitende tragen Miliz-Ränge, Teilnehmende die der Einheit
+              if (!eigener || eigener.typ !== "miliz") {
+                throw new HTTPException(400);
+              }
             }
             await tx
               .update(einheitRolle)

@@ -16,7 +16,7 @@ type AbzeichenZeile = {
   hatBild: boolean | null;
 };
 
-// Für jede Person mit Rang ein Objekt: das Kürzel, dazu Sterne (0 bis 5) oder die URL eines eigenen Bildes; sind beide null, hat der Rang nur das Kürzel. null heisst: kein Rang
+// Für jede Person mit Rang ein Objekt: das Kürzel, dazu Sterne (0 bis 2) oder die URL eines eigenen Bildes; sind beide null, hat der Rang nur das Kürzel. null heisst: kein Rang
 export function abzeichen(zeile: AbzeichenZeile) {
   if (zeile.rangId === null || zeile.kuerzel === null) return null;
   if (zeile.hatBild) {
