@@ -1,0 +1,96 @@
+name: Release
+
+# Setzt den Release-Tag auf main, baut das Image und rollt es nach der Freigabe aus. Läuft bei jedem Push auf main (Stufe minor, ausrollen) und von Hand; die Nummer rechnet deploy/naechste-version.sh
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      stufe:
+        description: minor erhöht z (0.9.9 → 0.9.10), major erhöht y und setzt z auf 0 (0.9.9 → 0.10.0)
+        required: true
+        type: choice
+        options: [minor, major]
+        default: minor
+      version:
+        description: Nur um x zu erhöhen oder eine Nummer zu erzwingen, z. B. 1.0.0; ersetzt die Stufe und muss grösser als der letzte Tag sein
+        required: false
+        type: string
+      ausrollen:
+        description: Nach dem Image ausrollen; die Umgebung production wartet vorher auf eine Freigabe
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  tag:
+    name: Tag setzen
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Nur main kann released werden; der Tag liegt auf dem Commit, der den Lauf auslöst, nicht auf einem späteren Kopf
+    if: github.ref == 'refs/heads/main'
+    # contents: write hat allein dieser Job
+    permissions:
+      contents: write
+    outputs:
+      tag: ${{ steps.nummer.outputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+      # Eingaben kommen aus der Umgebung, nicht als Ausdruck ins Skript: So kann kein Wert Shell-Code einschleusen
+      - name: Nummer berechnen
+        id: nummer
+        env:
+          # Beim Push fehlen die Eingaben: Dann gilt minor ohne erzwungene Version
+          STUFE: ${{ inputs.stufe || 'minor' }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          letzter=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n 1 || true)
+          nummer=$(bash deploy/naechste-version.sh "$STUFE" "${VERSION:--}" "$letzter")
+          echo "Letzter Tag: ${letzter:-keiner}, neuer Tag: v$nummer"
+          echo "tag=v$nummer" >> "$GITHUB_OUTPUT"
+      # Annotierter Tag über die API: Schlägt fehl, wenn der Tag schon existiert, und legt keinen Schlüssel im Checkout ab
+      - name: Tag setzen
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ steps.nummer.outputs.tag }}
+        run: |
+          sha=$(git rev-parse HEAD)
+          objekt=$(gh api "repos/$REPO/git/tags" -f tag="$TAG" -f message="Release ${TAG#v}" -f object="$sha" -f type=commit --jq .sha)
+          gh api "repos/$REPO/git/refs" -f ref="refs/tags/$TAG" -f sha="$objekt" --silent
+          echo "Tag $TAG liegt auf $sha"
+
+  # Ein Tag, den dieser Workflow mit GITHUB_TOKEN setzt, löst «Image» nicht aus; darum der Aufruf
+  image:
+    name: Image bauen
+    needs: tag
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/image.yml
+    with:
+      tag: ${{ needs.tag.outputs.tag }}
+
+  # Die Umgebung production in deploy.yml verlangt die Freigabe einer Person; ihre Secrets gelten nur für diesen Aufruf
+  ausrollen:
+    name: Ausrollen
+    needs: [tag, image]
+    if: github.event_name == 'push' || inputs.ausrollen
+    permissions:
+      contents: read
+    uses: ./.github/workflows/deploy.yml
+    with:
+      tag: ${{ needs.tag.outputs.tag }}
+    secrets: inherit

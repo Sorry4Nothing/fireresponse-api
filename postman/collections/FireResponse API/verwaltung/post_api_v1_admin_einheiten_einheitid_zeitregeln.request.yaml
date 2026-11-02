@@ -1,0 +1,25 @@
+$kind: http-request
+name: "POST /api/v1/admin/einheiten/:einheitId/zeitregeln"
+order: 81000
+method: POST
+url: "{{baseUrl}}/api/v1/admin/einheiten/{{einheit_jfA}}/zeitregeln"
+headers:
+  - key: "Cookie"
+    value: "{{cookie}}"
+  - key: "expo-origin"
+    value: "{{expoOrigin}}"
+  - key: "X-Forwarded-For"
+    value: "{{ip}}"
+  - key: "X-App-Version"
+    value: "{{appVersion}}"
+  - key: "Content-Type"
+    value: "application/json"
+body:
+  type: json
+  content: |-
+    {
+      "wochentag": 3,
+      "uhrzeit": "08:00",
+      "text": "Matrix",
+      "aktiv": false
+    }

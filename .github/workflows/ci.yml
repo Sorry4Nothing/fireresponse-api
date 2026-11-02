@@ -1,0 +1,120 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [develop, main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+# Die Jobnamen sind die Namen der Pflicht-Checks und bleiben darum ohne Umlaute
+jobs:
+  api:
+    name: API und Rechte
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: postgres:18
+        env:
+          POSTGRES_DB: fireresponse
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # Nur für den Migrationsschritt auf fireresponse; die Tests bauen fireresponse_test über feste URLs selbst auf
+      MIGRATION_DATABASE_URL: postgres://fireresponse_besitzer@localhost:5432/fireresponse
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 26
+          cache: npm
+      - run: npm ci
+      # Der Service startet vor dem Checkout, darum legt hier kein Mount wie in docker-compose.yml die Rollen an
+      - run: docker exec -i ${{ job.services.db.id }} psql -v ON_ERROR_STOP=1 -U postgres -d fireresponse < apps/api/src/db/rollen.sql
+      # Belegt bei jedem PR, dass die Migrationen auf einer leeren Datenbank durchlaufen
+      - run: npm run db:migrieren -w apps/api
+      - run: npm run typecheck -w apps/api
+      - run: npm run lint -w apps/api
+      - run: npx prettier --check apps/api
+      - run: npm test -w apps/api
+
+  # Prüft den Weg, den ein Deploy geht: Skripte, Compose-Dateien, Caddy und das Image mit Migration und Start
+  betrieb:
+    name: Betrieb (Compose, Caddy, Image)
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: postgres:18
+        env:
+          POSTGRES_DB: fireresponse
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # Platzhalter, nur damit docker compose config die Pflichtvariablen findet
+      POSTGRES_PASSWORD: platzhalter
+      API_DB_PASSWORD: platzhalter
+      MIGRATION_DB_PASSWORD: platzhalter
+      APP_MIN_VERSION: 0.0.1
+      BETTER_AUTH_SECRET: platzhalter
+      BETTER_AUTH_URL: https://api.example.test
+      VERANTWORTLICHE_STELLE: Platzhalter
+      KONTAKT_EMAIL: platzhalter@example.test
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: shellcheck deploy/*.sh
+      - run: docker compose -f deploy/docker-compose.prod.yml config --quiet
+      - run: docker compose -f deploy/edge/docker-compose.yml config --quiet
+      - name: Caddy-Konfiguration prüfen
+        run: >-
+          docker run --rm
+          -v "$PWD/deploy/edge/Caddyfile:/etc/caddy/Caddyfile:ro"
+          -v "$PWD/deploy/edge/fireresponse.caddy:/etc/caddy/sites/fireresponse.caddy:ro"
+          caddy:2 caddy validate --config /etc/caddy/Caddyfile
+      - run: docker build -f apps/api/Dockerfile -t fireresponse-api:ci .
+      # Wie der Server: Rollen anlegen, mit der Besitzerrolle migrieren, mit der API-Rolle starten
+      - run: docker exec -i ${{ job.services.db.id }} psql -v ON_ERROR_STOP=1 -U postgres -d fireresponse < apps/api/src/db/rollen.sql
+      - run: >-
+          docker run --rm --network host
+          -e MIGRATION_DATABASE_URL=postgres://fireresponse_besitzer@127.0.0.1:5432/fireresponse
+          fireresponse-api:ci node --import tsx src/db/migrieren.ts
+      - name: Image starten und /health prüfen
+        run: |
+          docker run -d --name api --network host \
+            -e DATABASE_URL=postgres://fireresponse_api@127.0.0.1:5432/fireresponse \
+            -e APP_MIN_VERSION=0.0.1 -e PORT=3000 \
+            -e BETTER_AUTH_SECRET="$(openssl rand -base64 32)" \
+            -e BETTER_AUTH_URL=https://api.example.test \
+            fireresponse-api:ci
+          for _ in $(seq 1 30); do
+            if [ "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/health)" = 200 ]; then exit 0; fi
+            sleep 1
+          done
+          docker logs api
+          exit 1
+
+  audit:
+    name: Abhaengigkeiten (npm audit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 26
+      - run: npm audit --omit=dev --audit-level=high -w apps/api

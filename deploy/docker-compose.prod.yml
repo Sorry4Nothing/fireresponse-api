@@ -1,0 +1,144 @@
+# Produktion auf dem Server; deploy.sh rollt sie aus. Die Werte stehen in deploy/.env (Vorlage: .env.example)
+# Kein Dienst hier veröffentlicht einen Port: Die Ports 80 und 443 gehören dem Edge-Caddy (deploy/edge/), der die API über das Netz «edge» erreicht
+name: fireresponse
+
+# Für jeden Dienst. Ohne Root laufen postgres über user, api und migration über USER im Dockerfile
+x-gehaertet: &gehaertet
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  # journald löscht nach Alter (14 Tage, docs/betrieb.md); json-file rotiert ohne Optionen nie, local nur nach Grösse
+  logging:
+    driver: journald
+
+services:
+  api:
+    <<: *gehaertet
+    image: ghcr.io/sorry4nothing/fireresponse-api:${TAG:-}
+    restart: unless-stopped
+    # node als PID 1 ignoriert SIGTERM, docker stop bräche ihn erst nach 10 s hart ab
+    init: true
+    # Viele gleichzeitige Bild-Uploads oder ein Leck treffen nur die API, nicht Postgres und Caddy; der Wert muss zum Server passen (docs/betrieb.md)
+    mem_limit: 1g
+    pids_limit: 256
+    environment:
+      DATABASE_URL: postgres://fireresponse_api:${API_DB_PASSWORD:?fehlt in deploy/.env}@postgres:5432/fireresponse
+      APP_MIN_VERSION: ${APP_MIN_VERSION:?fehlt in deploy/.env}
+      ANMELDEFENSTER_TAGE: ${ANMELDEFENSTER_TAGE:-42}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?fehlt in deploy/.env}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL:?fehlt in deploy/.env}
+      # Für /datenschutz, /konto-loeschen und /support; die Stores verlangen sie
+      VERANTWORTLICHE_STELLE: ${VERANTWORTLICHE_STELLE:?fehlt in deploy/.env}
+      KONTAKT_EMAIL: ${KONTAKT_EMAIL:?fehlt in deploy/.env}
+      FCM_SCHLUESSEL_DATEI: /run/secrets/fcm-service-account.json
+      LODUR_ERLAUBTE_HOSTS: ${LODUR_ERLAUBTE_HOSTS:-}
+      PORT: "3000"
+    # Für den Cache von tsx
+    tmpfs:
+      - /tmp
+    volumes:
+      - type: bind
+        source: ./secrets/fcm-service-account.json
+        target: /run/secrets/fcm-service-account.json
+        read_only: true
+        # Sonst legt Docker für eine fehlende Datei ein leeres Verzeichnis an
+        bind:
+          create_host_path: false
+    # intern zur Datenbank; edge für den Edge-Caddy und den Weg nach aussen (Pwned Passwords und FCM)
+    networks:
+      intern:
+      edge:
+        # Eindeutig, denn der Edge-Caddy hängt an den Netzen mehrerer Stacks, und «api» hiesse dort bei jedem Stack gleich
+        aliases: [fireresponse-api]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      # Jede HTTP-Antwort zählt, auch ein 503: Ein Fehler, den /health meldet, soll nicht den Deploy blockieren, der ihn behebt
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://127.0.0.1:3000/health').then(() => process.exit(0), () => process.exit(1))
+      interval: 30s
+      timeout: 5s
+      retries: 10
+
+  postgres:
+    <<: *gehaertet
+    image: postgres:18
+    restart: unless-stopped
+    user: postgres
+    environment:
+      POSTGRES_DB: fireresponse
+      # Gilt nur beim Einrichten eines leeren Volumes
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?fehlt in deploy/.env}
+      # deploy.sh setzt damit die Passwörter der Rollen, über \getenv in psql
+      API_DB_PASSWORD: ${API_DB_PASSWORD:?fehlt in deploy/.env}
+      MIGRATION_DB_PASSWORD: ${MIGRATION_DB_PASSWORD:?fehlt in deploy/.env}
+    tmpfs:
+      - /var/run/postgresql
+    volumes:
+      # Postgres 18 legt die Daten unter /var/lib/postgresql/18/docker ab; ein Volume auf …/data verlöre sie bei down
+      - postgres:/var/lib/postgresql
+    networks: [intern]
+    healthcheck:
+      # Über TCP: Der Server, der ein leeres Volume einrichtet, hört nur auf dem Socket
+      test: [CMD, pg_isready, -h, 127.0.0.1, -U, postgres, -d, fireresponse]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Startet nur über docker compose run in deploy.sh; der einzige Dienst mit der Besitzerrolle
+  migration:
+    <<: *gehaertet
+    image: ghcr.io/sorry4nothing/fireresponse-api:${TAG:-}
+    profiles: [migration]
+    command: [node, --import, tsx, src/db/migrieren.ts]
+    environment:
+      MIGRATION_DATABASE_URL: postgres://fireresponse_besitzer:${MIGRATION_DB_PASSWORD:?fehlt in deploy/.env}@postgres:5432/fireresponse
+    tmpfs:
+      - /tmp
+    networks: [intern]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Startet nur über docker compose run in backup.sh; legt verschlüsselte Backups auf dem S3-Speicher ab
+  backup:
+    <<: *gehaertet
+    # Exakt gepinnt; Dependabot schlägt neue Versionen per PR vor
+    image: restic/restic:0.19.1
+    profiles: [backup]
+    # Das Image setzt keinen Benutzer, sonst liefe restic als Root
+    user: "65534:65534"
+    # Als Liste: Blosse Namen übernehmen den Wert aus deploy/.env, und ohne :? laufen ps, logs und ein erster Deploy auch vor der S3-Einrichtung
+    environment:
+      # Ohne Cache-Pfad im tmpfs scheitert restic am read_only-Dateisystem
+      - RESTIC_CACHE_DIR=/tmp/restic-cache
+      # Fester Hostname: Jeder run bekäme sonst einen zufälligen, und forget behielte je Host eigene Stände
+      - RESTIC_HOST=fireresponse
+      - RESTIC_REPOSITORY
+      - RESTIC_PASSWORD
+      - AWS_ACCESS_KEY_ID
+      - AWS_SECRET_ACCESS_KEY
+      - AWS_DEFAULT_REGION
+    tmpfs:
+      - /tmp
+    # restic dump streamt die Datenbank nach stdout, und ein Log-Treiber behielte eine Kopie; der Aufrufer bekommt den Strom trotzdem
+    logging:
+      driver: none
+    # Nur der Weg nach aussen zum S3-Speicher; die Datenbank erreicht dieser Dienst nie
+    networks: [default]
+
+networks:
+  # Ohne Weg nach aussen: Postgres erreichen nur api und migration
+  intern:
+    internal: true
+  # Legt der Edge-Caddy an (deploy/edge/docker-compose.yml); ohne ihn startet die API nicht
+  edge:
+    name: edge-fireresponse
+    external: true
+
+volumes:
+  postgres:

@@ -1,25 +1,50 @@
+# Abhängigkeiten und Build
 node_modules/
 dist/
 coverage/
-*.log
+*.tsbuildinfo
 
-# Geheimnisse und Serverkonfiguration
-.env
-.env.*
+# Expo
+.expo/
+expo-env.d.ts
+# Die nativen Ordner erzeugt Expo bei jedem Build neu (Continuous Native Generation)
+apps/mobile/android/
+apps/mobile/ios/
+
+# Umgebung und Geheimnisse
+.env*
 !.env.example
-deploy/.env
-deploy/Caddyfile
 deploy/secrets/
 *.pem
 *.key
+*.p8
+*.p12
+*.jks
+*.keystore
+*.mobileprovision
+# Lokale Signierdaten von EAS, mit Passwörtern im Klartext
+credentials.json
+# Kommt als Datei-Variable von EAS
+google-services.json
 
-# Lokale Anweisungen für Agenten
-AGENTS.md
-CLAUDE.md
-docs/agents/
+# Listen, Exporte und Datenbank-Dumps mit Personendaten
+*.csv
+*.xls
+*.xlsx
+*.ods
+*.vcf
+*.dump
+*.sql.gz
 
-# Editor und System
-.vscode/
-.idea/
+# System
 .DS_Store
 Thumbs.db
+*.log
+.postman-lokal/
+
+# FireResponse: lokale Anweisungen
+AGENTS.md
+docs/agents/
+deploy/secrets/
+.vscode/
+.idea/

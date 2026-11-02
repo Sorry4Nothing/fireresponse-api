@@ -1,0 +1,8 @@
+# Nur, was das API-Image braucht (apps/api/Dockerfile); alles andere bleibt ausserhalb des Build-Kontexts
+*
+!package.json
+!package-lock.json
+!apps/api
+apps/api/node_modules
+apps/api/test
+apps/api/.env*

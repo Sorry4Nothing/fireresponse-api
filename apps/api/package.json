@@ -1,0 +1,40 @@
+{
+  "name": "@fireresponse/api",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/app.ts"
+    }
+  },
+  "scripts": {
+    "dev": "tsx watch --env-file-if-exists=.env src/server.ts",
+    "db:generieren": "drizzle-kit generate",
+    "db:migrieren": "tsx --env-file-if-exists=.env src/db/migrieren.ts",
+    "kantonsadmin:anlegen": "tsx --env-file-if-exists=.env src/cli/kantonsadmin-anlegen.ts",
+    "sitzungen:beenden": "tsx --env-file-if-exists=.env src/cli/sitzungen-beenden.ts",
+    "zweiter-faktor:zuruecksetzen": "tsx --env-file-if-exists=.env src/cli/zweiter-faktor-zuruecksetzen.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^26.6.6",
+    "drizzle-kit": "^0.31.11",
+    "typescript-eslint": "^8.72.1",
+    "vitest": "^5.0.5",
+    "yaml": "^2.9.1"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.1.5",
+    "better-auth": "1.7.14",
+    "drizzle-orm": "^0.45.4",
+    "firebase-admin": "^14.5.0",
+    "hono": "4.13.14",
+    "postgres": "^4.0.0",
+    "sharp": "0.35.5",
+    "tsx": "^4.23.15",
+    "zod": "^4.6.7"
+  }
+}

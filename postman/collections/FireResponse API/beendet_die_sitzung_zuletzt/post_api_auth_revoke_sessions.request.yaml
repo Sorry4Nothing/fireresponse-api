@@ -1,0 +1,20 @@
+$kind: http-request
+name: "POST /api/auth/revoke-sessions"
+order: 98000
+method: POST
+url: "{{baseUrl}}/api/auth/revoke-sessions"
+headers:
+  - key: "Cookie"
+    value: "{{cookie}}"
+  - key: "expo-origin"
+    value: "{{expoOrigin}}"
+  - key: "X-Forwarded-For"
+    value: "{{ip}}"
+  - key: "X-App-Version"
+    value: "{{appVersion}}"
+  - key: "Content-Type"
+    value: "application/json"
+body:
+  type: json
+  content: |-
+    {}
