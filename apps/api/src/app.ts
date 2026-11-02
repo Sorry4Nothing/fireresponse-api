@@ -82,6 +82,7 @@ export function erstelleApp({
   anmeldefensterTage,
   seiten,
   lodurErlaubteHosts = [],
+  lodurAbgleich,
 }: {
   appMinVersion: string;
   sql: Sql;
@@ -102,6 +103,8 @@ export function erstelleApp({
   };
   // Hosts, die ein Lodur-Link haben darf (LODUR_ERLAUBTE_HOSTS); leer heisst: kein Link möglich
   lodurErlaubteHosts?: readonly string[];
+  // Ruft den Kalender einer Einheit sofort ab, wenn jemand ihren Link setzt (server.ts); ohne ihn wartet der Link auf den nächsten Takt
+  lodurAbgleich?: (einheitId: string, verschluesselt: string) => Promise<void>;
 }) {
   // Zahlen der laufenden Instanz; nach einem Neustart leer
   const metriken = erstelleMetriken();
@@ -226,7 +229,11 @@ export function erstelleApp({
       )
       .route(
         "/api/v1/admin/einheiten/:einheitId/lodur",
-        erstelleLodurRouten({ db, erlaubteHosts: lodurErlaubteHosts }),
+        erstelleLodurRouten({
+          db,
+          erlaubteHosts: lodurErlaubteHosts,
+          abgleich: lodurAbgleich,
+        }),
       )
       .route(
         "/api/v1/admin/einheiten/:einheitId/anmelde-arten",

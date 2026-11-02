@@ -15,7 +15,7 @@ import {
 import { erstelleApp } from "../src/app.js";
 import { erstelleDb } from "../src/db/client.js";
 import * as schema from "../src/db/schema.js";
-import { ZWECK_LODUR_LINK } from "../src/lodur-url.js";
+import { LodurFehler, ZWECK_LODUR_LINK } from "../src/lodur-url.js";
 import { ladeSeiten } from "../src/seiten.js";
 import { entschluessele } from "../src/startpasswort.js";
 import { bereiteAuthTestsVor, erstelleTestAuth } from "./hilfen/auth.js";
@@ -191,6 +191,71 @@ describe("PUT /api/v1/admin/einheiten/:einheitId/lodur", () => {
       body: JSON.stringify({ url: LINK }),
     });
     expect(res.status).toBe(400);
+  });
+});
+
+describe("PUT mit sofortigem Abruf", () => {
+  const mitAbgleich = (abgleich: (id: string, v: string) => Promise<void>) =>
+    erstelleApp({
+      appMinVersion: "1.2.0",
+      sql,
+      db,
+      auth,
+      seiten: ladeSeiten(),
+      lodurErlaubteHosts: [HOST],
+      lodurAbgleich: abgleich,
+    });
+  const setze = (a: typeof app) =>
+    a.request(pfad(), {
+      method: "PUT",
+      headers: { ...kommando.headers, "content-type": "application/json" },
+      body: JSON.stringify({ url: LINK }),
+    });
+
+  test("ruft den Kalender sofort ab und meldet den Erfolg in der Antwort", async () => {
+    const abgleich = vi.fn(async (id: string) => {
+      await db
+        .update(schema.einheit)
+        .set({ syncOkAm: new Date() })
+        .where(eq(schema.einheit.id, id));
+    });
+    const res = await setze(mitAbgleich(abgleich));
+    expect(res.status).toBe(200);
+    expect(abgleich).toHaveBeenCalledWith(
+      welt.einheit.jfA,
+      (await einheitZeile()).lodurUrlVerschluesselt,
+    );
+    const stand = await res.json();
+    expect(stand.syncOkAm).toEqual(expect.any(String));
+    expect(stand.syncFehler).toBeNull();
+  });
+
+  test("scheitert der Abruf, bleibt der Link und die Antwort nennt den Code", async () => {
+    const res = await setze(
+      mitAbgleich(async () => {
+        throw new LodurFehler("kein-kalender");
+      }),
+    );
+    expect(res.status).toBe(200);
+    const text = await res.text();
+    expect(JSON.parse(text)).toMatchObject({
+      gesetzt: true,
+      syncOkAm: null,
+      syncFehler: "kein-kalender",
+    });
+    expect(text).not.toContain(GEHEIMNIS);
+    expect(JSON.stringify(ausgabe.mock.calls)).not.toContain(GEHEIMNIS);
+    expect((await einheitZeile()).syncFehler).toBe("kein-kalender");
+  });
+
+  test("ein unerwarteter Fehler wird zu «intern», ohne Meldung", async () => {
+    const res = await setze(
+      mitAbgleich(async () => {
+        throw new Error(`boom ${LINK}`);
+      }),
+    );
+    expect((await res.json()).syncFehler).toBe("intern");
+    expect(JSON.stringify(ausgabe.mock.calls)).not.toContain(GEHEIMNIS);
   });
 });
 

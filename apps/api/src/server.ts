@@ -9,7 +9,11 @@ import * as schema from "./db/schema.js";
 import { erstelleFcm } from "./fcm.js";
 import { ladeKonfiguration } from "./konfiguration.js";
 import { log } from "./log.js";
-import { starteLodurSync, syncLodur } from "./lodur-sync.js";
+import {
+  starteLodurSync,
+  synchronisiereEinheit,
+  syncLodur,
+} from "./lodur-sync.js";
 import { ladeSeiten } from "./seiten.js";
 import {
   loescheAbgelaufeneSitzungen,
@@ -48,6 +52,12 @@ const app = erstelleApp({
   anmeldefensterTage: konfiguration.ANMELDEFENSTER_TAGE,
   seiten,
   lodurErlaubteHosts: erlaubteHosts,
+  lodurAbgleich: (einheitId, verschluesselt) =>
+    synchronisiereEinheit(
+      { db, fcm, erlaubteHosts },
+      einheitId,
+      verschluesselt,
+    ),
 });
 // Ohne hostname auf allen Schnittstellen: Der Dev-Build auf dem Handy erreicht die API im LAN; in Produktion öffnet nur Caddy Ports
 serve({ fetch: app.fetch, port: konfiguration.PORT });
