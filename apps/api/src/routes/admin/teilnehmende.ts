@@ -1,10 +1,21 @@
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import type { PgUpdateSetSource } from "drizzle-orm/pg-core";
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { z } from "zod";
 import type { Db } from "../../db/client.js";
-import { rang, teilnehmende, teilnehmendeKonto } from "../../db/schema.js";
+import {
+  rang,
+  teilnehmende,
+  teilnehmendeKonto,
+  user,
+} from "../../db/schema.js";
 import { eingabe } from "../../eingabe.js";
+import {
+  erlaubteAktionen,
+  gemeinsameKonten,
+  kontoZustand,
+} from "../../konto-verwaltung.js";
 import {
   benutzernameFeld,
   erstelleKontoFabrik,
@@ -46,6 +57,16 @@ const anlegenSchema = z.strictObject({
     }),
   ]),
 });
+const aendernSchema = z
+  .strictObject({
+    vorname: namensfeld,
+    nachname: namensfeld,
+    rangId: z.uuid().nullable(),
+    // false setzt die Person auf inaktiv (sie bleibt, antwortet aber nicht mehr), true macht sie wieder aktiv
+    aktiv: z.boolean(),
+  })
+  .partial()
+  .refine((b) => Object.values(b).some((wert) => wert !== undefined));
 const elternAnlegenSchema = z.strictObject({ eltern: elternSchema });
 const wechselSchema = z.strictObject({ benutzername: benutzernameFeld });
 
@@ -162,6 +183,165 @@ async function legeSelbstKontoAn(
 export function erstelleTeilnehmendeRouten({ db }: { db: Db }) {
   return (
     new Hono<{ Variables: { person: Person } }>()
+      // Alle Personen der Einheit mit Rang und den Konten, die für sie antworten; ein Eintrag ohne Konto heisst: Es antwortet niemand
+      .get("/", eingabe("param", einheitPfad), async (c) => {
+        const person = c.get("person");
+        const { einheitId } = c.req.valid("param");
+        await pruefeEinheit(db, person, einheitId, "verwalten");
+        const personen = await db
+          .select({
+            id: teilnehmende.id,
+            vorname: teilnehmende.vorname,
+            nachname: teilnehmende.nachname,
+            inaktivSeit: teilnehmende.inaktivSeit,
+            rangId: rang.id,
+            rangName: rang.name,
+          })
+          .from(teilnehmende)
+          .leftJoin(rang, eq(rang.id, teilnehmende.rangId))
+          .where(eq(teilnehmende.einheitId, einheitId))
+          .orderBy(
+            asc(teilnehmende.nachname),
+            asc(teilnehmende.vorname),
+            asc(teilnehmende.id),
+          );
+        const konten =
+          personen.length === 0
+            ? []
+            : await db
+                .select({
+                  teilnehmendeId: teilnehmendeKonto.teilnehmendeId,
+                  art: teilnehmendeKonto.art,
+                  id: user.id,
+                  name: user.name,
+                  benutzername: user.username,
+                  twoFactorEnabled: user.twoFactorEnabled,
+                  mussPasswortAendern: user.mussPasswortAendern,
+                  startpasswortGueltigBis: user.startpasswortGueltigBis,
+                  banned: user.banned,
+                  deaktiviertAm: user.deaktiviertAm,
+                })
+                .from(teilnehmendeKonto)
+                .innerJoin(user, eq(user.id, teilnehmendeKonto.userId))
+                .where(
+                  inArray(
+                    teilnehmendeKonto.teilnehmendeId,
+                    personen.map((p) => p.id),
+                  ),
+                )
+                .orderBy(asc(user.name), asc(user.id));
+        const gemeinsam = await gemeinsameKonten(
+          db,
+          einheitId,
+          konten.map((k) => k.id),
+        );
+        return c.json({
+          teilnehmende: personen.map((p) => ({
+            id: p.id,
+            vorname: p.vorname,
+            nachname: p.nachname,
+            aktiv: p.inaktivSeit === null,
+            rang: p.rangId ? { id: p.rangId, name: p.rangName } : null,
+            konten: konten
+              .filter((k) => k.teilnehmendeId === p.id)
+              .map((k) => ({
+                id: k.id,
+                name: k.name,
+                benutzername: k.benutzername,
+                art: k.art,
+                eigenes: k.id === person.id,
+                gemeinsam: gemeinsam.has(k.id),
+                ...kontoZustand(k),
+                aktionen: erlaubteAktionen(person, einheitId, {
+                  id: k.id,
+                  name: k.name,
+                  rolleHier: null,
+                  gemeinsam: gemeinsam.has(k.id),
+                }),
+              })),
+          })),
+        });
+      })
+      .patch(
+        "/:teilnehmendeId",
+        eingabe("param", zielPfad),
+        eingabe("json", aendernSchema),
+        async (c) => {
+          const person = c.get("person");
+          const { einheitId, teilnehmendeId } = c.req.valid("param");
+          const aenderung = c.req.valid("json");
+          await pruefeEinheit(db, person, einheitId, "verwalten");
+          await db.transaction(async (tx) => {
+            const ziel = await ladeZiel(tx, einheitId, teilnehmendeId);
+            if (aenderung.rangId) {
+              // Ein Rang einer anderen Einheit ist eine ungültige Eingabe, kein 404 der URL
+              const [eigener] = await tx
+                .select({ id: rang.id })
+                .from(rang)
+                .where(
+                  and(
+                    eq(rang.id, aenderung.rangId),
+                    eq(rang.einheitId, einheitId),
+                  ),
+                );
+              if (!eigener) throw new HTTPException(400);
+            }
+            const felder: PgUpdateSetSource<typeof teilnehmende> = {};
+            if (aenderung.vorname !== undefined) {
+              felder.vorname = aenderung.vorname;
+            }
+            if (aenderung.nachname !== undefined) {
+              felder.nachname = aenderung.nachname;
+            }
+            if (aenderung.rangId !== undefined)
+              felder.rangId = aenderung.rangId;
+            if (aenderung.aktiv === true) felder.inaktivSeit = null;
+            if (aenderung.aktiv === false) {
+              // Das erste Datum bleibt: Wer schon inaktiv ist, behält seinen Zeitpunkt
+              felder.inaktivSeit = sql`coalesce(${teilnehmende.inaktivSeit}, now())`;
+            }
+            await tx
+              .update(teilnehmende)
+              .set(felder)
+              .where(eq(teilnehmende.id, teilnehmendeId));
+            if (
+              aenderung.vorname !== undefined ||
+              aenderung.nachname !== undefined
+            ) {
+              // Das eigene Konto trägt den Namen der Person
+              await tx
+                .update(user)
+                .set({
+                  name: `${aenderung.vorname ?? ziel.vorname} ${aenderung.nachname ?? ziel.nachname}`,
+                })
+                .where(
+                  inArray(
+                    user.id,
+                    tx
+                      .select({ id: teilnehmendeKonto.userId })
+                      .from(teilnehmendeKonto)
+                      .where(
+                        and(
+                          eq(teilnehmendeKonto.teilnehmendeId, teilnehmendeId),
+                          eq(teilnehmendeKonto.art, "selbst"),
+                        ),
+                      ),
+                  ),
+                );
+            }
+            // Welche Felder, nie die Namen
+            await protokolliere(tx, {
+              einheitId,
+              akteurId: person.id,
+              aktion: "teilnehmende_geaendert",
+              zielTyp: "teilnehmende",
+              zielId: teilnehmendeId,
+              details: { felder: Object.keys(aenderung) },
+            });
+          });
+          return c.body(null, 204);
+        },
+      )
       .post(
         "/",
         eingabe("param", einheitPfad),

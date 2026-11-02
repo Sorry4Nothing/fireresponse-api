@@ -1,9 +1,15 @@
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { z } from "zod";
 import type { Db } from "../../db/client.js";
-import { bezirk, einheit, user } from "../../db/schema.js";
+import {
+  bezirk,
+  einheit,
+  einheitRolle,
+  teilnehmende,
+  user,
+} from "../../db/schema.js";
 import {
   legeEinheitAn,
   uebergibKommando,
@@ -62,18 +68,45 @@ export function erstelleEinheitenRouten({ db }: { db: Db }) {
       const person = c.get("person");
       if (!hatVerwaltung(person)) throw new HTTPException(403);
       const ids = await einheitenFuer(db, person, "verwalten");
-      const einheiten = await db
+      const zeilen = await db
         .select({
           id: einheit.id,
           name: einheit.name,
           typ: einheit.typ,
           bezirkId: einheit.bezirkId,
           bezirk: bezirk.name,
+          kommandantId: user.id,
+          kommandantName: user.name,
+          lodur: einheit.lodurUrlVerschluesselt,
+          syncOkAm: einheit.syncOkAm,
+          syncFehler: einheit.syncFehler,
+          teilnehmende: sql<number>`(select count(*) from ${teilnehmende} where ${teilnehmende.einheitId} = ${einheit.id} and ${teilnehmende.inaktivSeit} is null)::int`,
         })
         .from(einheit)
         .innerJoin(bezirk, eq(bezirk.id, einheit.bezirkId))
+        .leftJoin(
+          einheitRolle,
+          and(
+            eq(einheitRolle.einheitId, einheit.id),
+            eq(einheitRolle.typ, "kommandant"),
+          ),
+        )
+        .leftJoin(user, eq(user.id, einheitRolle.userId))
         .where(inArray(einheit.id, ids))
         .orderBy(asc(bezirk.name), asc(einheit.typ));
+      // Nie der Link selbst: nur ob einer hinterlegt ist, und der Stand des Syncs
+      const einheiten = zeilen.map(
+        ({ lodur, kommandantId, kommandantName, ...z }) => ({
+          ...z,
+          kommandant: kommandantId
+            ? { id: kommandantId, name: kommandantName }
+            : null,
+          lodurHinterlegt: lodur !== null,
+          // Die Rolle der Person in dieser Einheit; das Konto des Kantonsadmins hat keine
+          rolle:
+            person.einheiten.find((r) => r.einheitId === z.id)?.typ ?? null,
+        }),
+      );
       return c.json({ einheiten });
     })
     .post("/", eingabe("json", anlegenSchema), async (c) => {

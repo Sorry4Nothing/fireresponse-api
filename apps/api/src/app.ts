@@ -21,6 +21,8 @@ import { erstelleBezirkRouten } from "./routes/admin/bezirke.js";
 import { erstelleEinheitenRouten } from "./routes/admin/einheiten.js";
 import { erstelleImportRouten } from "./routes/admin/import.js";
 import { erstelleLeitendeRouten } from "./routes/admin/leitende.js";
+import { erstellePersonenRouten } from "./routes/admin/personen.js";
+import { erstelleRangRouten } from "./routes/admin/raenge.js";
 import { erstelleStellvertretungsRouten } from "./routes/admin/stellvertretungen.js";
 import { erstelleTeilnehmendeRouten } from "./routes/admin/teilnehmende.js";
 import { erstelleSystemRouten } from "./routes/admin/system.js";
@@ -49,6 +51,9 @@ const SICHERHEITS_KOPFZEILEN = {
   "Referrer-Policy": "no-referrer",
   "Content-Security-Policy": "frame-ancestors 'none'",
 };
+
+const ABZEICHEN_PFAD =
+  /^\/api\/v1\/admin\/einheiten\/[^/]+\/raenge\/[^/]+\/abzeichen$/;
 
 // Lesende Methoden ändern nichts; der Origin zählt nur bei den übrigen
 const LESEND = new Set(["GET", "HEAD", "OPTIONS"]);
@@ -134,9 +139,10 @@ export function erstelleApp({
           metriken.erfasse(eintrag);
         }
       })
-      // Ausnahme: der Upload des Profilbilds, den die Route selbst auf 5 MB begrenzt
+      // Ausnahmen: der Upload des Profilbilds (5 MB) und der Abzeichen der Ränge (500 KB), die die Routen selbst begrenzen
       .use((c, next) =>
-        c.req.method === "PUT" && c.req.path === "/api/v1/ich/bild"
+        c.req.method === "PUT" &&
+        (c.req.path === "/api/v1/ich/bild" || ABZEICHEN_PFAD.test(c.req.path))
           ? next()
           : kleinesLimit(c, next),
       )
@@ -195,7 +201,18 @@ export function erstelleApp({
         "/api/v1/admin/einheiten/:einheitId/zeitregeln",
         erstelleZeitregelRouten({ db }),
       )
-      .route("/api/v1/admin/system", erstelleSystemRouten({ sql, metriken }))
+      .route(
+        "/api/v1/admin/einheiten/:einheitId/personen",
+        erstellePersonenRouten({ db }),
+      )
+      .route(
+        "/api/v1/admin/einheiten/:einheitId/raenge",
+        erstelleRangRouten({ db }),
+      )
+      .route(
+        "/api/v1/admin/system",
+        erstelleSystemRouten({ sql, db, metriken }),
+      )
       .route("/api/v1/push-token", erstellePushTokenRouten({ db }))
       .get("/health", async (c) => {
         try {

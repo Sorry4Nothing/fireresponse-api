@@ -18,6 +18,7 @@ import { kodiereProfilbild } from "../src/bild-sharp.js";
 import { erstelleDb } from "../src/db/client.js";
 import * as schema from "../src/db/schema.js";
 import { ladeSeiten } from "../src/seiten.js";
+import { startpasswortFelder } from "../src/startpasswort.js";
 import {
   bereiteAuthTestsVor,
   erstelleTestAuth,
@@ -36,6 +37,8 @@ import {
 import { legeProgrammAn } from "./hilfen/programme.js";
 
 bereiteAuthTestsVor();
+// Das Startpasswort wird mit einem Schlüssel aus dem Geheimnis verschlüsselt; das ist der Standard von better-auth, mit dem auch die Sitzungen der Personas signiert sind
+vi.stubEnv("BETTER_AUTH_SECRET", "better-auth-secret-12345678901234567890");
 
 const sql = postgres(API_URL);
 const db = erstelleDb(sql);
@@ -62,8 +65,8 @@ interface Zeile {
   // Literale Werte: beobachtet und gegen better-auth gegengelesen, nie aus rechte.ts berechnet
   erwartet: Record<Persona, number>;
   body?: (konto: PersonaKonto) => Record<string, unknown>;
-  // Statt body: Der Body ist das Bild selbst (Profilbild-Upload)
-  bild?: true;
+  // Statt body: Der Body ist das Bild selbst (Profilbild-Upload; «abzeichen»: ein SVG für den Rang)
+  bild?: true | "abzeichen";
   // Für Zeilen, die die Sitzungen der geteilten Personas beenden oder ihre Daten ändern würden: eigene Personas in einer eigenen Welt
   frischePersonas?: true;
   // Pflicht für jede Route mit Pfad-Parameter: ein Objekt der Welt
@@ -155,12 +158,22 @@ const MATRIX: Record<string, Zeile> = {
   "GET /admin": { erwartet: alle(200) },
   "GET /admin/admin.css": { erwartet: alle(200) },
   "GET /admin/admin.js": { erwartet: alle(200) },
+  "GET /admin/aenderungen.js": { erwartet: alle(200) },
   "GET /admin/api.js": { erwartet: alle(200) },
   "GET /admin/dom.js": { erwartet: alle(200) },
+  "GET /admin/einheiten.js": { erwartet: alle(200) },
+  "GET /admin/einrichtung.js": { erwartet: alle(200) },
   "GET /admin/favicon.svg": { erwartet: alle(200) },
   "GET /admin/hintergrund.svg": { erwartet: alle(200) },
+  "GET /admin/konten.js": { erwartet: alle(200) },
+  "GET /admin/kontext.js": { erwartet: alle(200) },
+  "GET /admin/personen.js": { erwartet: alle(200) },
+  "GET /admin/qrcode.js": { erwartet: alle(200) },
+  "GET /admin/raenge.js": { erwartet: alle(200) },
   "GET /admin/system.js": { erwartet: alle(200) },
+  "GET /admin/teilnehmende.js": { erwartet: alle(200) },
   "GET /admin/uebersicht.js": { erwartet: alle(200) },
+  "GET /admin/zeitregeln.js": { erwartet: alle(200) },
   "GET /.well-known/apple-app-site-association": { erwartet: alle(200) },
   "GET /.well-known/assetlinks.json": { erwartet: alle(200) },
   "POST /api/auth/sign-in/username": {
@@ -317,6 +330,23 @@ const MATRIX: Record<string, Zeile> = {
       ohneLogin: 401,
     },
   },
+  // Protokoll der Änderungen und Sync-Stand: ebenfalls nur das Konto des Kantonsadmins; Inhalt in test/admin-personen.test.ts
+  "GET /api/v1/admin/system/changes": {
+    erwartet: {
+      ...alle(403),
+      kantonsadmin: 200,
+      deaktiviert: 401,
+      ohneLogin: 401,
+    },
+  },
+  "GET /api/v1/admin/system/sync": {
+    erwartet: {
+      ...alle(403),
+      kantonsadmin: 200,
+      deaktiviert: 401,
+      ohneLogin: 401,
+    },
+  },
   // Übergabe: nur das Konto des Kantonsadmins. Der Body nennt die heutige Kommandantin: Eine echte Übergabe würde die Personas der Matrix umbauen, also antwortet die Route für den Kantonsadmin 409 GLEICHE_PERSON, nachdem alle Prüfungen bestanden sind. Status in test/kommando.test.ts begründet
   "POST /api/v1/admin/einheiten/:einheitId/kommando": {
     url: (w) => `/api/v1/admin/einheiten/${w.einheit.jfA}/kommando`,
@@ -395,6 +425,110 @@ const MATRIX: Record<string, Zeile> = {
       benutzername: benutzerFuer(konto, "leitung"),
     }),
     erwartet: VERWALTEN_JF_A(201),
+  },
+  // Entfernt nur die Rolle «Leitung», das Konto bleibt: Jede Anfrage verbraucht ihre Leitung
+  "DELETE /api/v1/admin/einheiten/:einheitId/leitende/:userId": {
+    urlJeAnfrage: async () =>
+      `/api/v1/admin/einheiten/${welt.einheit.jfA}/leitende/${(await wegwerfKonto()).id}`,
+    erwartet: VERWALTEN_JF_A(204),
+  },
+  // Konten der Einheit (Kommando, Stellvertretungen, Leitende) mit Zustand und erlaubten Aktionen; die Aktionen am Konto prüft test/admin-personen.test.ts. Die Ziele sind Wegwerf-Konten, die keine Persona der Matrix sind: Ein neues Startpasswort beendet ihre Sitzungen
+  "GET /api/v1/admin/einheiten/:einheitId/personen": {
+    url: (w) => `/api/v1/admin/einheiten/${w.einheit.jfA}/personen`,
+    erwartet: VERWALTEN_JF_A(200),
+  },
+  // Der Rang ist die einzige Änderung, die jede Person der Verwaltung an jedem Konto der Einheit darf
+  "PATCH /api/v1/admin/einheiten/:einheitId/personen/:userId": {
+    url: (w) =>
+      `/api/v1/admin/einheiten/${w.einheit.jfA}/personen/${leitungZielId}`,
+    body: () => ({ rangId: welt.rangId }),
+    erwartet: VERWALTEN_JF_A(204),
+  },
+  "GET /api/v1/admin/einheiten/:einheitId/personen/:userId/startpasswort": {
+    url: (w) =>
+      `/api/v1/admin/einheiten/${w.einheit.jfA}/personen/${offenesKontoId}/startpasswort`,
+    erwartet: VERWALTEN_JF_A(200),
+  },
+  "POST /api/v1/admin/einheiten/:einheitId/personen/:userId/startpasswort": {
+    url: (w) =>
+      `/api/v1/admin/einheiten/${w.einheit.jfA}/personen/${leitungZielId}/startpasswort`,
+    erwartet: VERWALTEN_JF_A(200),
+  },
+  "POST /api/v1/admin/einheiten/:einheitId/personen/:userId/deaktivieren": {
+    url: (w) =>
+      `/api/v1/admin/einheiten/${w.einheit.jfA}/personen/${leitungZielId}/deaktivieren`,
+    erwartet: VERWALTEN_JF_A(204),
+  },
+  "POST /api/v1/admin/einheiten/:einheitId/personen/:userId/aktivieren": {
+    url: (w) =>
+      `/api/v1/admin/einheiten/${w.einheit.jfA}/personen/${leitungZielId}/aktivieren`,
+    erwartet: VERWALTEN_JF_A(204),
+  },
+  // Jede Anfrage verbraucht den Faktor ihres Ziels (danach 409): ein Wegwerf-Konto mit Faktor pro Persona
+  "POST /api/v1/admin/einheiten/:einheitId/personen/:userId/zweiter-faktor-zuruecksetzen":
+    {
+      urlJeAnfrage: async () =>
+        `/api/v1/admin/einheiten/${welt.einheit.jfA}/personen/${(await wegwerfKonto({ zweiterFaktor: true })).id}/zweiter-faktor-zuruecksetzen`,
+      erwartet: VERWALTEN_JF_A(204),
+    },
+  "GET /api/v1/admin/einheiten/:einheitId/teilnehmende": {
+    url: (w) => `/api/v1/admin/einheiten/${w.einheit.jfA}/teilnehmende`,
+    erwartet: VERWALTEN_JF_A(200),
+  },
+  // Immer derselbe Rang: Der Matrix-Lauf überschreibt ihn nur mit sich selbst
+  "PATCH /api/v1/admin/einheiten/:einheitId/teilnehmende/:teilnehmendeId": {
+    url: (w) =>
+      `/api/v1/admin/einheiten/${w.einheit.jfA}/teilnehmende/${w.teilnehmende.jfA2}`,
+    body: () => ({ rangId: welt.rangId }),
+    erwartet: VERWALTEN_JF_A(204),
+  },
+  // Ränge: Inhalt, Reihenfolge, Abzeichen-Prüfung und Löschen in test/admin-raenge.test.ts. Die Reihenfolge steht vor dem Anlegen, weil sie genau die Ränge der Einheit verlangt
+  "GET /api/v1/admin/einheiten/:einheitId/raenge": {
+    url: (w) => `/api/v1/admin/einheiten/${w.einheit.jfA}/raenge`,
+    erwartet: VERWALTEN_JF_A(200),
+  },
+  "PUT /api/v1/admin/einheiten/:einheitId/raenge/reihenfolge": {
+    url: (w) => `/api/v1/admin/einheiten/${w.einheit.jfA}/raenge/reihenfolge`,
+    body: () => ({ ids: alleRangIds }),
+    erwartet: VERWALTEN_JF_A(204),
+  },
+  // Eine eigene Reihenfolge pro Aufruf: Die Reihenfolge ist je Einheit eindeutig
+  "POST /api/v1/admin/einheiten/:einheitId/raenge": {
+    url: (w) => `/api/v1/admin/einheiten/${w.einheit.jfA}/raenge`,
+    body: () => ({
+      name: "Matrix",
+      kuerzel: "MX",
+      reihenfolge: naechsteReihenfolge++,
+    }),
+    erwartet: VERWALTEN_JF_A(201),
+  },
+  "PATCH /api/v1/admin/einheiten/:einheitId/raenge/:rangId": {
+    url: (w) => `/api/v1/admin/einheiten/${w.einheit.jfA}/raenge/${bildRangId}`,
+    body: () => ({ name: "Rang mit Bild" }),
+    erwartet: VERWALTEN_JF_A(204),
+  },
+  // Jede Anfrage verbraucht ihren Rang: einer pro Persona
+  "DELETE /api/v1/admin/einheiten/:einheitId/raenge/:rangId": {
+    urlJeAnfrage: async () =>
+      `/api/v1/admin/einheiten/${welt.einheit.jfA}/raenge/${await wegwerfRangId()}`,
+    erwartet: VERWALTEN_JF_A(204),
+  },
+  // Das Bild liegt im Test unverändert in der Datenbank; die Reihenfolge GET, PUT, DELETE hält es vorhanden, bis DELETE es entfernt
+  "GET /api/v1/admin/einheiten/:einheitId/raenge/:rangId/abzeichen": {
+    url: (w) =>
+      `/api/v1/admin/einheiten/${w.einheit.jfA}/raenge/${bildRangId}/abzeichen`,
+    erwartet: VERWALTEN_JF_A(200),
+  },
+  "PUT /api/v1/admin/einheiten/:einheitId/raenge/:rangId/abzeichen": {
+    url: (w) =>
+      `/api/v1/admin/einheiten/${w.einheit.jfA}/raenge/${bildRangId}/abzeichen`,
+    bild: "abzeichen",
+    erwartet: VERWALTEN_JF_A(204),
+  },
+  "DELETE /api/v1/admin/einheiten/:einheitId/raenge/:rangId/abzeichen": {
+    url: (w) =>
+      `/api/v1/admin/einheiten/${w.einheit.jfA}/raenge/${bildRangId}/abzeichen`,
+    erwartet: VERWALTEN_JF_A(204),
   },
   // Ohne Konto: Das Anlegen der Eltern und des eigenen Kontos prüft test/konten-anlegen.test.ts
   "POST /api/v1/admin/einheiten/:einheitId/teilnehmende": {
@@ -496,8 +630,17 @@ const MATRIX: Record<string, Zeile> = {
   },
 };
 
+const abzeichenSvg = new TextEncoder().encode(
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 130"><rect width="100" height="130" fill="#0A1230"/></svg>',
+);
 let welt: Welt;
 let standard: Record<Persona, PersonaKonto>;
+let leitungZielId: string;
+let offenesKontoId: string;
+let bildRangId: string;
+let alleRangIds: string[] = [];
+let naechsteReihenfolge = 500;
+let naechsterWegwerfRang = 700;
 let programmId: string;
 let offenProgrammId: string;
 let patchRegelId: string;
@@ -553,6 +696,58 @@ async function wegwerfTeilnehmendeId() {
   return person.id;
 }
 
+// Eine Leitung mit Zugangskonto, direkt eingefügt (ohne Hash): das Ziel der Aktionen am Konto. Nie eine Persona der Matrix, denn ein neues Startpasswort oder Deaktivieren beendet Sitzungen
+async function wegwerfKonto({
+  zweiterFaktor = false,
+  startpasswort,
+}: { zweiterFaktor?: boolean; startpasswort?: string } = {}) {
+  const [zeile] = await welt.db
+    .insert(schema.user)
+    .values({
+      name: "Wegwerf Konto",
+      email: `${randomUUID()}@example.org`,
+      username: `wegwerf.konto.${randomUUID().slice(0, 8)}`,
+      mussPasswortAendern: false,
+      twoFactorEnabled: zweiterFaktor,
+      ...(startpasswort && startpasswortFelder(new Date(), startpasswort)),
+    })
+    .returning({ id: schema.user.id });
+  await welt.db.insert(schema.account).values({
+    accountId: zeile.id,
+    providerId: "credential",
+    userId: zeile.id,
+    password: "kein-gueltiger-hash",
+    updatedAt: new Date(),
+  });
+  if (zweiterFaktor) {
+    await welt.db.insert(schema.twoFactor).values({
+      userId: zeile.id,
+      secret: "geheim",
+      backupCodes: "codes",
+    });
+  }
+  await welt.db.insert(schema.einheitRolle).values({
+    userId: zeile.id,
+    einheitId: welt.einheit.jfA,
+    typ: "leitung",
+  });
+  return zeile;
+}
+
+// Ein Rang pro Aufruf, eigene Reihenfolge: das Ziel einer Löschung
+async function wegwerfRangId() {
+  const [zeile] = await welt.db
+    .insert(schema.rang)
+    .values({
+      einheitId: welt.einheit.jfA,
+      name: "Wegwerf Rang",
+      kuerzel: "WR",
+      reihenfolge: naechsterWegwerfRang++,
+    })
+    .returning({ id: schema.rang.id });
+  return zeile.id;
+}
+
 async function wegwerfRegelId() {
   const [zeile] = await welt.db
     .insert(schema.zeitregel)
@@ -588,6 +783,21 @@ beforeAll(async () => {
     })
   ).id;
   patchRegelId = await wegwerfRegelId();
+  leitungZielId = (await wegwerfKonto()).id;
+  offenesKontoId = (await wegwerfKonto({ startpasswort: "ABCD-EFGH-JKMN" })).id;
+  // Rang mit Bild: Ziel von Lesen, Ändern und Entfernen des Abzeichens
+  [{ id: bildRangId }] = await db
+    .insert(schema.rang)
+    .values({
+      einheitId: welt.einheit.jfA,
+      name: "Rang mit Bild",
+      kuerzel: "RB",
+      reihenfolge: 2,
+      abzeichenBild: abzeichenSvg,
+      abzeichenBildTyp: "svg",
+    })
+    .returning({ id: schema.rang.id });
+  alleRangIds = [welt.rangId, bildRangId];
   [{ id: leererBezirkId }] = await db
     .insert(schema.bezirk)
     .values({ name: `Leerer Bezirk ${randomUUID().slice(0, 8)}` })
@@ -746,7 +956,7 @@ describe("Matrix: jede Route mal jede Persona", () => {
           ? { ...konto.headers, "content-type": "application/json" }
           : konto.headers,
         body: zeile.bild
-          ? new Uint8Array(testBild)
+          ? new Uint8Array(zeile.bild === "abzeichen" ? abzeichenSvg : testBild)
           : zeile.body && JSON.stringify(zeile.body(konto)),
       });
       ergebnis[persona] = antwort.status;
@@ -813,6 +1023,9 @@ describe.runIf(process.env.POSTMAN_EXPORT)("Postman-Export", () => {
       patchRegelId,
       leererBezirkId,
       bildZielId,
+      leitungZielId,
+      offenesKontoId,
+      bildRangId,
       elternJfAUserId: standard.elternJfA.id!,
     };
     const ersetze = (text: string) =>
@@ -831,7 +1044,7 @@ describe.runIf(process.env.POSTMAN_EXPORT)("Postman-Export", () => {
       methode: schluessel.split(" ")[0],
       pfad: ersetze(zeile.url?.(welt) ?? schluessel.split(" ")[1]),
       body: zeile.body && ersetze(JSON.stringify(zeile.body(platzhalter))),
-      bild: zeile.bild === true,
+      bild: zeile.bild !== undefined,
       zielJeAnfrage: zeile.urlJeAnfrage !== undefined,
       sitzungEnde: zeile.frischePersonas === true,
       bodyJePersona: false,

@@ -1,0 +1,14 @@
+$kind: http-request
+name: "GET /api/v1/admin/einheiten/:einheitId/raenge"
+order: 66000
+method: GET
+url: "{{baseUrl}}/api/v1/admin/einheiten/{{einheit_jfA}}/raenge"
+headers:
+  - key: "Cookie"
+    value: "{{cookie}}"
+  - key: "expo-origin"
+    value: "{{expoOrigin}}"
+  - key: "X-Forwarded-For"
+    value: "{{ip}}"
+  - key: "X-App-Version"
+    value: "{{appVersion}}"

@@ -1,4 +1,5 @@
 import { anfrage, fehlertext } from "./api.js";
+import { aenderungenTafel, syncTafel } from "./aenderungen.js";
 import {
   auswahl,
   chip,
@@ -894,6 +895,12 @@ function zeichneSeite(bereich, daten, ctx) {
         ),
       ],
     },
+    {
+      id: `${basis}-aenderungen`,
+      text: "Änderungen",
+      inhalt: aenderungenTafel(),
+    },
+    { id: `${basis}-sync`, text: "Sync-Stand", inhalt: syncTafel() },
   ]);
 
   const nachladen = laufend(bereich, ladeBetrieb, zeichne, fehlerFeld);
