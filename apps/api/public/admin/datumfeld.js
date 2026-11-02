@@ -213,7 +213,7 @@ export function datumfeld({
     text.value = anzeige;
     if (eingabe.value === iso) return;
     eingabe.value = iso;
-    eingabe.dispatchEvent(new Event("change", { bubbles: true }));
+    eingabe.dispatchEvent(new window.Event("change", { bubbles: true }));
   }
 
   function zeigeFehler(meldung) {
