@@ -1,5 +1,6 @@
 import { ApiFehler, anfrage, beiSitzungsende, fehlertext } from "./api.js";
 import { avatar, codefeld, el, feld, icon, knopf, kopf, leere } from "./dom.js";
+import * as auswertung from "./auswertung.js";
 import * as system from "./system.js";
 import * as uebersicht from "./uebersicht.js";
 
@@ -11,6 +12,13 @@ const BEREICHE = [
     uebersicht,
     "uebersicht",
     "Zustand der API auf einen Blick.",
+  ],
+  [
+    "auswertung",
+    "Auswertung",
+    auswertung,
+    "auswertung",
+    "Anmeldungen auswerten: Quote pro Person, Termine, Jahresübersicht.",
   ],
   [
     "system",

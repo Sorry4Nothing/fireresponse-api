@@ -58,6 +58,7 @@ const ICONS = {
     "M9 9.5h.01M15 9.5h.01",
   ],
   system: ["M3 12h4l2.5-6 5 12 2.5-6h4"],
+  auswertung: ["M4 20V11", "M10 20V4", "M16 20v-6", "M2 20h20"],
   uebersicht: [
     ["rect", { x: 3, y: 3, width: 8, height: 10, rx: 2 }],
     ["rect", { x: 13, y: 3, width: 8, height: 6, rx: 2 }],
