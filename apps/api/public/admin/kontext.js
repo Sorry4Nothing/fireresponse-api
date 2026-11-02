@@ -126,7 +126,15 @@ export function zeigeUmschalter(beiWahl) {
                           beiWahl();
                         },
                       },
-                      icon("einheit"),
+                      e.logoUrl
+                        ? el("img", {
+                            class: "einheit-logo",
+                            src: e.logoUrl,
+                            alt: "",
+                            width: 40,
+                            height: 40,
+                          })
+                        : icon("einheit"),
                       el(
                         "span",
                         { class: "umschalter-text" },
