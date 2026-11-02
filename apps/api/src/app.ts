@@ -187,7 +187,7 @@ export function erstelleApp({
           hatKommandoOderStellvertretung(db, userId),
         ),
       )
-      // Öffentlich, vor der Sitzung: Die App zeigt den Text vor der Einwilligung. Kein eigenes Rate-Limit, wie die Seite /datenschutz: statisch, ohne Datenbank, und der Reverse-Proxy begrenzt
+      // Öffentlich, vor der Sitzung: Die App zeigt den Text vor der Einwilligung. Begrenzt durch die Drosselung «oeffentlich» (je Adresse), nicht durch den Reverse-Proxy; statisch und ohne Datenbankzugriff
       .get("/api/v1/datenschutz", oeffentlich, (c) => {
         c.header("Cache-Control", "public, max-age=3600");
         return c.json(datenschutz);
