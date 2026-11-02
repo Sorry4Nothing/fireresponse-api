@@ -217,6 +217,10 @@ export const rang = pgTable(
       .references(() => einheit.id, { onDelete: "restrict" }),
     name: text("name").notNull(),
     kuerzel: text("kuerzel").notNull(),
+    // Kinderfeuerwehr, Jugendfeuerwehr oder Miliz-Feuerwehr; der Standard gilt nur für Einfügen ohne Angabe, der Code setzt den Typ der Einheit
+    typ: text("typ", { enum: ["kf", "jf", "miliz"] })
+      .notNull()
+      .default("jf"),
     reihenfolge: integer("reihenfolge").notNull(),
     // Abzeichen: 0 bis 5 Sterne oder ein eigenes Bild (SVG/PNG, vom Server geprüft); höchstens eines von beiden
     abzeichenSterne: integer("abzeichen_sterne"),
@@ -228,6 +232,7 @@ export const rang = pgTable(
     // Ziel des zusammengesetzten Fremdschlüssels: Ein Rang gehört genau einer Einheit
     unique("rang_id_einheit").on(t.id, t.einheitId),
     check("rang_reihenfolge_check", sql`${t.reihenfolge} between 1 and 999`),
+    check("rang_typ_check", sql`${t.typ} in ('kf', 'jf', 'miliz')`),
     check(
       "rang_sterne_check",
       sql`${t.abzeichenSterne} is null or ${t.abzeichenSterne} between 0 and 5`,
