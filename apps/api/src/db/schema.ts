@@ -350,6 +350,10 @@ export const programm = pgTable(
     googleOrt: text("google_ort"),
     // Aus dem HTML der Google-Beschreibung; gilt als intern
     googleBeschreibung: text("google_beschreibung"),
+    // Die drei Texte der Termin-Ansicht; leer, solange die Quelle sie nicht liefert
+    thema: text("thema"),
+    info: text("info"),
+    aufgebot: text("aufgebot"),
     status: text("status", { enum: ["aktiv", "abgesagt", "pruefen"] })
       .notNull()
       .default("aktiv"),
