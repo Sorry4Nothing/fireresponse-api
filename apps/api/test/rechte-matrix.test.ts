@@ -269,6 +269,16 @@ const MATRIX: Record<string, Zeile> = {
       ...SPERREN,
     },
   },
+  // Kontakt der Einheit (Kommandant/in): sichtbar für alle, die die Einheit sehen; die Nummer nur für Eltern und Teilnehmende darin (test/termine.test.ts)
+  "GET /api/v1/einheiten/:einheitId/kontakt": {
+    url: (w) => `/api/v1/einheiten/${w.einheit.jfA}/kontakt`,
+    erwartet: { ...SEHEN_JF_A, ...SPERREN },
+  },
+  // Bild eines Rang-Abzeichens von JF A: wer die Einheit sieht, sieht es (test/termine.test.ts)
+  "GET /api/v1/raenge/:id/abzeichen": {
+    url: () => `/api/v1/raenge/${abzeichenRangId}/abzeichen`,
+    erwartet: { ...SEHEN_JF_A, ...SPERREN },
+  },
   // Betriebszahlen (#143): nur das Konto des Kantonsadmins mit zweitem Faktor; Inhalt in test/admin-system.test.ts
   "GET /api/v1/admin/system": {
     erwartet: {
@@ -350,6 +360,7 @@ let welt: Welt;
 let standard: Record<Persona, PersonaKonto>;
 let programmId: string;
 let offenProgrammId: string;
+let abzeichenRangId: string;
 let patchRegelId: string;
 let bildZielId: string;
 let testBild: Buffer;
@@ -380,14 +391,30 @@ async function personasAnlegen(w: Welt) {
 beforeAll(async () => {
   welt = await erstelleWelt(db, auth);
   standard = await personasAnlegen(welt);
-  // Programme von JF A für die Objekt-Routen: eines mit Beginn im März 2027, eines in einem Jahr (offen für Anmeldungen)
+  // Programme von JF A für die Objekt-Routen: eines mit Beginn im März 2027, eines in zehn Tagen (offen für Anmeldungen, im Anmeldefenster)
   programmId = (await legeProgrammAn(db, { einheitId: welt.einheit.jfA })).id;
   offenProgrammId = (
     await legeProgrammAn(db, {
       einheitId: welt.einheit.jfA,
-      beginn: new Date(Date.now() + 365 * 86_400_000),
+      beginn: new Date(Date.now() + 10 * 86_400_000),
     })
   ).id;
+  // Ein Rang mit eigenem Bild (PNG), den die Route ausliefert
+  [{ id: abzeichenRangId }] = await db
+    .insert(schema.rang)
+    .values({
+      einheitId: welt.einheit.jfA,
+      name: "Rang Bild",
+      kuerzel: "RB",
+      reihenfolge: 2,
+      abzeichenBild: await sharp({
+        create: { width: 8, height: 8, channels: 3, background: "#cc3333" },
+      })
+        .png()
+        .toBuffer(),
+      abzeichenBildTyp: "png",
+    })
+    .returning({ id: schema.rang.id });
   patchRegelId = await wegwerfRegelId();
   testBild = await sharp({
     create: { width: 64, height: 64, channels: 3, background: "#3366cc" },
@@ -607,6 +634,7 @@ describe.runIf(process.env.POSTMAN_EXPORT)("Postman-Export", () => {
       ),
       programmId,
       offenProgrammId,
+      abzeichenRangId,
       patchRegelId,
       bildZielId,
       elternJfAUserId: standard.elternJfA.id!,

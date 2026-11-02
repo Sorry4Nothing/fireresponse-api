@@ -43,6 +43,7 @@ const app = erstelleApp({
   auth,
   fcm,
   kodiereBild: kodiereProfilbild,
+  anmeldefensterTage: konfiguration.ANMELDEFENSTER_TAGE,
   seiten,
 });
 // Ohne hostname auf allen Schnittstellen: Der Dev-Build auf dem Handy erreicht die API im LAN; in Produktion öffnet nur Caddy Ports
