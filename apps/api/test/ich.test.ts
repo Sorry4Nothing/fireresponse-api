@@ -103,6 +103,7 @@ describe("GET /api/v1/ich", () => {
           bezirk: expect.stringMatching(/^Bezirk A /),
           rolle: "leitung",
           logoUrl: null,
+          abzeichen: null,
         },
       ],
       teilnehmende: [
@@ -112,9 +113,57 @@ describe("GET /api/v1/ich", () => {
           nachname: "KfA",
           einheitId: welt.einheit.kfA,
           art: "eltern",
+          abzeichen: null,
         },
       ],
     });
+  });
+
+  test("Teilnehmende und eigene Einheit tragen das Abzeichen des Rangs", async () => {
+    const konto = await legePersonaAn(welt, "leitendeJfAElternKfA");
+    // Ein Rang der KF A, nur mit Kürzel: das Objekt kommt trotzdem
+    const [rangKf] = await db
+      .insert(schema.rang)
+      .values({
+        einheitId: welt.einheit.kfA,
+        name: "Ohne Abzeichen",
+        kuerzel: "OA",
+        typ: "kf",
+        reihenfolge: 90,
+      })
+      .returning({ id: schema.rang.id });
+    await db
+      .update(schema.teilnehmende)
+      .set({ rangId: rangKf.id })
+      .where(eq(schema.teilnehmende.id, welt.teilnehmende.kfA));
+    await db
+      .update(schema.einheitRolle)
+      .set({ rangId: welt.rangId })
+      .where(eq(schema.einheitRolle.userId, konto.id!));
+    try {
+      const koerper = await (await ich(konto)).json();
+      expect(koerper.teilnehmende[0].abzeichen).toEqual({
+        kuerzel: "OA",
+        sterne: null,
+        bildUrl: null,
+      });
+      expect(koerper.einheiten[0].abzeichen).toEqual({
+        kuerzel: "R1",
+        sterne: 1,
+        bildUrl: null,
+      });
+      expect(JSON.stringify(koerper)).not.toContain("rangId");
+    } finally {
+      await db
+        .update(schema.teilnehmende)
+        .set({ rangId: null })
+        .where(eq(schema.teilnehmende.id, welt.teilnehmende.kfA));
+      await db
+        .update(schema.einheitRolle)
+        .set({ rangId: null })
+        .where(eq(schema.einheitRolle.userId, konto.id!));
+      await db.delete(schema.rang).where(eq(schema.rang.id, rangKf.id));
+    }
   });
 
   test("Kantonsadmin ohne Rolle und Teilnehmende: kantonsadmin true, leere Listen", async () => {

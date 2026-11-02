@@ -304,7 +304,11 @@ describe("Kontakt pro Termin", () => {
       .where(eq(schema.einheitRolle.userId, konto("kommandoJfA").id!));
     const programmId = await anlegen(tagPlus(13));
     const { kontakt } = await detail("elternJfA", programmId);
-    expect(kontakt.abzeichen).toEqual({ sterne: 1, bildUrl: null });
+    expect(kontakt.abzeichen).toEqual({
+      kuerzel: "R1",
+      sterne: 1,
+      bildUrl: null,
+    });
     // Nie mehr vom Rang als das Abzeichen
     expect(JSON.stringify(kontakt)).not.toContain("Rang Eins");
     await db
@@ -386,11 +390,24 @@ describe("Rang-Abzeichen", () => {
 
   test("Sterne, null Sterne und kein Rang", async () => {
     await setzeRang(await rang({ abzeichenSterne: 3 }));
-    expect(await abzeichen()).toEqual({ sterne: 3, bildUrl: null });
+    expect(await abzeichen()).toEqual({
+      kuerzel: "R",
+      sterne: 3,
+      bildUrl: null,
+    });
     await setzeRang(await rang({ abzeichenSterne: 0 }));
-    expect(await abzeichen()).toEqual({ sterne: 0, bildUrl: null });
+    expect(await abzeichen()).toEqual({
+      kuerzel: "R",
+      sterne: 0,
+      bildUrl: null,
+    });
+    // Ein Rang ohne Sterne und Bild ist trotzdem ein Abzeichen: nur das Kürzel
     await setzeRang(await rang({}));
-    expect(await abzeichen()).toBeNull();
+    expect(await abzeichen()).toEqual({
+      kuerzel: "R",
+      sterne: null,
+      bildUrl: null,
+    });
     await setzeRang(null);
     expect(await abzeichen()).toBeNull();
   });
@@ -406,6 +423,7 @@ describe("Rang-Abzeichen", () => {
     const svgId = await rang({ abzeichenBild: svg, abzeichenBildTyp: "svg" });
     await setzeRang(pngId);
     expect(await abzeichen()).toEqual({
+      kuerzel: "R",
       sterne: null,
       bildUrl: `/api/v1/raenge/${pngId}/abzeichen`,
     });

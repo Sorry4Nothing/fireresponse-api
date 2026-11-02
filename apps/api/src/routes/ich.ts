@@ -8,10 +8,12 @@ import {
   einheit,
   einheitRolle,
   profilbild,
+  rang,
   teilnehmende,
   teilnehmendeKonto,
   user,
 } from "../db/schema.js";
+import { abzeichenFelder, mitAbzeichen } from "../abzeichen-anzeige.js";
 import { bildUrl } from "../bild.js";
 import { logoUrl } from "../einheiten.js";
 import { eingabe } from "../eingabe.js";
@@ -59,10 +61,18 @@ export function erstelleIchRouten({ db }: { db: Db }) {
             bezirk: bezirk.name,
             rolle: einheitRolle.typ,
             logoUrl,
+            ...abzeichenFelder,
           })
           .from(einheitRolle)
           .innerJoin(einheit, eq(einheit.id, einheitRolle.einheitId))
           .innerJoin(bezirk, eq(bezirk.id, einheit.bezirkId))
+          .leftJoin(
+            rang,
+            and(
+              eq(rang.id, einheitRolle.rangId),
+              eq(rang.einheitId, einheitRolle.einheitId),
+            ),
+          )
           .where(eq(einheitRolle.userId, person.id))
           .orderBy(asc(bezirk.name), asc(einheit.typ));
         const teilnehmendeListe = await db
@@ -72,11 +82,19 @@ export function erstelleIchRouten({ db }: { db: Db }) {
             nachname: teilnehmende.nachname,
             einheitId: teilnehmende.einheitId,
             art: teilnehmendeKonto.art,
+            ...abzeichenFelder,
           })
           .from(teilnehmendeKonto)
           .innerJoin(
             teilnehmende,
             eq(teilnehmende.id, teilnehmendeKonto.teilnehmendeId),
+          )
+          .leftJoin(
+            rang,
+            and(
+              eq(rang.id, teilnehmende.rangId),
+              eq(rang.einheitId, teilnehmende.einheitId),
+            ),
           )
           .where(
             and(
@@ -93,8 +111,8 @@ export function erstelleIchRouten({ db }: { db: Db }) {
           kantonsadmin: person.kantonsadmin,
           zweiterFaktor: person.zweiterFaktor,
           einwilligung: person.einwilligung,
-          einheiten,
-          teilnehmende: teilnehmendeListe,
+          einheiten: einheiten.map(mitAbzeichen),
+          teilnehmende: teilnehmendeListe.map(mitAbzeichen),
         });
       })
       // Nur die eigenen Schalter und die eigene Nummer; die Person kommt aus der Sitzung, nie aus dem Body

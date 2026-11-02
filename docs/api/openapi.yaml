@@ -927,7 +927,7 @@ paths:
       description: |
         Das Profil der angemeldeten Person: Anzeigename, Benutzername, Schalter, Kantonsadmin-Kennzeichen,
         Stand des zweiten Faktors und der Einwilligung, die Einheiten mit der Rolle der Person (Kommandant, Stellvertretung, Leitung)
-        und die aktiven teilnehmenden Personen, für die das Konto antwortet (Eltern oder die Person selbst).
+        und die aktiven teilnehmenden Personen, für die das Konto antwortet (Eltern oder die Person selbst). Einheiten und Personen tragen ihr `abzeichen` (`null` ohne Rang).
         Nie enthalten sind E-Mail, Bremsfelder, Sperrstatus, Ablauf des Startpassworts sowie Geheimnisse
         und Codes des zweiten Faktors.
 
@@ -1280,8 +1280,8 @@ paths:
         - Programme
       description: |
         Kommando, Leitende und das Konto des Kantonsadmins sehen alle aktiven teilnehmenden Personen der Einheit mit ihrer
-        Antwort (`ja`, `nein`, `offen`) und die Rollen der Einheit (Kommandant zuerst, dann Stellvertretungen nach Reihenfolge, dann Leitende)
-        mit ihrer eigenen Anmeldung. Eltern und Teilnehmende sehen nur ihre eigenen Personen und keine Leitenden.
+        Antwort (`ja`, `nein`, `offen`) und ihrem Abzeichen und die Rollen der Einheit (Kommandant zuerst, dann Stellvertretungen nach Reihenfolge, dann Leitende)
+        mit ihrer eigenen Anmeldung und ihrem Abzeichen. Eltern und Teilnehmende sehen nur ihre eigenen Personen und keine Leitenden.
         Eine Person, die das Programm sieht, aber weder eine Rolle noch eine eigene teilnehmende Person in der Einheit hat, bekommt 403.
 
         Statuscodes: 200, 400, 401, 403, 404 (Programm unbekannt oder in keiner sichtbaren Einheit), 426, 429.
@@ -1574,8 +1574,8 @@ paths:
       tags:
         - Programme
       description: |
-        Liefert das Bild eines Abzeichens (PNG oder SVG). Die Adresse steht als `bildUrl` im `abzeichen` der Teilnehmenden und
-        der Kontaktperson; die App ruft sie mit der Sitzung auf. Abzeichen mit Sternen haben kein Bild (nur `sterne`).
+        Liefert das Bild eines Abzeichens (PNG oder SVG). Die Adresse steht als `bildUrl` im `abzeichen` der Teilnehmenden, der Leitenden
+        und der Kontaktperson; die App ruft sie mit der Sitzung auf. Abzeichen mit Sternen haben kein Bild (nur `sterne`).
 
         Die Antwort trägt `Cache-Control: private, no-store`, `X-Content-Type-Options: nosniff` und eine CSP, die Skripte und
         Nachladen sperrt. Wer die Einheit des Rangs nicht sieht, ein Rang ohne Bild und ein unbekannter Rang sind 404, ohne Unterschied.
@@ -4045,7 +4045,7 @@ components:
           type: array
           items:
             type: object
-            required: [id, vorname, nachname, status]
+            required: [id, vorname, nachname, status, abzeichen]
             properties:
               id:
                 type: string
@@ -4057,12 +4057,16 @@ components:
               status:
                 type: string
                 enum: [ja, nein, offen]
+              abzeichen:
+                oneOf:
+                  - $ref: "#/components/schemas/Abzeichen"
+                  - type: "null"
         leitende:
           type: array
           description: Rollen der Einheit mit ihrer Anmeldung; leer für Eltern und Teilnehmende.
           items:
             type: object
-            required: [id, name, bildUrl, rolle, status]
+            required: [id, name, bildUrl, rolle, status, abzeichen]
             properties:
               id:
                 type: string
@@ -4079,6 +4083,10 @@ components:
               status:
                 type: string
                 enum: [ja, nein, offen]
+              abzeichen:
+                oneOf:
+                  - $ref: "#/components/schemas/Abzeichen"
+                  - type: "null"
     PushTokenAnfrage:
       type: object
       additionalProperties: false
@@ -5058,7 +5066,7 @@ components:
     IchEinheit:
       type: object
       description: Eine Einheit (Jugend- oder Kinderfeuerwehr eines Bezirks), in der die Person Kommandant, Stellvertretung oder Leitung ist.
-      required: [id, name, typ, bezirk, rolle, logoUrl]
+      required: [id, name, typ, bezirk, rolle, logoUrl, abzeichen]
       properties:
         id:
           type: string
@@ -5078,10 +5086,15 @@ components:
         logoUrl:
           type: [string, "null"]
           description: Pfad zum Logo (`GET /api/v1/einheiten/{einheitId}/logo`), mit `?v=` als Stand des Bildes; `null` ohne Logo.
+        abzeichen:
+          description: Das eigene Abzeichen in dieser Einheit; `null` ohne Rang.
+          oneOf:
+            - $ref: "#/components/schemas/Abzeichen"
+            - type: "null"
     IchTeilnehmende:
       type: object
       description: Eine aktive teilnehmende Person, für die das Konto antwortet.
-      required: [id, vorname, nachname, einheitId, art]
+      required: [id, vorname, nachname, einheitId, art, abzeichen]
       properties:
         id:
           type: string
@@ -5097,6 +5110,10 @@ components:
           type: string
           enum: [eltern, selbst]
           description: "`eltern`, wenn das Konto für die Person antwortet, `selbst`, wenn es das Konto der Person ist."
+        abzeichen:
+          oneOf:
+            - $ref: "#/components/schemas/Abzeichen"
+            - type: "null"
     Datenschutz:
       type: object
       required: [version, abschnitte]
@@ -5162,9 +5179,18 @@ components:
             - type: "null"
     Abzeichen:
       type: object
-      description: Das Rang-Abzeichen; mehr vom Rang erfährt die App nicht. Entweder `sterne` (0 bis 5) oder `bildUrl`, das andere Feld ist `null`. `null` statt des Objekts heisst kein Rang oder kein Abzeichen.
-      required: [sterne, bildUrl]
+      description: |
+        Das Rang-Abzeichen; mehr vom Rang erfährt die App nicht. Das Objekt kommt für jede Person mit Rang. `kuerzel` ist immer da; dazu
+        entweder `sterne` (0 bis 5) oder `bildUrl`, das andere Feld ist `null`. Hat der Rang weder Sterne noch Bild, sind beide `null`
+        und die App zeigt nur das Kürzel. `null` statt des Objekts heisst nur noch: kein Rang.
+      required: [kuerzel, sterne, bildUrl]
       properties:
+        kuerzel:
+          type: string
+          minLength: 1
+          maxLength: 20
+          description: Kurzer Text des Rangs, den die App neben dem Namen anzeigen kann, zum Beispiel `Oblt` bei einem Miliz-Rang oder `R1` bei einem eigenen Rang. Höchstens 20 Zeichen.
+          example: Oblt
         sterne:
           type:
             - integer
