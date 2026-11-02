@@ -14,15 +14,21 @@ import {
 } from "vitest";
 import { erstelleDb } from "../src/db/client.js";
 import * as schema from "../src/db/schema.js";
-import { inhaltHash, SPERRE_LODUR, syncLodur } from "../src/lodur-sync.js";
+import {
+  abrufJahre,
+  inhaltHash,
+  SPERRE_LODUR,
+  syncLodur,
+} from "../src/lodur-sync.js";
 import {
   ZWECK_LODUR_LINK,
   type Abruf,
   type Aufloesen,
 } from "../src/lodur-url.js";
 import type { Fcm } from "../src/push.js";
-import { verschluessele } from "../src/startpasswort.js";
+import { entschluessele, verschluessele } from "../src/startpasswort.js";
 import { API_URL } from "./hilfen/datenbank.js";
+import { alsLatin1, lodurSeite, type Zeile } from "./hilfen/lodur-seite.js";
 
 const sql = postgres(API_URL);
 const db = erstelleDb(sql);
@@ -86,6 +92,17 @@ function kalender(
   ].join("\r\n");
 }
 
+// Die Terminliste von Lodur: 14.11.2054 19:00 bis 21:00 in Zürcher Winterzeit ist 18:00 bis 20:00 UTC
+const seite = (zeilen: Zeile[]) => lodurSeite(zeilen);
+const Z1: Zeile = [
+  "Do",
+  "14.11.2054",
+  "19:00 - 21:00",
+  "Allgemein",
+  "ohne",
+  "Übung",
+];
+const Z2: Zeile = ["Do", "21.11.2054", "19:00 - 21:00", "Funk", "", "Übung"];
 const ZUKUNFT = { uid: "z1", start: "20541114T180000Z" };
 const VERGANGEN = { uid: "v1", start: "20541020T180000Z" };
 
@@ -100,6 +117,7 @@ async function neueWelt(link: string | null = LINK) {
       bezirkId: bezirk!.id,
       typ: "jf",
       name: "Sync",
+      anmeldeArten: ["Übung"],
       lodurUrlVerschluesselt: link && verschluessele(link, ZWECK_LODUR_LINK),
     })
     .returning();
@@ -160,15 +178,15 @@ async function neueWelt(link: string | null = LINK) {
       await db.select().from(schema.einheit).where(eq(schema.einheit.id, e!.id))
     )[0]!;
   const lauf = (
-    text: string | (() => Response),
+    text: string | ((url: URL) => Response),
     optionen: {
       jetzt?: Date;
       hosts?: string[];
       aufloesen?: Aufloesen;
     } = {},
   ) => {
-    const abruf: Abruf = vi.fn(async () =>
-      typeof text === "string" ? new Response(text) : text(),
+    const abruf: Abruf = vi.fn(async (url) =>
+      typeof text === "string" ? new Response(text) : text(url),
     );
     return syncLodur({
       datenbankUrl: API_URL,
@@ -182,7 +200,11 @@ async function neueWelt(link: string | null = LINK) {
   };
   const aktuell = async (uid: string) =>
     (await programme()).find((p) => p.googleEventId === uid)!;
+  // Die HTML-Liste hat keine UID, die Tests suchen über den Titel
+  const nachTitel = async (titel: string) =>
+    (await programme()).find((p) => p.titel === titel)!;
   return {
+    nachTitel,
     einheit: e!,
     konto,
     person,
@@ -275,8 +297,8 @@ describe("Sync einer Einheit", () => {
     await db
       .insert(schema.einheitRolle)
       .values({ userId: kommando, einheitId: w.einheit.id, typ: "kommandant" });
-    await w.lauf(kalender([ZUKUNFT]));
-    const { id } = await w.aktuell("z1");
+    await w.lauf(seite([Z1]));
+    const { id } = await w.nachTitel("Allgemein");
     await db.insert(schema.teilnahme).values([
       { programmId: id, teilnehmendeId: kind, status: "ja" },
       { programmId: id, teilnehmendeId: kind3, status: "nein" },
@@ -287,10 +309,10 @@ describe("Sync einer Einheit", () => {
 
     // Der Push nennt weder Datum noch Inhalt
     await w.lauf(
-      kalender([{ ...ZUKUNFT, start: "20541115T180000Z", aufgebot: "17:30" }]),
+      seite([[Z1[0], Z1[1], "19:30 - 21:00", Z1[3], "17:30", "Übung"]]),
     );
 
-    expect(await w.aktuell("z1")).toMatchObject({ aufgebot: "17:30" });
+    expect(await w.nachTitel("Allgemein")).toMatchObject({ info: "17:30" });
     const antworten = await db
       .select()
       .from(schema.teilnahme)
@@ -346,16 +368,16 @@ describe("Sync einer Einheit", () => {
     await db
       .insert(schema.einheitRolle)
       .values({ userId: kommando, einheitId: w.einheit.id, typ: "kommandant" });
-    await w.lauf(kalender([ZUKUNFT, { uid: "z2", start: "20541121T180000Z" }]));
-    const { id } = await w.aktuell("z1");
+    await w.lauf(seite([Z1, Z2]));
+    const { id } = await w.nachTitel("Allgemein");
     await db
       .insert(schema.teilnahme)
       .values({ programmId: id, teilnehmendeId: kind, status: "ja" });
 
-    await w.lauf(kalender([{ uid: "z2", start: "20541121T180000Z" }]));
+    await w.lauf(seite([Z2]));
 
-    expect((await w.aktuell("z1")).status).toBe("abgesagt");
-    expect((await w.aktuell("z2")).status).toBe("aktiv");
+    expect((await w.nachTitel("Allgemein")).status).toBe("abgesagt");
+    expect((await w.nachTitel("Funk")).status).toBe("aktiv");
     expect(
       await db
         .select()
@@ -370,7 +392,7 @@ describe("Sync einer Einheit", () => {
     });
     // Ein dritter Lauf sagt nicht noch einmal ab
     nachrichten = [];
-    await w.lauf(kalender([{ uid: "z2", start: "20541121T180000Z" }]));
+    await w.lauf(seite([Z2]));
     expect(nachrichten).toHaveLength(0);
   });
 
@@ -417,6 +439,7 @@ describe("Sync einer Einheit", () => {
       thema: "x",
       info: null,
       aufgebot: null,
+      art: null,
     };
     const hash = inhaltHash(basis);
     expect(inhaltHash({ ...basis })).toBe(hash);
@@ -427,9 +450,203 @@ describe("Sync einer Einheit", () => {
       { thema: "y" },
       { info: "i" },
       { aufgebot: "a" },
+      { art: "Sitzung" },
     ]) {
       expect(inhaltHash({ ...basis, ...aenderung })).not.toBe(hash);
     }
+  });
+});
+
+describe("HTML-Terminliste", () => {
+  const HTML_LINK = `https://${HOST}/jfw-test/index.php?modul=13&what=10&year=2026`;
+  const antwort = (zeilen: Zeile[]) =>
+    new Response(alsLatin1(lodurSeite(zeilen)), {
+      headers: { "content-type": "text/html; charset=iso-8859-1" },
+    });
+  // Eine Antwort je Jahr aus dem Parameter year; eine Zahl ist ein HTTP-Status
+  const nachJahr = (jahre: Record<string, Zeile[] | number>) => (url: URL) => {
+    const j = jahre[url.searchParams.get("year")!];
+    return typeof j === "number"
+      ? new Response("nein", { status: j })
+      : antwort(j ?? []);
+  };
+  const Z2055: Zeile = [
+    "Mo",
+    "12.01.2055",
+    "19:00 - 21:30",
+    "Neujahrsübung",
+    "Küsnacht",
+    "Übung",
+  ];
+
+  test("setzt year bei jedem Abruf: das laufende Jahr und ab Oktober das nächste; der gespeicherte Link bleibt", async () => {
+    const w = await neueWelt(HTML_LINK);
+    const { ergebnis, abruf } = await w.lauf(
+      nachJahr({ "2054": [Z1], "2055": [Z2055] }),
+    );
+    expect(ergebnis).toBe("fertig");
+    const urls = vi.mocked(abruf).mock.calls.map(([u]) => u);
+    expect(urls.map((u) => u.searchParams.get("year"))).toEqual([
+      "2054",
+      "2055",
+    ]);
+    for (const u of urls) {
+      expect(u.origin).toBe(`https://${HOST}`);
+      expect(u.pathname).toBe("/jfw-test/index.php");
+      expect(u.searchParams.get("modul")).toBe("13");
+      expect(u.searchParams.get("what")).toBe("10");
+    }
+    // Die Jahres-Links sind abgeleitet; gespeichert bleibt, was der Admin eingegeben hat
+    const e = await w.einheitZeile();
+    expect(entschluessele(e.lodurUrlVerschluesselt!, ZWECK_LODUR_LINK)).toBe(
+      HTML_LINK,
+    );
+    expect(await w.nachTitel("Allgemein")).toMatchObject({
+      art: "Übung",
+      info: "ohne",
+      beginn: new Date("2054-11-14T18:00:00Z"),
+      ende: new Date("2054-11-14T20:00:00Z"),
+    });
+    // Umlaute aus iso-8859-1
+    expect(await w.nachTitel("Neujahrsübung")).toMatchObject({
+      info: "Küsnacht",
+    });
+    expect(e.syncFehler).toBeNull();
+  });
+
+  test("vor Oktober (Zürcher Zeit) holt der Abruf nur das laufende Jahr", async () => {
+    expect(abrufJahre(new Date("2054-09-30T21:59:59Z"))).toEqual([2054]);
+    expect(abrufJahre(new Date("2054-09-30T22:00:00Z"))).toEqual([2054, 2055]);
+    // Silvester 23:30 Zürcher Zeit ist noch das alte Jahr; eine Stunde später das neue, dann ohne Folgejahr
+    expect(abrufJahre(new Date("2054-12-31T22:30:00Z"))).toEqual([2054, 2055]);
+    expect(abrufJahre(new Date("2054-12-31T23:30:00Z"))).toEqual([2055]);
+    const w = await neueWelt(HTML_LINK);
+    const { abruf } = await w.lauf(nachJahr({ "2054": [Z1] }), {
+      jetzt: new Date("2054-06-01T10:00:00Z"),
+    });
+    expect(abruf).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(abruf).mock.calls[0]![0].searchParams.get("year")).toBe(
+      "2054",
+    );
+  });
+
+  test("scheitert das Folgejahr, ist der Lauf trotzdem gelungen und seine Termine bleiben aktiv", async () => {
+    const w = await neueWelt(HTML_LINK);
+    await w.lauf(nachJahr({ "2054": [Z1], "2055": [Z2055] }));
+    expect((await w.nachTitel("Neujahrsübung")).status).toBe("aktiv");
+    for (const folgejahr of [503, 404]) {
+      await w.lauf(nachJahr({ "2054": [Z1], "2055": folgejahr }));
+      const e = await w.einheitZeile();
+      expect(e.syncFehler).toBeNull();
+      expect((await w.nachTitel("Neujahrsübung")).status).toBe("aktiv");
+    }
+    // Eine fremde Seite statt der Liste zählt gleich
+    await w.lauf((u) =>
+      u.searchParams.get("year") === "2055"
+        ? new Response("<html>Anmelden</html>")
+        : antwort([Z1]),
+    );
+    expect((await w.einheitZeile()).syncFehler).toBeNull();
+    expect((await w.nachTitel("Neujahrsübung")).status).toBe("aktiv");
+    // Liefert das Folgejahr dagegen eine leere Liste, ist der Termin gestrichen
+    await w.lauf(nachJahr({ "2054": [Z1], "2055": [] }));
+    expect((await w.nachTitel("Neujahrsübung")).status).toBe("abgesagt");
+  });
+
+  test("scheitert das laufende Jahr, ist der Lauf gescheitert und nichts ändert sich", async () => {
+    const w = await neueWelt(HTML_LINK);
+    await w.lauf(nachJahr({ "2054": [Z1], "2055": [Z2055] }));
+    await w.lauf(nachJahr({ "2054": 500, "2055": [Z2055] }));
+    expect((await w.einheitZeile()).syncFehler).toBe("http-fehler");
+    expect((await w.nachTitel("Allgemein")).status).toBe("aktiv");
+  });
+
+  test("eine verschobene Zeit ist dieselbe Zeile mit neuen Zeiten, keine Absage", async () => {
+    const w = await neueWelt(HTML_LINK);
+    const kommando = await w.konto("kommando");
+    await db
+      .insert(schema.einheitRolle)
+      .values({ userId: kommando, einheitId: w.einheit.id, typ: "kommandant" });
+    await w.lauf(nachJahr({ "2054": [Z1] }));
+    const vorher = await w.nachTitel("Allgemein");
+    await db.insert(schema.leitungAnmeldung).values({
+      programmId: vorher.id,
+      userId: kommando,
+      status: "ja",
+    });
+    await w.lauf(
+      nachJahr({
+        "2054": [[Z1[0], Z1[1], "20:00 - 22:00", Z1[3], Z1[4], Z1[5]]],
+      }),
+    );
+    const nachher = await w.nachTitel("Allgemein");
+    expect(nachher).toMatchObject({
+      id: vorher.id,
+      status: "aktiv",
+      beginn: new Date("2054-11-14T19:00:00Z"),
+    });
+    expect(nachher.inhaltHash).not.toBe(vorher.inhaltHash);
+    expect(nachrichten[0]).toMatchObject({
+      notification: { title: "Termin geändert" },
+    });
+  });
+
+  test("die Art gehört zum Inhalt: Wechselt sie, wird der Termin aktualisiert", async () => {
+    const w = await neueWelt(HTML_LINK);
+    await w.lauf(nachJahr({ "2054": [Z1] }));
+    const vorher = await w.nachTitel("Allgemein");
+    await w.lauf(
+      nachJahr({ "2054": [[Z1[0], Z1[1], Z1[2], Z1[3], Z1[4], "Sitzung"]] }),
+    );
+    const nachher = await w.nachTitel("Allgemein");
+    expect(nachher).toMatchObject({ id: vorher.id, art: "Sitzung" });
+    expect(nachher.inhaltHash).not.toBe(vorher.inhaltHash);
+  });
+
+  test("ohne Zeichensatz im Header gilt das meta-Tag der Seite", async () => {
+    const w = await neueWelt(HTML_LINK);
+    await w.lauf(() => new Response(alsLatin1(lodurSeite([Z2055]))));
+    expect(await w.nachTitel("Neujahrsübung")).toMatchObject({
+      info: "Küsnacht",
+    });
+  });
+
+  test("Termine einer Art ohne Anmeldung: kein Push bei Absage oder Änderung", async () => {
+    const w = await neueWelt(HTML_LINK);
+    const mutter = await w.konto("mutter");
+    const kind = await w.person([mutter]);
+    const sitzung: Zeile = [
+      "Do",
+      "28.11.2054",
+      "19:00 - 21:00",
+      "Leitersitzung",
+      "",
+      "Sitzung",
+    ];
+    await w.lauf(nachJahr({ "2054": [Z1, sitzung, Z2] }));
+    const { id } = await w.nachTitel("Leitersitzung");
+    await db
+      .insert(schema.teilnahme)
+      .values({ programmId: id, teilnehmendeId: kind, status: "ja" });
+
+    // Änderung und Absage der Sitzung: still
+    const verschoben: Zeile = [
+      sitzung[0],
+      sitzung[1],
+      "20:00 - 21:00",
+      ...sitzung.slice(3),
+    ] as Zeile;
+    await w.lauf(nachJahr({ "2054": [Z1, verschoben, Z2] }));
+    expect((await w.nachTitel("Leitersitzung")).beginn).toEqual(
+      new Date("2054-11-28T19:00:00Z"),
+    );
+    await w.lauf(nachJahr({ "2054": [Z1, Z2] }));
+    expect((await w.nachTitel("Leitersitzung")).status).toBe("abgesagt");
+    expect(nachrichten).toHaveLength(0);
+    // Die Absage einer Übung geht dagegen an die Einheit
+    await w.lauf(nachJahr({ "2054": [Z2] }));
+    expect((await w.nachTitel("Allgemein")).status).toBe("abgesagt");
+    expect(nachrichten).toHaveLength(1);
   });
 });
 

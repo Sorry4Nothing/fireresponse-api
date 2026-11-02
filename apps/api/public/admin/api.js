@@ -66,6 +66,10 @@ const CODES = {
   BILD_FORMAT: "Bitte ein Bild als JPEG, PNG oder WebP wählen.",
   PUSH_NICHT_EINGERICHTET:
     "Der Push-Dienst ist auf diesem Server nicht eingerichtet. Es wurde nichts gesendet.",
+  LODUR_LINK_UNGUELTIG:
+    "Der Link ist ungültig oder sein Host ist nicht erlaubt. Er muss mit «https» beginnen und von Lodur stammen.",
+  ART_UNBEKANNT:
+    "Eine der Arten kommt bei dieser Einheit nicht mehr vor. Die Liste wurde neu geladen; bitte wähle nochmals.",
   NETZ: "Keine Verbindung. Prüfe das Internet und versuche es nochmals.",
   ZWEITER_FAKTOR_FEHLT:
     "Für die Verwaltung braucht es zuerst einen zweiten Faktor. Richte ihn ein und melde dich danach neu an.",

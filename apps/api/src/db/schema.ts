@@ -56,6 +56,8 @@ export const einheit = pgTable(
     syncOkAm: zeitpunkt("sync_ok_am"),
     // Nur ein Fehlercode, nie eine Meldung
     syncFehler: text("sync_fehler"),
+    // Arten (Spalte «Art» in Lodur), für die ein Termin eine Anmeldung hat. null: noch nicht entschieden; null und leer heissen beide: keine Anmeldung
+    anmeldeArten: text("anmelde_arten").array(),
     // Eigenes Logo (SVG/PNG, vom Server geprüft und bereinigt); beide Spalten gehören zusammen
     logoBild: bytea("logo_bild"),
     logoBildTyp: text("logo_bild_typ"),
@@ -368,6 +370,8 @@ export const programm = pgTable(
     thema: text("thema"),
     info: text("info"),
     aufgebot: text("aufgebot"),
+    // Spalte «Art» der Lodur-Tabelle (Sitzung, Übung, Kurs, Anlass …); null, solange die Quelle sie nicht liefert
+    art: text("art"),
     status: text("status", { enum: ["aktiv", "abgesagt", "pruefen"] })
       .notNull()
       .default("aktiv"),

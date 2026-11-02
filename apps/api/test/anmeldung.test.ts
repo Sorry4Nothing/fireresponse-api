@@ -209,6 +209,7 @@ describe("PUT /api/v1/programme/:id/teilnahmen/:teilnehmendeId", () => {
       .values({
         einheitId: welt.einheit.jfA,
         googleEventId: "abgesagt-1",
+        art: "Übung",
         titel: "Abgesagt",
         ganztaegig: false,
         beginn: IN_ZEHN_TAGEN(),
@@ -441,5 +442,107 @@ describe("PUT /api/v1/programme/:id/leitung", () => {
     expect(await lesen("leitendeJfA")).toHaveProperty("eigeneAnmeldung");
     expect(await lesen("elternJfA")).not.toHaveProperty("eigeneAnmeldung");
     expect(await lesen("kantonsadmin")).not.toHaveProperty("eigeneAnmeldung");
+  });
+});
+
+describe("Termine einer Art ohne Anmeldung", () => {
+  const sitzung = () =>
+    legeProgrammAn(db, {
+      einheitId: welt.einheit.jfA,
+      beginn: IN_ZEHN_TAGEN(),
+      art: "Sitzung",
+      anmeldbar: false,
+    }).then((p) => p.id);
+
+  test("Teilnahme und Leitung: 409 KEINE_ANMELDUNG, auch im offenen Fenster", async () => {
+    const id = await sitzung();
+    const eltern = await person("elternJfA");
+    const antwort = await melde(eltern, id, welt.teilnehmende.jfA);
+    expect(antwort.status).toBe(409);
+    expect(await antwort.json()).toMatchObject({ code: "KEINE_ANMELDUNG" });
+    const leitung = await meldeLeitung(await person("leitendeJfA"), id);
+    expect(leitung.status).toBe(409);
+    expect(await leitung.json()).toMatchObject({ code: "KEINE_ANMELDUNG" });
+    expect(
+      await db
+        .select()
+        .from(schema.teilnahme)
+        .where(eq(schema.teilnahme.programmId, id)),
+    ).toHaveLength(0);
+  });
+
+  test("der Termin bleibt im Kalender, ohne Anmeldung", async () => {
+    const id = await sitzung();
+    const eltern = await person("elternJfA");
+    const detail = await lies(eltern, `/api/v1/programme/${id}`);
+    expect(detail).toMatchObject({
+      art: "Sitzung",
+      anmeldbar: false,
+      teilnahmeOffen: false,
+      teilnehmende: [],
+    });
+    const leitung = await lies(
+      await person("leitendeJfA"),
+      `/api/v1/programme/${id}`,
+    );
+    expect(leitung).not.toHaveProperty("eigeneAnmeldung");
+
+    const jahr = new Date().getFullYear();
+    const liste = await lies(
+      eltern,
+      `/api/v1/programme?von=${jahr}-01-01&bis=${jahr + 1}-12-31`,
+    );
+    const eintrag = liste.programme.find((p: { id: string }) => p.id === id);
+    expect(eintrag).toMatchObject({
+      art: "Sitzung",
+      anmeldbar: false,
+      teilnahmeOffen: false,
+      teilnehmende: [],
+    });
+    const anmeldbar = liste.programme.find((p: { id: string }) => p.id === jfA);
+    expect(anmeldbar).toMatchObject({ anmeldbar: true, teilnahmeOffen: true });
+    expect(anmeldbar.teilnehmende).not.toHaveLength(0);
+  });
+
+  test("ohne Art ist nichts anmeldbar; eine Freigabe gilt sofort, ihr Entzug auch", async () => {
+    const eltern = await person("elternJfA");
+    const ohneArt = (
+      await legeProgrammAn(db, {
+        einheitId: welt.einheit.jfA,
+        beginn: IN_ZEHN_TAGEN(),
+        art: null,
+      })
+    ).id;
+    expect((await melde(eltern, ohneArt, welt.teilnehmende.jfA)).status).toBe(
+      409,
+    );
+    const kurs = (
+      await legeProgrammAn(db, {
+        einheitId: welt.einheit.jfA,
+        beginn: IN_ZEHN_TAGEN(),
+        art: "Kurs",
+        anmeldbar: false,
+      })
+    ).id;
+    expect((await melde(eltern, kurs, welt.teilnehmende.jfA)).status).toBe(409);
+    await db
+      .update(schema.einheit)
+      .set({ anmeldeArten: ["Übung", "Kurs"] })
+      .where(eq(schema.einheit.id, welt.einheit.jfA));
+    expect((await melde(eltern, kurs, welt.teilnehmende.jfA)).status).toBe(204);
+    // Wieder abgewählt: die Antwort bleibt gespeichert, ändern geht nicht mehr
+    await db
+      .update(schema.einheit)
+      .set({ anmeldeArten: ["Übung"] })
+      .where(eq(schema.einheit.id, welt.einheit.jfA));
+    expect(
+      (await melde(eltern, kurs, welt.teilnehmende.jfA, "nein")).status,
+    ).toBe(409);
+    expect(
+      await db
+        .select()
+        .from(schema.teilnahme)
+        .where(eq(schema.teilnahme.programmId, kurs)),
+    ).toHaveLength(1);
   });
 });

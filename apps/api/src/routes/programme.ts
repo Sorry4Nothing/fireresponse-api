@@ -19,6 +19,7 @@ import { abzeichen, abzeichenFelder } from "../abzeichen-anzeige.js";
 import {
   ANMELDEFENSTER_STANDARD,
   anmeldungAb,
+  anmeldbar,
   antwortOffen,
   fensterOffen,
   schweizerDatum,
@@ -52,7 +53,7 @@ const teilnahmePfad = z.strictObject({
 });
 const teilnahmeSchema = z.strictObject({ status: z.enum(["ja", "nein"]) });
 
-// Ein Satz Felder für Liste und Detail; nie einheit_id als Eingabe, google_event_id oder google_serie. Die Anmeldung öffnet `tage` Tage vor dem Beginn; teilnahmeOffen: aktiv, nicht begonnen und im Fenster
+// Ein Satz Felder für Liste und Detail; nie einheit_id als Eingabe, google_event_id oder google_serie. Die Anmeldung öffnet `tage` Tage vor dem Beginn; teilnahmeOffen: aktiv, nicht begonnen, im Fenster und anmeldbar. anmeldbar: Die Einheit hat die Art des Termins für die Anmeldung freigegeben; sonst gibt es für ihn keine Anmeldung
 const programmFelder = (tage: number) => ({
   id: programm.id,
   titel: programm.titel,
@@ -62,6 +63,8 @@ const programmFelder = (tage: number) => ({
   ende: programm.ende,
   tagVon: programm.tagVon,
   tagBis: programm.tagBis,
+  art: programm.art,
+  anmeldbar,
   anmeldungAb: anmeldungAb(tage),
   teilnahmeOffen: antwortOffen(tage),
   einheitId: einheit.id,
@@ -101,6 +104,7 @@ export function erstelleProgrammRouten({
       .select({
         begonnen: sql<boolean>`${programmBeginn} <= now()`,
         aktiv: sql<boolean>`programm.status = 'aktiv'`,
+        anmeldbar,
         fensterOffen: fensterOffen(anmeldefensterTage),
         ab: anmeldungAb(anmeldefensterTage),
       })
@@ -108,6 +112,11 @@ export function erstelleProgrammRouten({
       .where(eq(programm.id, programmId));
     return zeile;
   }
+
+  const keineAnmeldung = {
+    code: "KEINE_ANMELDUNG",
+    message: "Für diesen Termin gibt es keine Anmeldung.",
+  };
 
   // Der Tag, an dem die Anmeldung öffnet, steht in der Meldung; eigener Code per c.json wie bei den übrigen 409
   const fensterZu = (ab: string) => ({
@@ -215,7 +224,8 @@ export function erstelleProgrammRouten({
       return c.json({
         programme: programme.map((p) => ({
           ...ausgabe(p),
-          teilnehmende: eigene.get(p.id) ?? [],
+          // Ohne Anmeldung gibt es nichts zu beantworten
+          teilnehmende: p.anmeldbar ? (eigene.get(p.id) ?? []) : [],
         })),
       });
     })
@@ -236,7 +246,7 @@ export function erstelleProgrammRouten({
       if (!zeile) throw new HTTPException(404);
       // Nur wer sich anmelden dürfte, bekommt den Schlüssel; undefined fällt aus dem JSON, für alle anderen fehlt er
       let eigeneAnmeldung: Antwort | undefined;
-      if (hatRolleIn(person, zeile.einheitId)) {
+      if (zeile.anmeldbar && hatRolleIn(person, zeile.einheitId)) {
         const [anmeldung] = await db
           .select({ status: leitungAnmeldung.status })
           .from(leitungAnmeldung)
@@ -248,7 +258,9 @@ export function erstelleProgrammRouten({
           );
         eigeneAnmeldung = anmeldung?.status ?? "offen";
       }
-      const eigene = (await eigeneTeilnehmende(person, [id])).get(id) ?? [];
+      const eigene = zeile.anmeldbar
+        ? ((await eigeneTeilnehmende(person, [id])).get(id) ?? [])
+        : [];
       return c.json({
         ...ausgabe(zeile),
         teilnehmende: eigene,
@@ -340,6 +352,7 @@ export function erstelleProgrammRouten({
         const { einheitId } = await ladeSichtbar(person, id);
         if (!hatRolleIn(person, einheitId)) throw new HTTPException(403);
         const stand = await antwortStand(id);
+        if (!stand.anmeldbar) return c.json(keineAnmeldung, 409);
         // Eigener Code per c.json: onError machte aus einem unbekannten HTTPException-Status den allgemeinen Text
         if (stand.begonnen) {
           return c.json(
@@ -390,6 +403,7 @@ export function erstelleProgrammRouten({
         if (!ziel) throw new HTTPException(404);
         if (ziel.inaktivSeit) throw new HTTPException(403);
         const stand = await antwortStand(id);
+        if (!stand.anmeldbar) return c.json(keineAnmeldung, 409);
         if (!stand.aktiv || stand.begonnen) {
           return c.json(
             {

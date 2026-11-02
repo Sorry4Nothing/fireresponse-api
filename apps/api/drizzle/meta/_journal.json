@@ -45,6 +45,13 @@
       "breakpoints": true
     },
     {
+      "idx": 6,
+      "version": "7",
+      "when": 1793629600000,
+      "tag": "0006_lodur_html_arten",
+      "breakpoints": true
+    },
+    {
       "idx": 7,
       "version": "7",
       "when": 1793629668337,

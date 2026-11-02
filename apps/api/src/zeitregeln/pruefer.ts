@@ -14,7 +14,11 @@ import {
 } from "../db/schema.js";
 import { fehlerCode, log } from "../log.js";
 import { type Fcm, sendePush } from "../push.js";
-import { ANMELDEFENSTER_STANDARD, fensterOffen } from "../anmeldefenster.js";
+import {
+  ANMELDEFENSTER_STANDARD,
+  anmeldbar,
+  fensterOffen,
+} from "../anmeldefenster.js";
 import { aktivesKonto, programmBeginn } from "../rechte.js";
 import { ausloesezeit, kurzDatum } from "./ausloesezeit.js";
 
@@ -60,6 +64,7 @@ export async function sendeFaelligeErinnerungen(
         roh`${programmBeginn} > ${jetzt.toISOString()}`,
         roh`${programmBeginn} <= ${new Date(jetzt.getTime() + VORLAUF_MS).toISOString()}`,
         fensterOffen(anmeldefensterTage, jetzt),
+        anmeldbar,
       ),
     );
   if (programme.length === 0) return;

@@ -189,6 +189,15 @@ beforeAll(async () => {
     })
   ).id;
 
+  // Ohne Anmeldung (Art nicht freigegeben): Alle wären «offen»; der Termin zählt nicht in die Quote
+  await legeProgrammAn(db, {
+    einheitId: a,
+    titel: "Sitzung ohne Anmeldung",
+    beginn: new Date("2025-03-25T18:00:00Z"),
+    art: "Sitzung",
+    anmeldbar: false,
+  });
+
   const tn = welt.teilnehmende;
   // T1: Person ja, Person2 nein, Wechsel offen
   await antwort(termin.t1, tn.jfA, "ja", konto.elternJfA.id!);

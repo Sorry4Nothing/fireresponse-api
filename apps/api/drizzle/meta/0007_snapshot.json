@@ -1,6 +1,6 @@
 {
   "id": "20694fec-07c6-42f4-9e1f-960ce4829734",
-  "prevId": "81d25c46-04d2-4924-9b2d-b324bb438a6d",
+  "prevId": "9b7ffa02-f26e-4f25-8f20-b0d543de1bbd",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -308,6 +308,12 @@
         "logo_bild_typ": {
           "name": "logo_bild_typ",
           "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "anmelde_arten": {
+          "name": "anmelde_arten",
+          "type": "text[]",
           "primaryKey": false,
           "notNull": false
         }
@@ -728,6 +734,12 @@
         },
         "inhalt_hash": {
           "name": "inhalt_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "art": {
+          "name": "art",
           "type": "text",
           "primaryKey": false,
           "notNull": false
