@@ -932,6 +932,11 @@ th.zahl {
   max-width: 30rem;
 }
 
+/* Im Seitenblatt ist es schmal: Die Tabelle bricht um, statt waagrecht zu scrollen */
+.blatt .tabelle {
+  min-width: 0;
+}
+
 .aktionen {
   display: flex;
   flex-wrap: wrap;
