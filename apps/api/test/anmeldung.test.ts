@@ -304,6 +304,51 @@ describe("GET /api/v1/programme/:id/teilnahmen", () => {
     );
   });
 
+  test("Teilnehmende und Leitende tragen ihr Abzeichen; ohne Rang null", async () => {
+    const kommando = await person("kommandoJfA");
+    await db
+      .update(schema.teilnehmende)
+      .set({ rangId: welt.rangId })
+      .where(eq(schema.teilnehmende.id, welt.teilnehmende.jfA));
+    await db
+      .update(schema.einheitRolle)
+      .set({ rangId: welt.rangId })
+      .where(eq(schema.einheitRolle.userId, kommando.id!));
+    try {
+      const koerper = await lies(
+        kommando,
+        `/api/v1/programme/${jfA}/teilnahmen`,
+      );
+      const erwartet = { kuerzel: "R1", sterne: 1, bildUrl: null };
+      expect(
+        koerper.teilnehmende.find(
+          (t: { id: string }) => t.id === welt.teilnehmende.jfA,
+        ).abzeichen,
+      ).toEqual(erwartet);
+      expect(
+        koerper.leitende.find((l: { id: string }) => l.id === kommando.id)
+          .abzeichen,
+      ).toEqual(erwartet);
+      // Die Hilfsfelder des Rangs gehören nicht in die Antwort
+      expect(JSON.stringify(koerper)).not.toContain("rangId");
+      expect(
+        koerper.teilnehmende.every(
+          (t: { id: string; abzeichen: unknown }) =>
+            t.id === welt.teilnehmende.jfA || t.abzeichen === null,
+        ),
+      ).toBe(true);
+    } finally {
+      await db
+        .update(schema.teilnehmende)
+        .set({ rangId: null })
+        .where(eq(schema.teilnehmende.id, welt.teilnehmende.jfA));
+      await db
+        .update(schema.einheitRolle)
+        .set({ rangId: null })
+        .where(eq(schema.einheitRolle.userId, kommando.id!));
+    }
+  });
+
   test("Kantonsadmin und Leitende sehen dieselbe Übersicht", async () => {
     const [admin, leitung] = await Promise.all([
       person("kantonsadmin"),
