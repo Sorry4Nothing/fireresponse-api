@@ -53,6 +53,7 @@ const app = erstelleApp({
     }),
   },
   seiten: ladeSeiten(),
+  lodurErlaubteHosts: ["kalender.example.org"],
 });
 afterAll(() => sql.end());
 
@@ -343,6 +344,20 @@ const MATRIX: Record<string, Zeile> = {
     // Jede Anfrage verbraucht ihre Regel: eine frische pro Persona
     urlJeAnfrage: async () =>
       `/api/v1/admin/einheiten/${welt.einheit.jfA}/zeitregeln/${await wegwerfRegelId()}`,
+    erwartet: VERWALTEN_JF_A(204),
+  },
+  // Lodur-Link der Einheit: Kantonsadmin, Kommandant und Stellvertretungen; der Link kommt nie zurück, nur der Host (test/admin-lodur.test.ts)
+  "GET /api/v1/admin/einheiten/:einheitId/lodur": {
+    url: (w) => `/api/v1/admin/einheiten/${w.einheit.jfA}/lodur`,
+    erwartet: VERWALTEN_JF_A(200),
+  },
+  "PUT /api/v1/admin/einheiten/:einheitId/lodur": {
+    url: (w) => `/api/v1/admin/einheiten/${w.einheit.jfA}/lodur`,
+    body: () => ({ url: "https://kalender.example.org/ical/matrix" }),
+    erwartet: VERWALTEN_JF_A(200),
+  },
+  "DELETE /api/v1/admin/einheiten/:einheitId/lodur": {
+    url: (w) => `/api/v1/admin/einheiten/${w.einheit.jfA}/lodur`,
     erwartet: VERWALTEN_JF_A(204),
   },
   // Profilbild (#173): Jede Person mit Sitzung lädt ihr eigenes hoch und löscht es; nur die Person selbst, nie eine andere. Typ, Grösse und Rate-Limit prüft test/profilbild.test.ts

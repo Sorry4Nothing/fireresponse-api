@@ -13,6 +13,25 @@ const schema = z.object({
   // Freiwillig: Verantwortliche Stelle und ihre E-Mail-Adresse für /datenschutz, /konto-loeschen und /support; ohne sie nennen die Seiten weder Stelle noch Adresse
   VERANTWORTLICHE_STELLE: z.string().trim().min(1).max(200).optional(),
   KONTAKT_EMAIL: z.email().optional(),
+  // Freiwillig: Hosts, von denen die API Lodur-Kalender abruft, kommagetrennt (SR-26). Ohne Eintrag nimmt die API keinen Link an und synchronisiert nichts
+  LODUR_ERLAUBTE_HOSTS: z
+    .string()
+    .transform((t) =>
+      t
+        .split(",")
+        .map((h) => h.trim().toLowerCase())
+        .filter(Boolean),
+    )
+    .pipe(
+      z.array(
+        z
+          .string()
+          .regex(
+            /^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/,
+          ),
+      ),
+    )
+    .optional(),
   // Tage vor dem Termin, ab denen sich anmelden lässt; ein Wert für alle Einheiten
   ANMELDEFENSTER_TAGE: z.coerce.number().int().min(1).max(365).default(42),
 });

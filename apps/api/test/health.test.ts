@@ -15,6 +15,7 @@ import { erstelleDb } from "../src/db/client.js";
 import { ladeSeiten } from "../src/seiten.js";
 import { erstelleTestAuth } from "./hilfen/auth.js";
 import { API_URL } from "./hilfen/datenbank.js";
+import { zurueckgerollt } from "./transaktion.js";
 
 const sql = postgres(API_URL);
 const db = erstelleDb(sql);
@@ -60,5 +61,42 @@ describe("/health", () => {
     const [grund] = logEintraege();
     expect(grund).toMatchObject({ ereignis: "health" });
     expect(JSON.stringify(grund)).not.toContain("localhost");
+  });
+
+  // Jede Einheit in der Transaktion, die zurückrollt: Andere Testdateien rufen /health auf und dürfen die Zeilen nie sehen
+  test("meldet «sync-veraltet», wenn der Sync einer Einheit seit einer Stunde nicht gelang", async () => {
+    await zurueckgerollt(sql, async (tx) => {
+      const [bezirk] =
+        await tx`insert into bezirk (name) values (${`Health ${Date.now()}`}) returning id`;
+      const [einheit] =
+        await tx`insert into einheit (bezirk_id, typ, name, lodur_url_verschluesselt, sync_ok_am)
+        values (${bezirk!.id}, 'jf', 'Health', 'x', now() - interval '61 minutes') returning id`;
+      const gesund = async () => {
+        const res = await health(tx as unknown as Sql);
+        return [res.status, await res.text()];
+      };
+      expect(await gesund()).toEqual([503, "sync-veraltet"]);
+      // Nur der Code im Log, weder Einheit noch Link
+      expect(logEintraege().find((e) => e.ereignis === "health")).toMatchObject(
+        {
+          ereignis: "health",
+          code: "sync-veraltet",
+        },
+      );
+      expect(JSON.stringify(logEintraege())).not.toContain(einheit!.id);
+
+      await tx`update einheit set sync_ok_am = now() - interval '59 minutes' where id = ${einheit!.id}`;
+      expect(await gesund()).toEqual([200, "ok"]);
+
+      // Vor dem ersten Erfolg zählt der Zeitpunkt, an dem der Link eingetragen wurde
+      await tx`update einheit set sync_ok_am = null, lodur_url_gesetzt_am = now() - interval '61 minutes' where id = ${einheit!.id}`;
+      expect(await gesund()).toEqual([503, "sync-veraltet"]);
+      await tx`update einheit set lodur_url_gesetzt_am = now() where id = ${einheit!.id}`;
+      expect(await gesund()).toEqual([200, "ok"]);
+
+      // Ohne Link gibt es nichts zu synchronisieren
+      await tx`update einheit set lodur_url_verschluesselt = null, sync_ok_am = now() - interval '5 days' where id = ${einheit!.id}`;
+      expect(await gesund()).toEqual([200, "ok"]);
+    });
   });
 });
