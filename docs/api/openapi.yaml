@@ -3140,7 +3140,7 @@ paths:
       tags:
         - Verwaltung
       description: |
-        Kommando, Stellvertretungen und Kantonsadmin (mit zweitem Faktor), nur in der Einheit im Pfad. Ändert Vor- und Nachname (das eigene Konto der Person trägt den Namen mit), Rang (`null` entfernt ihn; ein Rang einer anderen Einheit ist 400) und `aktiv`: `false` setzt die Person auf inaktiv (sie bleibt erhalten, antwortet aber nicht mehr), `true` macht sie wieder aktiv. Die Änderung steht im Audit-Log ohne Namen.
+        Kommando, Stellvertretungen und Kantonsadmin (mit zweitem Faktor), nur in der Einheit im Pfad. Ändert Vor- und Nachname (das eigene Konto der Person trägt den Namen mit), Rang (`null` entfernt ihn; ein Rang einer anderen Einheit oder vom Typ `miliz` ist 400: Miliz-Ränge gehören den Leitenden) und `aktiv`: `false` setzt die Person auf inaktiv (sie bleibt erhalten, antwortet aber nicht mehr), `true` macht sie wieder aktiv. Die Änderung steht im Audit-Log ohne Namen.
 
         Statuscodes: 204, 400, 401, 403, 404, 426, 429.
       parameters:

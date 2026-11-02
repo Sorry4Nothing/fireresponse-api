@@ -594,6 +594,39 @@ describe("Teilnehmende", () => {
     });
   });
 
+  test("Miliz-Ränge gehören den Leitenden: Teilnehmende bekommen keinen, Leitende schon", async () => {
+    const kdt = await person("kommandoJfA");
+    const [miliz] = await db
+      .insert(schema.rang)
+      .values({
+        einheitId: welt.einheit.jfA,
+        name: "Oberst",
+        kuerzel: "Oberst",
+        reihenfolge: 90,
+        typ: "miliz",
+      })
+      .returning({ id: schema.rang.id });
+    const id = welt.teilnehmende.jfA;
+    expect(
+      (await senden(kdt, "PATCH", url(`/${id}`), { rangId: miliz.id })).status,
+    ).toBe(400);
+    expect(
+      (
+        await senden(kdt, "POST", url(), {
+          vorname: "Mi",
+          nachname: "Liz",
+          rangId: miliz.id,
+        })
+      ).status,
+    ).toBe(400);
+    // Die Leitenden derselben Einheit können ihn wählen
+    const leitung = await person("leitendeJfA");
+    expect(
+      (await senden(kdt, "PATCH", konto(leitung.id!), { rangId: miliz.id }))
+        .status,
+    ).toBe(204);
+  });
+
   test("fremde Ränge und Personen anderer Einheiten werden abgelehnt", async () => {
     const [kdt, kdtKfA] = await Promise.all([
       person("kommandoJfA"),

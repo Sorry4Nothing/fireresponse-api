@@ -168,6 +168,9 @@ export function abzeichen(rang, groesse = "m") {
   return knoten;
 }
 
+// Miliz-Ränge gehören den Leitenden; für Teilnehmende gibt die API sie nicht frei
+export const ohneMiliz = (raenge) => raenge.filter((r) => r.typ !== "miliz");
+
 // Auswahl für ein Feld «Rang»: «Kein Rang» und alle Ränge der Einheit
 export function raengeAuswahl(raenge, wert, label = "Rang") {
   return auswahl({
