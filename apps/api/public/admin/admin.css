@@ -3,34 +3,35 @@
 :root {
   color-scheme: dark;
 
-  --surface: #161620; /* surface */
-  --karte: #17172a; /* surface-container-low */
-  --leiste: #1e1f38; /* surface-container */
-  --erhoben: #23244a; /* surface-container-high */
-  --text: #ededeb; /* on-surface */
-  --leise: #ababa6; /* on-surface-variant */
-  --rand: #8a8a90; /* outline: Felder und Knöpfe */
-  --rand-leise: #2c2c44; /* outline-variant: nur Karten und Trennlinien */
+  --surface: #0f1114; /* surface */
+  --karte: #181b20; /* surface-container-low */
+  --leiste: #22262d; /* surface-container */
+  --erhoben: #2b3039; /* surface-container-high */
+  --text: #f2f3f5; /* on-surface */
+  --leise: #9ba0aa; /* on-surface-variant */
+  --rand: #7d8493; /* outline: Felder und Knöpfe */
+  --rand-leise: #323741; /* outline-variant: nur Karten und Trennlinien */
 
-  --rot: #c41333; /* primary */
-  --rot-text: #ff7a8a; /* primary-text */
-  --blau: #323394; /* secondary */
-  --blau-f: #23244a; /* secondary-container */
-  --auf-blau-f: #dcddf9; /* on-secondary-container */
-  --akzent: #a9abf2; /* accent */
-  --fokus: #a9abf2; /* focus */
+  --rot: #c8141a; /* primary */
+  --rot-text: #ff8a82; /* primary-text */
+  --blau: #465060; /* secondary */
+  --blau-f: #2b3039; /* secondary-container */
+  --auf-blau-f: #e3e6eb; /* on-secondary-container */
+  --akzent: #ffd21f; /* accent */
+  --fokus: #ffd21f; /* focus */
 
-  --ok-f: #16271d; /* success-container */
-  --ok: #6fd39a; /* on-success-container */
-  --fe-f: #2e1519; /* error-container */
-  --fe: #ff8e9a; /* on-error-container */
-  --wa-f: #2a2312; /* warning-container */
-  --wa: #f2c063; /* on-warning-container */
-  --st-f: #0f2a31; /* stufe-container */
-  --st: #7fd0e3; /* on-stufe-container */
+  --ok-f: #10301f; /* success-container */
+  --ok: #34d17a; /* on-success-container */
+  --fe-f: #3a1214; /* error-container */
+  --fe: #ff8a86; /* on-error-container */
+  --wa-f: #3a3000; /* warning-container */
+  --wa: #ffd21f; /* on-warning-container */
+  --st-f: #112a47; /* stufe-container */
+  --st: #5aa2ff; /* on-stufe-container */
 
+  --tab-sel: rgba(255, 210, 31, 0.16); /* tab-selected */
   --schleier: rgba(0, 0, 0, 0.6); /* scrim */
-  --schatten: 0 8px 24px rgba(0, 0, 0, 0.5); /* elevation-float */
+  --schatten: 0 8px 24px rgba(0, 0, 0, 0.55); /* elevation-float */
 
   --schrift:
     system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
@@ -287,10 +288,10 @@ a.punkt:hover {
   color: var(--text);
 }
 
-/* Aktiv: Blau, dazu ein kräftigerer Strich am Symbol */
+/* Aktiv: Akzent auf getöntem Grund, dazu ein kräftigerer Strich am Symbol */
 a.punkt[aria-current="page"] {
-  background: var(--blau);
-  color: #ffffff;
+  background: var(--tab-sel);
+  color: var(--akzent);
 }
 
 a.punkt[aria-current="page"] .i {
