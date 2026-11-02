@@ -57,6 +57,13 @@
       "when": 1793629668337,
       "tag": "0007_rang_typ",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793637019631,
+      "tag": "0008_miliz_raenge",
+      "breakpoints": true
     }
   ]
 }

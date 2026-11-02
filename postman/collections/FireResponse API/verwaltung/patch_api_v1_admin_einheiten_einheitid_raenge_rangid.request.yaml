@@ -1,6 +1,6 @@
 $kind: http-request
 name: "PATCH /api/v1/admin/einheiten/:einheitId/raenge/:rangId"
-order: 76000
+order: 75000
 method: PATCH
 url: "{{baseUrl}}/api/v1/admin/einheiten/{{einheit_jfA}}/raenge/{{bildRangId}}"
 headers:
@@ -17,4 +17,4 @@ headers:
 body:
   type: json
   content: |-
-    {{body_75}}
+    {{body_74}}
