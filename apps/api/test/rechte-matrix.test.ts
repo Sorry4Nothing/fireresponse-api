@@ -53,6 +53,7 @@ const app = erstelleApp({
     }),
   },
   seiten: ladeSeiten(),
+  lodurErlaubteHosts: ["kalender.example.org"],
 });
 afterAll(() => sql.end());
 
@@ -119,6 +120,20 @@ const VERWALTEN_JF_A = (erlaubt: number) =>
     deaktiviert: 401,
     ohneLogin: 401,
   }) as Record<Persona, number>;
+
+// Auswertung ohne Objekt in der URL: Wer eine Einheit verwaltet (Kantonsadmin, Kommandant, Stellvertretung) bekommt die Zahlen der eigenen Einheiten, auch das Kommando von KF A und JF B; Leitende und Eltern 403. Die Zahlen jeder Einheit prüft test/auswertung.test.ts
+const AUSWERTEN = {
+  ...alle(403),
+  kantonsadmin: 200,
+  kommandoJfA: 200,
+  stellvertretung1JfA: 200,
+  stellvertretung2JfA: 200,
+  kommandoKfA: 200,
+  kommandoJfB: 200,
+  deaktiviert: 401,
+  ohneLogin: 401,
+} as Record<Persona, number>;
+const JAHR_2025 = "von=2025-01-01&bis=2025-12-31";
 
 const MATRIX: Record<string, Zeile> = {
   "GET /health": { erwartet: alle(200) },
@@ -271,6 +286,16 @@ const MATRIX: Record<string, Zeile> = {
       ...SPERREN,
     },
   },
+  // Kontakt der Einheit (Kommandant/in): sichtbar für alle, die die Einheit sehen; die Nummer nur für Eltern und Teilnehmende darin (test/termine.test.ts)
+  "GET /api/v1/einheiten/:einheitId/kontakt": {
+    url: (w) => `/api/v1/einheiten/${w.einheit.jfA}/kontakt`,
+    erwartet: { ...SEHEN_JF_A, ...SPERREN },
+  },
+  // Bild eines Rang-Abzeichens von JF A: wer die Einheit sieht, sieht es (test/termine.test.ts)
+  "GET /api/v1/raenge/:id/abzeichen": {
+    url: () => `/api/v1/raenge/${abzeichenRangId}/abzeichen`,
+    erwartet: { ...SEHEN_JF_A, ...SPERREN },
+  },
   // Betriebszahlen (#143): nur das Konto des Kantonsadmins mit zweitem Faktor; Inhalt in test/admin-system.test.ts
   "GET /api/v1/admin/system": {
     erwartet: {
@@ -323,6 +348,20 @@ const MATRIX: Record<string, Zeile> = {
       `/api/v1/admin/einheiten/${welt.einheit.jfA}/zeitregeln/${await wegwerfRegelId()}`,
     erwartet: VERWALTEN_JF_A(204),
   },
+  // Lodur-Link der Einheit: Kantonsadmin, Kommandant und Stellvertretungen; der Link kommt nie zurück, nur der Host (test/admin-lodur.test.ts)
+  "GET /api/v1/admin/einheiten/:einheitId/lodur": {
+    url: (w) => `/api/v1/admin/einheiten/${w.einheit.jfA}/lodur`,
+    erwartet: VERWALTEN_JF_A(200),
+  },
+  "PUT /api/v1/admin/einheiten/:einheitId/lodur": {
+    url: (w) => `/api/v1/admin/einheiten/${w.einheit.jfA}/lodur`,
+    body: () => ({ url: "https://kalender.example.org/ical/matrix" }),
+    erwartet: VERWALTEN_JF_A(200),
+  },
+  "DELETE /api/v1/admin/einheiten/:einheitId/lodur": {
+    url: (w) => `/api/v1/admin/einheiten/${w.einheit.jfA}/lodur`,
+    erwartet: VERWALTEN_JF_A(204),
+  },
   // Profilbild (#173): Jede Person mit Sitzung lädt ihr eigenes hoch und löscht es; nur die Person selbst, nie eine andere. Typ, Grösse und Rate-Limit prüft test/profilbild.test.ts
   "PUT /api/v1/ich/bild": {
     bild: true,
@@ -357,12 +396,43 @@ const MATRIX: Record<string, Zeile> = {
     }),
     erwartet: { ...alle(204), ...SPERREN },
   },
+  // Auswertung auf Basis der Anmeldungen (E7), nur lesend; Inhalte und Mandantentrennung in test/auswertung.test.ts
+  "GET /api/v1/admin/auswertung/filter": { erwartet: AUSWERTEN },
+  "GET /api/v1/admin/auswertung/termine": {
+    url: () => `/api/v1/admin/auswertung/termine?${JAHR_2025}`,
+    erwartet: AUSWERTEN,
+  },
+  "GET /api/v1/admin/auswertung/quoten": {
+    url: () => `/api/v1/admin/auswertung/quoten?${JAHR_2025}`,
+    erwartet: AUSWERTEN,
+  },
+  "GET /api/v1/admin/auswertung/jahr": {
+    url: () => "/api/v1/admin/auswertung/jahr?jahr=2025",
+    erwartet: AUSWERTEN,
+  },
+  "GET /api/v1/admin/auswertung/termine/:id": {
+    url: () => `/api/v1/admin/auswertung/termine/${programmId}`,
+    erwartet: VERWALTEN_JF_A(200),
+  },
+  "GET /api/v1/admin/auswertung/einheiten/:einheitId/teilnehmende/:id": {
+    url: (w) =>
+      `/api/v1/admin/auswertung/einheiten/${w.einheit.jfA}/teilnehmende/${w.teilnehmende.jfA}?${JAHR_2025}`,
+    erwartet: VERWALTEN_JF_A(200),
+  },
+  "GET /api/v1/admin/auswertung/einheiten/:einheitId/leitende/:id": {
+    url: (w) =>
+      `/api/v1/admin/auswertung/einheiten/${w.einheit.jfA}/leitende/${standard.kommandoJfA.id}?${JAHR_2025}`,
+    erwartet: VERWALTEN_JF_A(200),
+  },
+  // Statische Datei der Verwaltung (Auswertung)
+  "GET /admin/auswertung.js": { erwartet: alle(200) },
 };
 
 let welt: Welt;
 let standard: Record<Persona, PersonaKonto>;
 let programmId: string;
 let offenProgrammId: string;
+let abzeichenRangId: string;
 let patchRegelId: string;
 let bildZielId: string;
 let kontoZiel: string;
@@ -414,14 +484,30 @@ async function personasAnlegen(w: Welt) {
 beforeAll(async () => {
   welt = await erstelleWelt(db, auth);
   standard = await personasAnlegen(welt);
-  // Programme von JF A für die Objekt-Routen: eines mit Beginn im März 2027, eines in einem Jahr (offen für Anmeldungen)
+  // Programme von JF A für die Objekt-Routen: eines mit Beginn im März 2027, eines in zehn Tagen (offen für Anmeldungen, im Anmeldefenster)
   programmId = (await legeProgrammAn(db, { einheitId: welt.einheit.jfA })).id;
   offenProgrammId = (
     await legeProgrammAn(db, {
       einheitId: welt.einheit.jfA,
-      beginn: new Date(Date.now() + 365 * 86_400_000),
+      beginn: new Date(Date.now() + 10 * 86_400_000),
     })
   ).id;
+  // Ein Rang mit eigenem Bild (PNG), den die Route ausliefert
+  [{ id: abzeichenRangId }] = await db
+    .insert(schema.rang)
+    .values({
+      einheitId: welt.einheit.jfA,
+      name: "Rang Bild",
+      kuerzel: "RB",
+      reihenfolge: 2,
+      abzeichenBild: await sharp({
+        create: { width: 8, height: 8, channels: 3, background: "#cc3333" },
+      })
+        .png()
+        .toBuffer(),
+      abzeichenBildTyp: "png",
+    })
+    .returning({ id: schema.rang.id });
   patchRegelId = await wegwerfRegelId();
   kontoZiel = (await wegwerfKonto()).benutzername;
   testBild = await sharp({
@@ -642,9 +728,11 @@ describe.runIf(process.env.POSTMAN_EXPORT)("Postman-Export", () => {
       ),
       programmId,
       offenProgrammId,
+      abzeichenRangId,
       patchRegelId,
       bildZielId,
       elternJfAUserId: standard.elternJfA.id!,
+      kommandoJfAUserId: standard.kommandoJfA.id!,
     };
     const ersetze = (text: string) =>
       Object.entries(ids).reduce(

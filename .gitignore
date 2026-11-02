@@ -45,7 +45,6 @@ Thumbs.db
 # FireResponse: lokale Anweisungen
 AGENTS.md
 docs/agents/
-deploy/Caddyfile
 deploy/secrets/
 .vscode/
 .idea/

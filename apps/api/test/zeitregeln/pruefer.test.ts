@@ -164,7 +164,7 @@ describe("Erinnerungen", () => {
         body: "Bitte Waldtag bis heute beantworten",
       },
       data: { typ: "programm", id: p.id },
-      android: { notification: { channelId: "programme" } },
+      android: { notification: { channelId: "termine" } },
     });
     // Weder Vorname noch Nachname im Push
     expect(JSON.stringify(nachrichten[0])).not.toMatch(/Person|Test/);
@@ -388,5 +388,38 @@ describe("Erinnerungen", () => {
 
     await lauf(AUSLOESUNG);
     expect(nachrichten).toHaveLength(0);
+  });
+
+  test("nur im Anmeldefenster: vorher keine Erinnerung, ab dem Öffnungstag eine", async () => {
+    const w = await neueWelt();
+    const eltern = await w.konto("offen");
+    await w.personVon([eltern]);
+    await w.programm();
+    await w.regel();
+    // 2 Tage: Die Anmeldung öffnet am Mi 29.10., einen Tag nach der Auslösezeit der Regel
+    const mitFenster = (jetzt: Date) =>
+      sendeFaelligeErinnerungen({ db, fcm, anmeldefensterTage: 2 }, jetzt);
+
+    await mitFenster(AUSLOESUNG);
+    await mitFenster(new Date("2026-10-28T22:59:00Z"));
+    expect(nachrichten).toHaveLength(0);
+
+    // Mitternacht in Zürich (MEZ) ist 23:00 UTC
+    await mitFenster(new Date("2026-10-28T23:00:00Z"));
+    expect(w.empfaenger()).toEqual(["offen"]);
+  });
+
+  test("ein weites Fenster hält die Erinnerung nicht zurück", async () => {
+    const w = await neueWelt();
+    const eltern = await w.konto("offen");
+    await w.personVon([eltern]);
+    await w.programm();
+    await w.regel();
+
+    await sendeFaelligeErinnerungen(
+      { db, fcm, anmeldefensterTage: 365 },
+      AUSLOESUNG,
+    );
+    expect(w.empfaenger()).toEqual(["offen"]);
   });
 });

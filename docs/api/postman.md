@@ -20,6 +20,7 @@ Voraussetzung: PostgreSQL aus `docker-compose.yml` läuft, `npm ci` ist gelaufen
    ```sh
    DATABASE_URL=postgres://fireresponse_api@localhost:5432/fireresponse_test APP_MIN_VERSION=0.1.0 PORT=3999 \
    BETTER_AUTH_SECRET=better-auth-secret-12345678901234567890 BETTER_AUTH_URL=https://fireresponse.invalid \
+   LODUR_ERLAUBTE_HOSTS=kalender.example.org \
    BETTER_AUTH_TRUSTED_ORIGINS=testapp:// npx tsx src/server.ts
    ```
 

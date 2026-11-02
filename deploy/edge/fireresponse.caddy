@@ -1,0 +1,12 @@
+# Seite der API für den Edge-Caddy; sie gehört in dessen Ordner sites/ (docs/betrieb.md, «Edge-Caddy»). Die Domain muss auf die IP des Servers zeigen, Caddy holt das Zertifikat selbst
+api.fireresponse.ch {
+	# HSTS ein Jahr, auch für Subdomains; -Server nimmt die Kennung von Caddy aus den Antworten
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+		-Server
+	}
+	# Der Alias steht im Netz edge-fireresponse (deploy/docker-compose.prod.yml)
+	reverse_proxy fireresponse-api:3000
+}

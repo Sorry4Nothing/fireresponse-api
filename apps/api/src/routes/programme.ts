@@ -9,14 +9,24 @@ import {
   leitungAnmeldung,
   profilbild,
   programm,
+  rang,
   teilnahme,
   teilnehmende,
   teilnehmendeKonto,
   user,
 } from "../db/schema.js";
+import { abzeichen, abzeichenFelder } from "../abzeichen.js";
+import {
+  ANMELDEFENSTER_STANDARD,
+  anmeldungAb,
+  antwortOffen,
+  fensterOffen,
+  schweizerDatum,
+} from "../anmeldefenster.js";
 import { bildUrl } from "../bild.js";
 import { pushAnmeldung } from "../anmeldung-push.js";
 import { eingabe } from "../eingabe.js";
+import { ladeKontakt } from "../kontakt.js";
 import type { Fcm } from "../push.js";
 import {
   aktivesKonto,
@@ -42,8 +52,8 @@ const teilnahmePfad = z.strictObject({
 });
 const teilnahmeSchema = z.strictObject({ status: z.enum(["ja", "nein"]) });
 
-// Ein Satz Felder für Liste und Detail; nie einheit_id als Eingabe, google_event_id oder google_serie
-const programmFelder = {
+// Ein Satz Felder für Liste und Detail; nie einheit_id als Eingabe, google_event_id oder google_serie. Die Anmeldung öffnet `tage` Tage vor dem Beginn; teilnahmeOffen: aktiv, nicht begonnen und im Fenster
+const programmFelder = (tage: number) => ({
   id: programm.id,
   titel: programm.titel,
   status: programm.status,
@@ -52,55 +62,69 @@ const programmFelder = {
   ende: programm.ende,
   tagVon: programm.tagVon,
   tagBis: programm.tagBis,
-  googleOrt: programm.googleOrt,
-  googleBeschreibung: programm.googleBeschreibung,
+  anmeldungAb: anmeldungAb(tage),
+  teilnahmeOffen: antwortOffen(tage),
   einheitId: einheit.id,
   einheitName: einheit.name,
   einheitTyp: einheit.typ,
-};
+});
 
 type ProgrammZeile = {
-  googleBeschreibung: string | null;
   einheitId: string;
   einheitName: string;
   einheitTyp: "jf" | "kf";
 };
 
-// Die Einheit als Objekt; die Beschreibung aus der Planung sehen nur Kommando und Leitende der Einheit und das Kantonsadmin-Konto
-function ausgabe<T extends ProgrammZeile>(person: Person, zeile: T) {
-  const { einheitId, einheitName, einheitTyp, googleBeschreibung, ...rest } =
-    zeile;
+// Die Einheit als Objekt
+function ausgabe<T extends ProgrammZeile>(zeile: T) {
+  const { einheitId, einheitName, einheitTyp, ...rest } = zeile;
   return {
     ...rest,
     einheit: { id: einheitId, name: einheitName, typ: einheitTyp },
-    googleBeschreibung:
-      person.kantonsadmin || hatRolleIn(person, einheitId)
-        ? googleBeschreibung
-        : null,
   };
 }
 
-export function erstelleProgrammRouten({ db, fcm }: { db: Db; fcm?: Fcm }) {
-  // Aktiv und noch nicht begonnen: nur dann lässt sich die Teilnahme melden und ändern
-  async function teilnahmeOffen(programmId: string) {
+export function erstelleProgrammRouten({
+  db,
+  fcm,
+  anmeldefensterTage = ANMELDEFENSTER_STANDARD,
+}: {
+  db: Db;
+  fcm?: Fcm;
+  anmeldefensterTage?: number;
+}) {
+  const felder = programmFelder(anmeldefensterTage);
+
+  // Stand für das Antworten; die Uhr der Datenbank entscheidet, nicht JavaScript
+  async function antwortStand(programmId: string) {
     const [zeile] = await db
-      .select({ id: programm.id })
+      .select({
+        begonnen: sql<boolean>`${programmBeginn} <= now()`,
+        aktiv: sql<boolean>`programm.status = 'aktiv'`,
+        fensterOffen: fensterOffen(anmeldefensterTage),
+        ab: anmeldungAb(anmeldefensterTage),
+      })
       .from(programm)
-      .where(
-        and(
-          eq(programm.id, programmId),
-          eq(programm.status, "aktiv"),
-          sql`${programmBeginn} > now()`,
-        ),
-      );
-    return !!zeile;
+      .where(eq(programm.id, programmId));
+    return zeile;
   }
+
+  // Der Tag, an dem die Anmeldung öffnet, steht in der Meldung; eigener Code per c.json wie bei den übrigen 409
+  const fensterZu = (ab: string) => ({
+    code: "ANMELDEFENSTER_NICHT_OFFEN",
+    message: `Die Anmeldung öffnet am ${schweizerDatum(ab)}.`,
+  });
 
   // Nur die eigenen, aktiven Teilnehmenden der Einheit des Programms, für alle Programme in einer Abfrage
   async function eigeneTeilnehmende(person: Person, programmIds: string[]) {
     const nachProgramm = new Map<
       string,
-      { id: string; vorname: string; status: "ja" | "nein" | null }[]
+      {
+        id: string;
+        vorname: string;
+        status: "ja" | "nein" | null;
+        abzeichen: ReturnType<typeof abzeichen>;
+      }[]
     >();
     if (programmIds.length === 0) return nachProgramm;
     const zeilen = await db
@@ -109,6 +133,7 @@ export function erstelleProgrammRouten({ db, fcm }: { db: Db; fcm?: Fcm }) {
         id: teilnehmende.id,
         vorname: teilnehmende.vorname,
         status: teilnahme.status,
+        ...abzeichenFelder,
       })
       .from(teilnehmende)
       .innerJoin(
@@ -132,12 +157,24 @@ export function erstelleProgrammRouten({ db, fcm }: { db: Db; fcm?: Fcm }) {
           eq(teilnahme.programmId, programm.id),
         ),
       )
+      .leftJoin(
+        rang,
+        and(
+          eq(rang.id, teilnehmende.rangId),
+          eq(rang.einheitId, teilnehmende.einheitId),
+        ),
+      )
       .where(isNull(teilnehmende.inaktivSeit))
       .orderBy(teilnehmende.vorname, teilnehmende.id);
-    for (const { programmId, ...eintrag } of zeilen) {
-      const liste = nachProgramm.get(programmId) ?? [];
-      liste.push(eintrag);
-      nachProgramm.set(programmId, liste);
+    for (const z of zeilen) {
+      const liste = nachProgramm.get(z.programmId) ?? [];
+      liste.push({
+        id: z.id,
+        vorname: z.vorname,
+        status: z.status,
+        abzeichen: abzeichen(z),
+      });
+      nachProgramm.set(z.programmId, liste);
     }
     return nachProgramm;
   }
@@ -159,7 +196,7 @@ export function erstelleProgrammRouten({ db, fcm }: { db: Db; fcm?: Fcm }) {
       const { von, bis } = c.req.valid("query");
       const einheiten = await einheitenFuer(db, person, "lesen");
       const programme = await db
-        .select(programmFelder)
+        .select(felder)
         .from(programm)
         .innerJoin(einheit, eq(einheit.id, programm.einheitId))
         .where(
@@ -177,7 +214,7 @@ export function erstelleProgrammRouten({ db, fcm }: { db: Db; fcm?: Fcm }) {
       );
       return c.json({
         programme: programme.map((p) => ({
-          ...ausgabe(person, p),
+          ...ausgabe(p),
           teilnehmende: eigene.get(p.id) ?? [],
         })),
       });
@@ -187,7 +224,12 @@ export function erstelleProgrammRouten({ db, fcm }: { db: Db; fcm?: Fcm }) {
       const { id } = c.req.valid("param");
       const einheiten = await einheitenFuer(db, person, "lesen");
       const [zeile] = await db
-        .select(programmFelder)
+        .select({
+          ...felder,
+          thema: programm.thema,
+          info: programm.info,
+          aufgebot: programm.aufgebot,
+        })
         .from(programm)
         .innerJoin(einheit, eq(einheit.id, programm.einheitId))
         .where(and(eq(programm.id, id), programmSichtbar(einheiten)));
@@ -208,9 +250,9 @@ export function erstelleProgrammRouten({ db, fcm }: { db: Db; fcm?: Fcm }) {
       }
       const eigene = (await eigeneTeilnehmende(person, [id])).get(id) ?? [];
       return c.json({
-        ...ausgabe(person, zeile),
-        teilnahmeOffen: await teilnahmeOffen(id),
+        ...ausgabe(zeile),
         teilnehmende: eigene,
+        kontakt: await ladeKontakt(db, person, zeile.einheitId, id),
         eigeneAnmeldung,
       });
     })
@@ -297,13 +339,9 @@ export function erstelleProgrammRouten({ db, fcm }: { db: Db; fcm?: Fcm }) {
         const { status } = c.req.valid("json");
         const { einheitId } = await ladeSichtbar(person, id);
         if (!hatRolleIn(person, einheitId)) throw new HTTPException(403);
-        // Die Uhr der Datenbank entscheidet, nicht JavaScript
-        const [zeile] = await db
-          .select({ begonnen: sql<boolean>`${programmBeginn} <= now()` })
-          .from(programm)
-          .where(eq(programm.id, id));
+        const stand = await antwortStand(id);
         // Eigener Code per c.json: onError machte aus einem unbekannten HTTPException-Status den allgemeinen Text
-        if (zeile.begonnen) {
+        if (stand.begonnen) {
           return c.json(
             {
               code: "PROGRAMM_BEGONNEN",
@@ -312,6 +350,7 @@ export function erstelleProgrammRouten({ db, fcm }: { db: Db; fcm?: Fcm }) {
             409,
           );
         }
+        if (!stand.fensterOffen) return c.json(fensterZu(stand.ab), 409);
         await db
           .insert(leitungAnmeldung)
           .values({ programmId: id, userId: person.id, status })
@@ -350,7 +389,8 @@ export function erstelleProgrammRouten({ db, fcm }: { db: Db; fcm?: Fcm }) {
           );
         if (!ziel) throw new HTTPException(404);
         if (ziel.inaktivSeit) throw new HTTPException(403);
-        if (!(await teilnahmeOffen(id))) {
+        const stand = await antwortStand(id);
+        if (!stand.aktiv || stand.begonnen) {
           return c.json(
             {
               code: "PROGRAMM_GESCHLOSSEN",
@@ -360,6 +400,7 @@ export function erstelleProgrammRouten({ db, fcm }: { db: Db; fcm?: Fcm }) {
             409,
           );
         }
+        if (!stand.fensterOffen) return c.json(fensterZu(stand.ab), 409);
         // Ohne Zeile in returning blieb der Wert gleich: Das löst keinen Push aus
         const geaendert = await db
           .insert(teilnahme)

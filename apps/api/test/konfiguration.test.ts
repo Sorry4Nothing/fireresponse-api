@@ -38,7 +38,20 @@ test("liest die Werte und übergeht andere Variablen", () => {
     PORT: 3000,
     BETTER_AUTH_SECRET: GUELTIG.BETTER_AUTH_SECRET,
     BETTER_AUTH_URL: "http://localhost:3000",
+    ANMELDEFENSTER_TAGE: 42,
   });
+});
+
+test("ANMELDEFENSTER_TAGE: eigener Wert, Standard 42, nur 1 bis 365", () => {
+  expect(
+    ladeKonfiguration({ ...GUELTIG, ANMELDEFENSTER_TAGE: "14" })
+      .ANMELDEFENSTER_TAGE,
+  ).toBe(14);
+  for (const wert of ["0", "366", "4.5", "viele", ""]) {
+    expect(meldung({ ...GUELTIG, ANMELDEFENSTER_TAGE: wert })).toBe(
+      "Fehlende oder ungültige Umgebungsvariablen: ANMELDEFENSTER_TAGE",
+    );
+  }
 });
 
 describe.each(Object.keys(UNGUELTIG) as (keyof typeof UNGUELTIG)[])(
@@ -135,4 +148,32 @@ test("VERANTWORTLICHE_STELLE und KONTAKT_EMAIL sind freiwillig und müssen gült
   expect(meldung({ ...GUELTIG, VERANTWORTLICHE_STELLE: "  " })).toBe(
     "Fehlende oder ungültige Umgebungsvariablen: VERANTWORTLICHE_STELLE",
   );
+});
+
+test("LODUR_ERLAUBTE_HOSTS ist freiwillig, kommagetrennt, kleingeschrieben und nur aus Hostnamen", () => {
+  expect(ladeKonfiguration(GUELTIG).LODUR_ERLAUBTE_HOSTS).toBeUndefined();
+  expect(
+    ladeKonfiguration({
+      ...GUELTIG,
+      LODUR_ERLAUBTE_HOSTS: " Kalender.Example.org , zwei.example.net,",
+    }).LODUR_ERLAUBTE_HOSTS,
+  ).toEqual(["kalender.example.org", "zwei.example.net"]);
+  expect(
+    ladeKonfiguration({ ...GUELTIG, LODUR_ERLAUBTE_HOSTS: "" })
+      .LODUR_ERLAUBTE_HOSTS,
+  ).toEqual([]);
+  // Kein Schema, kein Port, kein Pfad, keine Zugangsdaten, keine Adresse, kein Platzhalter
+  for (const falsch of [
+    "https://kalender.example.org",
+    "kalender.example.org:443",
+    "kalender.example.org/pfad",
+    "nutzer@kalender.example.org",
+    "127.0.0.1",
+    "localhost",
+    "*.example.org",
+  ]) {
+    expect(meldung({ ...GUELTIG, LODUR_ERLAUBTE_HOSTS: falsch }), falsch).toBe(
+      "Fehlende oder ungültige Umgebungsvariablen: LODUR_ERLAUBTE_HOSTS",
+    );
+  }
 });
