@@ -1,0 +1,34 @@
+name: Erinnerung Rücksicherungstest
+
+# Legt am ersten Tag jedes Quartals ein Issue an; den Test selbst läuft von Hand auf dem Server (docs/betrieb.md, «Prüfung einmal pro Quartal»)
+on:
+  schedule:
+    - cron: "0 6 1 1,4,7,10 *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  erinnern:
+    name: Issue anlegen
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Issue anlegen
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          quartal="$(date -u +%Y)-Q$(( ($(date -u +%-m) - 1) / 3 + 1 ))"
+          gh issue create --repo "$REPO" --assignee "$OWNER" --label betrieb --label security \
+            --title "Rücksicherungstest $quartal" \
+            --body "Auf dem Server \`deploy/backup.sh pruefen\` ausführen (siehe docs/betrieb.md, «Prüfung einmal pro Quartal»).
+
+          - [ ] Letzter Stand liegt im Archiv (\`snapshots\` zeigt einen Stand von gestern oder heute)
+          - [ ] \`deploy/backup.sh pruefen\` läuft durch, die Zeilenzahlen passen zum Live-Stand
+          - [ ] Stichproben in psql sind plausibel
+          - [ ] Nur Zahlen und Ergebnis hier eintragen, keine Daten
+          - [ ] Issue schliessen"

@@ -9,21 +9,26 @@ if [[ $# -ne 1 || ! $1 =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
 fi
 cd "$(dirname "$0")"
 # Fehlt die Schlüsseldatei, legt Docker an ihrer Stelle ein leeres Verzeichnis an
-for datei in .env Caddyfile secrets/fcm-service-account.json; do
+for datei in .env secrets/fcm-service-account.json; do
   if [[ ! -f $datei ]]; then
     echo "Fehlt oder ist keine Datei: deploy/$datei" >&2
     exit 1
   fi
 done
+# Das Netz legt der Edge-Caddy an (deploy/edge/); ohne ihn käme die API nicht ins Internet
+if ! docker network inspect edge-fireresponse >/dev/null 2>&1; then
+  echo "Fehlt: Docker-Netz edge-fireresponse. Erst den Edge-Caddy starten (docs/betrieb.md, «Edge-Caddy»)" >&2
+  exit 1
+fi
 export TAG=$1
 
 compose() {
   docker compose -f docker-compose.prod.yml "$@"
 }
 
-echo "Images von postgres und caddy aktualisieren" >&2
-# Die Korrekturen hinter den Tags postgres:18 und caddy:2 kommen nur so
-compose pull postgres caddy
+echo "Image von postgres aktualisieren" >&2
+# Die Korrekturen hinter dem Tag postgres:18 kommen nur so
+compose pull postgres
 compose up -d --wait --wait-timeout 120 postgres
 
 ./backup.sh
@@ -47,9 +52,9 @@ neustart=0
 compose up -d --wait --wait-timeout 120 || neustart=$?
 
 # Nur exponierte, nicht veröffentlichte Ports erscheinen als 0
-belegt=$(compose ps --format '{{.Service}}{{range .Publishers}}{{if .PublishedPort}} {{.PublishedPort}}{{end}}{{end}}' | awk '$1 != "caddy" && NF > 1')
+belegt=$(compose ps --format '{{.Service}}{{range .Publishers}}{{if .PublishedPort}} {{.PublishedPort}}{{end}}{{end}}' | awk 'NF > 1')
 if [[ -n $belegt ]]; then
-  echo "Nur caddy darf Ports veröffentlichen. Diese Dienste werden gestoppt (Dienst und Ports):" >&2
+  echo "Kein Dienst dieses Stacks darf Ports veröffentlichen, das tut nur der Edge-Caddy. Diese Dienste werden gestoppt (Dienst und Ports):" >&2
   echo "$belegt" >&2
   mapfile -t dienste < <(cut -d ' ' -f 1 <<<"$belegt")
   compose stop "${dienste[@]}"
