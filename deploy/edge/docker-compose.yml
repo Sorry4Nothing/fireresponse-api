@@ -1,0 +1,40 @@
+# Edge-Caddy für alle Stacks auf dem Server. Vorlage: Die drei Dateien dieses Ordners kommen einmal in einen eigenen Ordner auf dem Server, ausserhalb des Checkouts (docs/betrieb.md, «Edge-Caddy»)
+name: edge
+
+services:
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    # Ohne Root; NET_BIND_SERVICE nur für die Ports 80 und 443
+    user: "1000:1000"
+    read_only: true
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    security_opt: ["no-new-privileges:true"]
+    # journald löscht nach Alter (14 Tage, docs/betrieb.md); json-file rotiert ohne Optionen nie
+    logging:
+      driver: journald
+    # Der einzige Dienst auf dem Server mit Ports: Docker öffnet veröffentlichte Ports an der Firewall vorbei
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Eine Datei je Stack; neue Dateien nimmt caddy reload auf
+      - ./sites:/etc/caddy/sites:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    # Je Stack ein eigenes Netz, damit sich die Stacks untereinander nicht erreichen; Caddy hängt an allen
+    networks:
+      - edge-fireresponse
+      # - edge-<weiterer Stack>
+
+networks:
+  # Der Stack fireresponse nimmt es als externes Netz (deploy/docker-compose.prod.yml)
+  edge-fireresponse:
+    name: edge-fireresponse
+  # Für einen weiteren Stack ein weiteres Netz mit eigenem Namen: edge-<name>
+
+volumes:
+  caddy_data:
+  caddy_config:

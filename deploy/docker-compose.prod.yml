@@ -1,7 +1,8 @@
 # Produktion auf dem Server; deploy.sh rollt sie aus. Die Werte stehen in deploy/.env (Vorlage: .env.example)
+# Kein Dienst hier veröffentlicht einen Port: Die Ports 80 und 443 gehören dem Edge-Caddy (deploy/edge/), der die API über das Netz «edge» erreicht
 name: fireresponse
 
-# Für jeden Dienst. Ohne Root laufen caddy und postgres über user, api und migration über USER im Dockerfile
+# Für jeden Dienst. Ohne Root laufen postgres über user, api und migration über USER im Dockerfile
 x-gehaertet: &gehaertet
   read_only: true
   cap_drop: [ALL]
@@ -11,22 +12,6 @@ x-gehaertet: &gehaertet
     driver: journald
 
 services:
-  caddy:
-    <<: *gehaertet
-    image: caddy:2
-    restart: unless-stopped
-    user: "1000:1000"
-    # Nur für die Ports 80 und 443 ohne Root
-    cap_add: [NET_BIND_SERVICE]
-    # Der einzige Dienst mit Ports: Docker öffnet veröffentlichte Ports an der Firewall vorbei
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
-
   api:
     <<: *gehaertet
     image: ghcr.io/sorry4nothing/fireresponse-api:${TAG:-}
@@ -42,6 +27,9 @@ services:
       ANMELDEFENSTER_TAGE: ${ANMELDEFENSTER_TAGE:-42}
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?fehlt in deploy/.env}
       BETTER_AUTH_URL: ${BETTER_AUTH_URL:?fehlt in deploy/.env}
+      # Für /datenschutz, /konto-loeschen und /support; die Stores verlangen sie
+      VERANTWORTLICHE_STELLE: ${VERANTWORTLICHE_STELLE:?fehlt in deploy/.env}
+      KONTAKT_EMAIL: ${KONTAKT_EMAIL:?fehlt in deploy/.env}
       FCM_SCHLUESSEL_DATEI: /run/secrets/fcm-service-account.json
       PORT: "3000"
     # Für den Cache von tsx
@@ -55,8 +43,12 @@ services:
         # Sonst legt Docker für eine fehlende Datei ein leeres Verzeichnis an
         bind:
           create_host_path: false
-    # intern zur Datenbank; default für Caddy und den Weg nach aussen (Pwned Passwords und FCM)
-    networks: [intern, default]
+    # intern zur Datenbank; edge für den Edge-Caddy und den Weg nach aussen (Pwned Passwords und FCM)
+    networks:
+      intern:
+      edge:
+        # Eindeutig, denn der Edge-Caddy hängt an den Netzen mehrerer Stacks, und «api» hiesse dort bei jedem Stack gleich
+        aliases: [fireresponse-api]
     depends_on:
       postgres:
         condition: service_healthy
@@ -114,7 +106,7 @@ services:
   # Startet nur über docker compose run in backup.sh; legt verschlüsselte Backups auf dem S3-Speicher ab
   backup:
     <<: *gehaertet
-    # Exakt gepinnt; Dependabot überwacht nur npm und GitHub Actions, das Image wird von Hand nachgeführt
+    # Exakt gepinnt; Dependabot schlägt neue Versionen per PR vor
     image: restic/restic:0.19.1
     profiles: [backup]
     # Das Image setzt keinen Benutzer, sonst liefe restic als Root
@@ -142,8 +134,10 @@ networks:
   # Ohne Weg nach aussen: Postgres erreichen nur api und migration
   intern:
     internal: true
+  # Legt der Edge-Caddy an (deploy/edge/docker-compose.yml); ohne ihn startet die API nicht
+  edge:
+    name: edge-fireresponse
+    external: true
 
 volumes:
   postgres:
-  caddy_data:
-  caddy_config:

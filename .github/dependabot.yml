@@ -15,6 +15,22 @@ updates:
       - dependency-name: "typescript"
         versions: [">=6.1.0"]
 
+  # Basis-Image des API-Images
+  - package-ecosystem: docker
+    directory: /apps/api
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+
+  # Images der Compose-Dateien auf dem Server (postgres, caddy, restic)
+  - package-ecosystem: docker-compose
+    directories: [/deploy, /deploy/edge]
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+
   # Versionen der Actions in .github/workflows
   - package-ecosystem: github-actions
     directory: /
