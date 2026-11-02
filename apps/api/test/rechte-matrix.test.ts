@@ -497,7 +497,7 @@ const MATRIX: Record<string, Zeile> = {
   "PATCH /api/v1/admin/einheiten/:einheitId/personen/:userId": {
     url: (w) =>
       `/api/v1/admin/einheiten/${w.einheit.jfA}/personen/${leitungZielId}`,
-    body: () => ({ rangId: welt.rangId }),
+    body: () => ({ rangId: milizRangId }),
     erwartet: VERWALTEN_JF_A(204),
   },
   "GET /api/v1/admin/einheiten/:einheitId/personen/:userId/startpasswort": {
@@ -751,6 +751,7 @@ let standard: Record<Persona, PersonaKonto>;
 let leitungZielId: string;
 let offenesKontoId: string;
 let bildRangId: string;
+let milizRangId: string;
 let alleRangIds: string[] = [];
 let naechsterWegwerfRang = 700;
 let programmId: string;
@@ -936,6 +937,17 @@ beforeAll(async () => {
       reihenfolge: 2,
       abzeichenBild: abzeichenSvg,
       abzeichenBildTyp: "svg",
+    })
+    .returning({ id: schema.rang.id });
+  // Leitende tragen Miliz-Ränge
+  [{ id: milizRangId }] = await db
+    .insert(schema.rang)
+    .values({
+      einheitId: welt.einheit.jfA,
+      name: "Miliz-Rang",
+      kuerzel: "MR",
+      reihenfolge: 2,
+      typ: "miliz",
     })
     .returning({ id: schema.rang.id });
   alleRangIds = [welt.rangId, abzeichenRangId, bildRangId];
@@ -1162,6 +1174,7 @@ describe.runIf(process.env.POSTMAN_EXPORT)("Postman-Export", () => {
       bezirkAId: welt.bezirkAId,
       bezirkBId: welt.bezirkBId,
       rangId: welt.rangId,
+      milizRangId,
       ...Object.fromEntries(
         Object.entries(welt.einheit).map(([k, v]) => [`einheit_${k}`, v]),
       ),

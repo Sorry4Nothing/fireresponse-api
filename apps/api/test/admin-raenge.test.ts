@@ -201,8 +201,8 @@ describe("Ändern, Ordnen", () => {
     const nr = 777;
     await legeRangAn({ typ: "miliz", reihenfolge: nr });
     const jf = await legeRangAn({ typ: "jf", reihenfolge: nr });
-    const miliz = await legeRangAn({ typ: "miliz" });
-    const doppelt = await senden(kommando(), "PATCH", `${basis()}/${miliz}`, {
+    const zweiter = await legeRangAn({ typ: "jf" });
+    const doppelt = await senden(kommando(), "PATCH", `${basis()}/${zweiter}`, {
       reihenfolge: nr,
     });
     expect(doppelt.status).toBe(409);
@@ -210,6 +210,24 @@ describe("Ändern, Ordnen", () => {
       (await senden(kommando(), "PATCH", `${basis()}/${jf}`, { typ: "miliz" }))
         .status,
     ).toBe(409);
+  });
+
+  test("Miliz-Ränge sind fest: ändern, löschen und ordnen gibt 403", async () => {
+    const miliz = await legeRangAn({ typ: "miliz", name: "Major" });
+    expect(
+      (await senden(kommando(), "PATCH", `${basis()}/${miliz}`, { name: "X" }))
+        .status,
+    ).toBe(403);
+    expect(
+      (await senden(kommando(), "DELETE", `${basis()}/${miliz}`)).status,
+    ).toBe(403);
+    const ids = (await liste())
+      .filter((r) => r.typ === "miliz")
+      .map((r) => r.id);
+    expect(
+      (await senden(kommando(), "PUT", `${basis()}/reihenfolge`, { ids }))
+        .status,
+    ).toBe(403);
   });
 
   test("der Typ gilt je Rang: änderbar, nur kf, jf oder miliz", async () => {

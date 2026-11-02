@@ -2940,7 +2940,7 @@ paths:
         - Verwaltung
       description: |
         Kommando, Stellvertretungen und Kantonsadmin (mit zweitem Faktor), nur in der Einheit im Pfad. Konten, die auch zu einer anderen Einheit gehören, ändert nur der Kantonsadmin (409 `KONTO_GEMEINSAM`). Das Kommando ändert nur der Kantonsadmin, eine Stellvertretung nur das Kommando oder der Kantonsadmin (sonst 403). Am eigenen Konto: 409 `EIGENES_KONTO`. Die Aktion steht im Audit-Log ohne Passwort und ohne Namen.
-        Der Rang ist die einzige Änderung, die jede Person der Verwaltung an jedem Konto der Einheit darf (auch am eigenen und am Kommando); er hängt an der Rolle, Eltern haben keinen. Eine Nummer speichern nur Kommando und Stellvertretungen, entfernen geht immer (`""`). Der Name einer Person mit eigenem Konto ändert sich bei den Teilnehmenden (sonst 400).
+        Der Rang ist die einzige Änderung, die jede Person der Verwaltung an jedem Konto der Einheit darf (auch am eigenen und am Kommando); er hängt an der Rolle, Eltern haben keinen, und es gehen nur Miliz-Ränge der Einheit (sonst 400). Eine Nummer speichern nur Kommando und Stellvertretungen, entfernen geht immer (`""`). Der Name einer Person mit eigenem Konto ändert sich bei den Teilnehmenden (sonst 400).
 
         Statuscodes: 204, 400, 401, 403, 404, 409, 426, 429.
       parameters:
@@ -3272,7 +3272,7 @@ paths:
       tags:
         - Verwaltung
       description: |
-        Kommando, Stellvertretungen und Kantonsadmin (mit zweitem Faktor). Mindestens ein Feld. `abzeichenSterne` (0 bis 2) ersetzt ein eigenes Bild; `null` lässt das Bild stehen.
+        Kommando, Stellvertretungen und Kantonsadmin (mit zweitem Faktor). Mindestens ein Feld. `abzeichenSterne` (0 bis 2) ersetzt ein eigenes Bild; `null` lässt das Bild stehen. Miliz-Ränge sind fest: Ändern, Ordnen, Löschen und ihr Abzeichen ändern geben 403.
 
         Statuscodes: 204, 400, 401, 403, 404, 409, 426, 429.
       parameters:

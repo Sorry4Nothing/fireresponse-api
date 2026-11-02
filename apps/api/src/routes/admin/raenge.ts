@@ -52,10 +52,18 @@ export function erstelleRangRouten({ db }: { db: Db }) {
         id: rang.id,
         typ: rang.abzeichenBildTyp,
         bild: rang.abzeichenBild,
+        rangTyp: rang.typ,
       })
       .from(rang)
       .where(and(eq(rang.id, rangId), eq(rang.einheitId, einheitId)));
     if (!zeile) throw new HTTPException(404);
+    return zeile;
+  }
+
+  // Die Miliz-Ränge sind die festen Dienstgrade: Name, Abzeichen und Reihenfolge ändern sich nicht
+  async function zeigeAenderbarenRang(einheitId: string, rangId: string) {
+    const zeile = await zeigeRang(einheitId, rangId);
+    if (zeile.rangTyp === "miliz") throw new HTTPException(403);
     return zeile;
   }
 
@@ -134,6 +142,10 @@ export function erstelleRangRouten({ db }: { db: Db }) {
             const vorhanden = alle.filter(
               (r) => r.typ === alle.find((a) => a.id === ids[0])?.typ,
             );
+            // Die Miliz-Hierarchie ist fest
+            if (vorhanden.some((r) => r.typ === "miliz")) {
+              throw new HTTPException(403);
+            }
             // Genau die Ränge dieses Typs in der Einheit, keiner fehlt und keiner ist fremd
             if (
               vorhanden.length !== ids.length ||
@@ -183,7 +195,7 @@ export function erstelleRangRouten({ db }: { db: Db }) {
           const { einheitId, rangId } = c.req.valid("param");
           const felder = c.req.valid("json");
           await pruefeEinheit(db, person, einheitId, "verwalten");
-          await zeigeRang(einheitId, rangId);
+          await zeigeAenderbarenRang(einheitId, rangId);
           await mitReihenfolgeKonflikt(() =>
             db.transaction(async (tx) => {
               await tx
@@ -224,7 +236,7 @@ export function erstelleRangRouten({ db }: { db: Db }) {
           const { einheitId, rangId } = c.req.valid("param");
           const { verschiebenNach } = c.req.valid("query");
           await pruefeEinheit(db, person, einheitId, "verwalten");
-          await zeigeRang(einheitId, rangId);
+          await zeigeAenderbarenRang(einheitId, rangId);
           await db.transaction(async (tx) => {
             if (verschiebenNach !== undefined) {
               const [ziel] = await tx
@@ -295,7 +307,7 @@ export function erstelleRangRouten({ db }: { db: Db }) {
           const person = c.get("person");
           const { einheitId, rangId } = c.req.valid("param");
           await pruefeEinheit(db, person, einheitId, "verwalten");
-          await zeigeRang(einheitId, rangId);
+          await zeigeAenderbarenRang(einheitId, rangId);
           let bild;
           try {
             bild = pruefeAbzeichen(new Uint8Array(await c.req.arrayBuffer()));
@@ -333,7 +345,7 @@ export function erstelleRangRouten({ db }: { db: Db }) {
         const person = c.get("person");
         const { einheitId, rangId } = c.req.valid("param");
         await pruefeEinheit(db, person, einheitId, "verwalten");
-        await zeigeRang(einheitId, rangId);
+        await zeigeAenderbarenRang(einheitId, rangId);
         await db.transaction(async (tx) => {
           await tx
             .update(rang)

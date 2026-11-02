@@ -162,6 +162,9 @@ export const rangZelle = (rang) =>
 // Miliz-Ränge gehören den Leitenden; für Teilnehmende gibt die API sie nicht frei
 export const ohneMiliz = (raenge) => raenge.filter((r) => r.typ !== "miliz");
 
+// Leitende tragen nur Miliz-Ränge
+export const nurMiliz = (raenge) => raenge.filter((r) => r.typ === "miliz");
+
 // Auswahl für ein Feld «Rang»: «Kein Rang» und alle Ränge der Einheit
 export function raengeAuswahl(raenge, wert, label = "Rang") {
   return auswahl({
@@ -555,32 +558,34 @@ function zeichne(bereich, ctx, einheit, raenge, neu) {
           !r.abzeichen && chip("Kein Abzeichen"),
         ),
       ),
-      el(
-        "div",
-        { class: "aktionen" },
-        knopf("", {
-          art: "rund",
-          symbol: "hoch",
-          "aria-label": `${r.name} nach oben`,
-          disabled: i === 0,
-          "data-fokus": `${r.id}:hoch`,
-          onclick: () => verschiebe(r, -1),
-        }),
-        knopf("", {
-          art: "rund",
-          symbol: "runter",
-          "aria-label": `${r.name} nach unten`,
-          disabled: i === gruppe.length - 1,
-          "data-fokus": `${r.id}:runter`,
-          onclick: () => verschiebe(r, 1),
-        }),
-        knopf("Bearbeiten", {
-          klein: true,
-          symbol: "bearbeiten",
-          kontext: r.name,
-          onclick: () => blatt(r, einheit, raenge, ctx, neu),
-        }),
-      ),
+      r.typ === "miliz"
+        ? null
+        : el(
+            "div",
+            { class: "aktionen" },
+            knopf("", {
+              art: "rund",
+              symbol: "hoch",
+              "aria-label": `${r.name} nach oben`,
+              disabled: i === 0,
+              "data-fokus": `${r.id}:hoch`,
+              onclick: () => verschiebe(r, -1),
+            }),
+            knopf("", {
+              art: "rund",
+              symbol: "runter",
+              "aria-label": `${r.name} nach unten`,
+              disabled: i === gruppe.length - 1,
+              "data-fokus": `${r.id}:runter`,
+              onclick: () => verschiebe(r, 1),
+            }),
+            knopf("Bearbeiten", {
+              klein: true,
+              symbol: "bearbeiten",
+              kontext: r.name,
+              onclick: () => blatt(r, einheit, raenge, ctx, neu),
+            }),
+          ),
     );
   };
   // Jeder Typ hat seine eigene Hierarchie: eine Liste je Typ
