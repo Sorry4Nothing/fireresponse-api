@@ -13,6 +13,7 @@ import type { Fcm } from "./push.js";
 import { erstelleMetriken } from "./metriken.js";
 import { personAusSitzung, zweiterFaktorPflicht } from "./rechte.js";
 import { erstelleEinheitenRouten } from "./routes/admin/einheiten.js";
+import { erstelleKontenRouten } from "./routes/admin/konten.js";
 import { erstelleSystemRouten } from "./routes/admin/system.js";
 import { erstelleZeitregelRouten } from "./routes/admin/zeitregeln.js";
 import { erstelleEinwilligungRouten } from "./routes/einwilligung.js";
@@ -164,6 +165,7 @@ export function erstelleApp({
         "/api/v1/admin/einheiten/:einheitId/zeitregeln",
         erstelleZeitregelRouten({ db }),
       )
+      .route("/api/v1/admin/konten", erstelleKontenRouten({ db }))
       .route("/api/v1/admin/system", erstelleSystemRouten({ sql, metriken }))
       .route("/api/v1/push-token", erstellePushTokenRouten({ db }))
       .get("/health", async (c) => {

@@ -135,6 +135,7 @@ const MATRIX: Record<string, Zeile> = {
   "GET /admin/dom.js": { erwartet: alle(200) },
   "GET /admin/favicon.svg": { erwartet: alle(200) },
   "GET /admin/hintergrund.svg": { erwartet: alle(200) },
+  "GET /admin/konten.js": { erwartet: alle(200) },
   "GET /admin/system.js": { erwartet: alle(200) },
   "GET /admin/uebersicht.js": { erwartet: alle(200) },
   "GET /.well-known/apple-app-site-association": { erwartet: alle(200) },
@@ -337,6 +338,17 @@ const MATRIX: Record<string, Zeile> = {
     url: () => `/api/v1/personen/${bildZielId}/bild`,
     erwartet: { ...SEHEN_JF_A, ...SPERREN },
   },
+  // Konto löschen (test/konto-loeschen.test.ts): Ziel ist eine Leitung von JF A. Wer die Einheit nicht sieht, bekommt 404; Leitende, Eltern und Teilnehmende der Einheit sehen das Konto, dürfen es aber nicht löschen (403)
+  "GET /api/v1/admin/konten": {
+    url: () => `/api/v1/admin/konten?benutzername=${kontoZiel}`,
+    erwartet: VERWALTEN_JF_A(200),
+  },
+  "DELETE /api/v1/admin/konten/:userId": {
+    // Jede Anfrage verbraucht ihr Konto: eines pro Persona
+    urlJeAnfrage: async () =>
+      `/api/v1/admin/konten/${(await wegwerfKonto()).id}`,
+    erwartet: VERWALTEN_JF_A(204),
+  },
   "PUT /api/v1/push-token": {
     // Eigenes Token pro Persona: Die Zeile schreibt nur auf die eigene Sitzung, darum keine frischen Personas
     body: (konto) => ({
@@ -353,7 +365,28 @@ let programmId: string;
 let offenProgrammId: string;
 let patchRegelId: string;
 let bildZielId: string;
+let kontoZiel: string;
 let testBild: Buffer;
+
+// Eine Leitung von JF A ohne Passwort, direkt eingefügt
+async function wegwerfKonto() {
+  const benutzername = `wegwerf.${randomUUID().slice(0, 8)}`;
+  const [zeile] = await welt.db
+    .insert(schema.user)
+    .values({
+      name: "Wegwerf Konto",
+      email: `${randomUUID()}@example.org`,
+      username: benutzername,
+      mussPasswortAendern: false,
+    })
+    .returning({ id: schema.user.id });
+  await welt.db.insert(schema.einheitRolle).values({
+    userId: zeile.id,
+    einheitId: welt.einheit.jfA,
+    typ: "leitung",
+  });
+  return { id: zeile.id, benutzername };
+}
 
 async function wegwerfRegelId() {
   const [zeile] = await welt.db
@@ -390,6 +423,7 @@ beforeAll(async () => {
     })
   ).id;
   patchRegelId = await wegwerfRegelId();
+  kontoZiel = (await wegwerfKonto()).benutzername;
   testBild = await sharp({
     create: { width: 64, height: 64, channels: 3, background: "#3366cc" },
   })
@@ -680,7 +714,8 @@ describe.runIf(process.env.POSTMAN_EXPORT)("Postman-Export", () => {
         werte[`body_${z.n}`] = bodyJePersona(z, persona);
       for (const z of zeilen.filter((z) => z.zielJeAnfrage)) {
         const url = await MATRIX[z.schluessel].urlJeAnfrage!();
-        werte[`ziel_${z.n}`] = uuid.exec(url.split("/zeitregeln/")[1])![0];
+        // Das Ziel ist die letzte UUID im Pfad
+        werte[`ziel_${z.n}`] = url.match(new RegExp(uuid, "g"))!.at(-1)!;
       }
       const geheim = new Set(["cookie", "passwort"]);
       await writeFile(

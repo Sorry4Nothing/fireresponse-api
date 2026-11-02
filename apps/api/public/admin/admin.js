@@ -1,5 +1,6 @@
 import { ApiFehler, anfrage, beiSitzungsende, fehlertext } from "./api.js";
 import { avatar, codefeld, el, feld, icon, knopf, kopf, leere } from "./dom.js";
+import * as konten from "./konten.js";
 import * as system from "./system.js";
 import * as uebersicht from "./uebersicht.js";
 
@@ -11,6 +12,13 @@ const BEREICHE = [
     uebersicht,
     "uebersicht",
     "Zustand der API auf einen Blick.",
+  ],
+  [
+    "konten",
+    "Konto löschen",
+    konten,
+    "papierkorb",
+    "Ein Konto endgültig löschen, nach Rückfrage.",
   ],
   [
     "system",
