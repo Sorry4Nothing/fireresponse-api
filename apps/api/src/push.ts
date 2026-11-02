@@ -6,8 +6,10 @@ import { pushToken } from "./db/schema.js";
 import { log } from "./log.js";
 
 // Der Text steht unter dem Titel. Er trägt nie Inhalte oder Namen von Kindern: Der Push steht je nach Handy auf dem gesperrten Bildschirm
+// kanal ist der Android-Kanal und die Art des Pushes: «termine» (Erinnerung, Absage, Änderung) oder «anmeldungen» (Anmeldung an Kommando und Leitende)
 export type Push = {
   typ: "programm";
+  kanal: "termine" | "anmeldungen";
   id: string;
   titel: string;
   text?: string;
@@ -29,10 +31,6 @@ const ABGEMELDET = [
   "messaging/invalid-registration-token",
 ];
 
-const KANAL = {
-  programm: "programme",
-};
-
 type Fehler = { code?: unknown; cause?: { code?: unknown } };
 
 // Nur der Code: message enthält das Token, Drizzles message die SQL-Parameter
@@ -50,10 +48,9 @@ function meldeFehler(c: Context | undefined, fehler: unknown) {
 export async function sendePush(
   { db, fcm, c }: { db: Db; fcm?: Fcm; c?: Context },
   empfaenger: string[],
-  { typ, id, titel, text }: Push,
+  { typ, kanal, id, titel, text }: Push,
 ): Promise<void> {
   if (!fcm) return;
-  const kanal = KANAL[typ];
   let tokens: string[];
   try {
     const zeilen = await db
