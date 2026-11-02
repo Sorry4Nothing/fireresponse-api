@@ -37,8 +37,8 @@ afterEach(() => ausgabe.mockRestore());
 
 const HOST = "kalender.example.org";
 const HOSTS = [HOST];
-// Feste Zeit, nie die Uhr: Termine vor dem 2. November 2026 sind vergangen, danach künftig
-const JETZT = new Date("2026-11-02T12:00:00Z");
+// Feste Zeit, nie die Uhr: Termine vor dem 2. November 2054 sind vergangen, danach künftig. Jahr 2054 (Wochentage wie 2026), weil JETZT als sync_ok_am in der gemeinsamen Datenbank bleibt und /health eine Stunde alte Syncs meldet: ein Datum in der Vergangenheit kippt die parallelen Health-Tests
+const JETZT = new Date("2054-11-02T12:00:00Z");
 // Kein Test geht ins Netz: Der Host löst auf eine öffentliche Adresse auf
 const OEFFENTLICH: Aufloesen = async () => ["93.184.216.34"];
 const LINK = `https://${HOST}/ical/geheim-${randomUUID()}`;
@@ -64,7 +64,7 @@ function kalender(
     thema?: string;
     aufgebot?: string;
   }[],
-  abruf = "20261102T120000Z",
+  abruf = "20541102T120000Z",
 ) {
   return [
     ...KOPF,
@@ -86,8 +86,8 @@ function kalender(
   ].join("\r\n");
 }
 
-const ZUKUNFT = { uid: "z1", start: "20261114T180000Z" };
-const VERGANGEN = { uid: "v1", start: "20261020T180000Z" };
+const ZUKUNFT = { uid: "z1", start: "20541114T180000Z" };
+const VERGANGEN = { uid: "v1", start: "20541020T180000Z" };
 
 async function neueWelt(link: string | null = LINK) {
   const [bezirk] = await db
@@ -207,8 +207,8 @@ describe("Sync einer Einheit", () => {
       titel: "Übung",
       status: "aktiv",
       ganztaegig: false,
-      beginn: new Date("2026-11-14T18:00:00Z"),
-      ende: new Date("2026-11-14T20:00:00Z"),
+      beginn: new Date("2054-11-14T18:00:00Z"),
+      ende: new Date("2054-11-14T20:00:00Z"),
       thema: "Allgemein",
       info: "ohne",
       aufgebot: "18:00",
@@ -233,8 +233,8 @@ describe("Sync einer Einheit", () => {
       teilnehmendeId: kind,
       status: "ja",
     });
-    await w.lauf(kalender([ZUKUNFT], "20261102T123000Z"), {
-      jetzt: new Date("2026-11-02T12:30:00Z"),
+    await w.lauf(kalender([ZUKUNFT], "20541102T123000Z"), {
+      jetzt: new Date("2054-11-02T12:30:00Z"),
     });
     expect(await w.aktuell("z1")).toEqual(vorher);
     expect(nachrichten).toHaveLength(0);
@@ -247,11 +247,11 @@ describe("Sync einer Einheit", () => {
     await w.lauf(kalender([ZUKUNFT]));
     const id = (await w.aktuell("z1")).id;
     await w.lauf(
-      kalender([{ ...ZUKUNFT, start: "20261114T190000Z", thema: "Funk" }]),
+      kalender([{ ...ZUKUNFT, start: "20541114T190000Z", thema: "Funk" }]),
     );
     expect(await w.aktuell("z1")).toMatchObject({
       id,
-      beginn: new Date("2026-11-14T19:00:00Z"),
+      beginn: new Date("2054-11-14T19:00:00Z"),
       thema: "Funk",
     });
     expect(nachrichten).toHaveLength(0);
@@ -287,7 +287,7 @@ describe("Sync einer Einheit", () => {
 
     // Der Push nennt weder Datum noch Inhalt
     await w.lauf(
-      kalender([{ ...ZUKUNFT, start: "20261115T180000Z", aufgebot: "17:30" }]),
+      kalender([{ ...ZUKUNFT, start: "20541115T180000Z", aufgebot: "17:30" }]),
     );
 
     expect(await w.aktuell("z1")).toMatchObject({ aufgebot: "17:30" });
@@ -315,7 +315,7 @@ describe("Sync einer Einheit", () => {
     const vorher = await w.aktuell("v1");
     await w.lauf(
       kalender([
-        { ...VERGANGEN, titel: "Umbenannt", start: "20261021T180000Z" },
+        { ...VERGANGEN, titel: "Umbenannt", start: "20541021T180000Z" },
         ZUKUNFT,
       ]),
     );
@@ -324,10 +324,10 @@ describe("Sync einer Einheit", () => {
     expect(await w.aktuell("v1")).toEqual(vorher);
     // Ein Termin, der zum Zeitpunkt des Abrufs schon begonnen hat, zählt als vergangen
     await w.lauf(kalender([ZUKUNFT]), {
-      jetzt: new Date("2026-11-14T18:30:00Z"),
+      jetzt: new Date("2054-11-14T18:30:00Z"),
     });
     await w.lauf(kalender([{ ...ZUKUNFT, titel: "Zu spät" }]), {
-      jetzt: new Date("2026-11-14T18:30:00Z"),
+      jetzt: new Date("2054-11-14T18:30:00Z"),
     });
     expect((await w.aktuell("z1")).titel).toBe("Übung");
   });
@@ -342,17 +342,17 @@ describe("Sync einer Einheit", () => {
     ]);
     const kind = await w.person([mutter]);
     await w.person([ohneAntwort]);
-    await w.person([inaktiv], new Date("2026-01-01T00:00:00Z"));
+    await w.person([inaktiv], new Date("2054-01-01T00:00:00Z"));
     await db
       .insert(schema.einheitRolle)
       .values({ userId: kommando, einheitId: w.einheit.id, typ: "kommandant" });
-    await w.lauf(kalender([ZUKUNFT, { uid: "z2", start: "20261121T180000Z" }]));
+    await w.lauf(kalender([ZUKUNFT, { uid: "z2", start: "20541121T180000Z" }]));
     const { id } = await w.aktuell("z1");
     await db
       .insert(schema.teilnahme)
       .values({ programmId: id, teilnehmendeId: kind, status: "ja" });
 
-    await w.lauf(kalender([{ uid: "z2", start: "20261121T180000Z" }]));
+    await w.lauf(kalender([{ uid: "z2", start: "20541121T180000Z" }]));
 
     expect((await w.aktuell("z1")).status).toBe("abgesagt");
     expect((await w.aktuell("z2")).status).toBe("aktiv");
@@ -370,7 +370,7 @@ describe("Sync einer Einheit", () => {
     });
     // Ein dritter Lauf sagt nicht noch einmal ab
     nachrichten = [];
-    await w.lauf(kalender([{ uid: "z2", start: "20261121T180000Z" }]));
+    await w.lauf(kalender([{ uid: "z2", start: "20541121T180000Z" }]));
     expect(nachrichten).toHaveLength(0);
   });
 
@@ -378,7 +378,7 @@ describe("Sync einer Einheit", () => {
     const w = await neueWelt();
     await w.lauf(kalender([ZUKUNFT]));
     const kaputt = kalender([ZUKUNFT]).replace(
-      "DTSTART:20261114T180000Z",
+      "DTSTART:20541114T180000Z",
       "DTSTART:bald",
     );
     await w.lauf(kaputt);
@@ -387,10 +387,10 @@ describe("Sync einer Einheit", () => {
 
   test("taucht ein abgesagter Termin wieder auf, ist er wieder aktiv", async () => {
     const w = await neueWelt();
-    await w.lauf(kalender([ZUKUNFT, { uid: "z2", start: "20261121T180000Z" }]));
-    await w.lauf(kalender([{ uid: "z2", start: "20261121T180000Z" }]));
+    await w.lauf(kalender([ZUKUNFT, { uid: "z2", start: "20541121T180000Z" }]));
+    await w.lauf(kalender([{ uid: "z2", start: "20541121T180000Z" }]));
     expect((await w.aktuell("z1")).status).toBe("abgesagt");
-    await w.lauf(kalender([ZUKUNFT, { uid: "z2", start: "20261121T180000Z" }]));
+    await w.lauf(kalender([ZUKUNFT, { uid: "z2", start: "20541121T180000Z" }]));
     expect((await w.aktuell("z1")).status).toBe("aktiv");
   });
 
@@ -410,8 +410,8 @@ describe("Sync einer Einheit", () => {
       uid: "a",
       titel: "T",
       ganztaegig: false,
-      beginn: new Date("2026-11-14T18:00:00Z"),
-      ende: new Date("2026-11-14T20:00:00Z"),
+      beginn: new Date("2054-11-14T18:00:00Z"),
+      ende: new Date("2054-11-14T20:00:00Z"),
       tagVon: null,
       tagBis: null,
       thema: "x",
@@ -422,8 +422,8 @@ describe("Sync einer Einheit", () => {
     expect(inhaltHash({ ...basis })).toBe(hash);
     for (const aenderung of [
       { titel: "U" },
-      { beginn: new Date("2026-11-14T18:01:00Z") },
-      { ende: new Date("2026-11-14T20:01:00Z") },
+      { beginn: new Date("2054-11-14T18:01:00Z") },
+      { ende: new Date("2054-11-14T20:01:00Z") },
       { thema: "y" },
       { info: "i" },
       { aufgebot: "a" },
