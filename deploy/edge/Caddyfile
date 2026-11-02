@@ -1,0 +1,2 @@
+# Edge-Caddy: Er belegt als einziger Dienst auf dem Server die Ports 80 und 443 und leitet jede Domain an den Stack, dem sie gehört. Er kennt keine Domain selbst: Jeder Stack legt seine Seite als Datei in sites/ ab
+import /etc/caddy/sites/*.caddy
