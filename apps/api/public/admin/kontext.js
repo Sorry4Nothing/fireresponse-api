@@ -1,9 +1,7 @@
 import { anfrage } from "./api.js";
 import { el, icon, neueId, seitenblatt } from "./dom.js";
 
-// Wer angemeldet ist und welche Einheit die Verwaltung gerade zeigt. Die Wahl der Einheit steht nur in dieser Sitzung des Browsers (sessionStorage, nur die ID); Rechte prüft immer die API.
-
-const SCHLUESSEL = "verwaltung-einheit";
+// Wer angemeldet ist und welche Einheit die Verwaltung gerade zeigt. Die Wahl der Einheit steht in der Adresse (#bereich/einheitId); der Browser speichert nichts. Rechte prüft immer die API.
 
 export const kontext = {
   // Antwort von GET /api/v1/ich
@@ -48,31 +46,21 @@ export async function ladeKontext() {
   return kontext.profil;
 }
 
-// Erst nach dem zweiten Faktor: Die Liste der Einheiten ist eine Admin-Route
-export async function ladeEinheiten() {
+// Erst nach dem zweiten Faktor: Die Liste der Einheiten ist eine Admin-Route. vorgabe: die Einheit aus der Adresse, falls das Konto sie sehen darf
+export async function ladeEinheiten(vorgabe) {
   const { einheiten } = await anfrage("GET", "/api/v1/admin/einheiten");
   kontext.einheiten = einheiten;
-  let gemerkt = null;
-  try {
-    gemerkt = sessionStorage.getItem(SCHLUESSEL);
-  } catch {
-    // Ohne Speicher gilt die erste Einheit
-  }
-  kontext.aktiveId = einheiten.some((e) => e.id === kontext.aktiveId)
-    ? kontext.aktiveId
-    : einheiten.some((e) => e.id === gemerkt)
-      ? gemerkt
+  const gueltig = (id) => einheiten.some((e) => e.id === id);
+  kontext.aktiveId = gueltig(vorgabe)
+    ? vorgabe
+    : gueltig(kontext.aktiveId)
+      ? kontext.aktiveId
       : (einheiten[0]?.id ?? null);
   return einheiten;
 }
 
 export function waehleEinheit(id) {
   kontext.aktiveId = id;
-  try {
-    sessionStorage.setItem(SCHLUESSEL, id);
-  } catch {
-    // Die Wahl gilt dann nur bis zum Neuladen
-  }
 }
 
 export function rollenText(profil) {
@@ -111,8 +99,8 @@ export function zeigeUmschalter(beiWahl) {
       `${e.name} ${e.bezirk}`.toLowerCase().includes(frage),
     );
     liste.replaceChildren(
-      treffer.length === 0
-        ? el("p", { class: "leer leer--klein" }, "Keine Einheit gefunden.")
+      ...(treffer.length === 0
+        ? [el("p", { class: "leer leer--klein" }, "Keine Einheit gefunden.")]
         : nachBezirk(treffer).map((gruppe) => {
             const titelId = neueId("bezirk");
             return el(
@@ -151,7 +139,7 @@ export function zeigeUmschalter(beiWahl) {
                 ),
               ),
             );
-          }),
+          })),
     );
   };
   suche.addEventListener("input", zeichne);

@@ -20,7 +20,7 @@ export default defineConfig(
         TextDecoder: "readonly",
         URL: "readonly",
         URLSearchParams: "readonly",
-        sessionStorage: "readonly",
+        history: "readonly",
         document: "readonly",
         fetch: "readonly",
         location: "readonly",

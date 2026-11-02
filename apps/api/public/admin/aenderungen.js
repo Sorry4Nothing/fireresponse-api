@@ -130,8 +130,14 @@ export function aenderungenTafel() {
       );
     }
     mehr.replaceChildren(
-      weiter &&
-        knopf("Ältere laden", { symbol: "runter", onclick: () => lade(true) }),
+      ...(weiter
+        ? [
+            knopf("Ältere laden", {
+              symbol: "runter",
+              onclick: () => lade(true),
+            }),
+          ]
+        : []),
     );
   }
 

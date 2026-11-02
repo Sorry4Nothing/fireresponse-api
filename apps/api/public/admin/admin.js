@@ -602,10 +602,23 @@ function einheitKarte() {
 // Nach einer Wahl oder einer Änderung der Einheiten: Karte im Dock neu, Ansicht neu laden
 function aktualisiereDock() {
   document.getElementById("einheit-karte")?.replaceChildren(einheitKarte());
+  for (const link of document.querySelectorAll("nav.bereiche a")) {
+    link.setAttribute("href", bereichLink(link.dataset.bereich));
+  }
+}
+
+// Die Wahl der Einheit steht in der Adresse: Neuladen und Lesezeichen behalten sie, der Browser speichert nichts
+function bereichLink(schluessel) {
+  const aktive = aktiveEinheit();
+  return `#${schluessel}${aktive ? `/${aktive.id}` : ""}`;
 }
 
 function wechselte() {
   aktualisiereDock();
+  const [schluessel] = location.hash.slice(1).split("/");
+  if (sichtbareBereiche().some((b) => b.schluessel === schluessel)) {
+    history.replaceState(null, "", bereichLink(schluessel));
+  }
   navigiere();
 }
 
@@ -617,7 +630,11 @@ function zeigeVerwaltung() {
     sichtbareBereiche().map(({ schluessel, name, symbol }) =>
       el(
         "a",
-        { class: "punkt", href: `#${schluessel}`, "data-bereich": schluessel },
+        {
+          class: "punkt",
+          href: bereichLink(schluessel),
+          "data-bereich": schluessel,
+        },
         icon(symbol),
         el("span", {}, name),
       ),
@@ -743,7 +760,15 @@ function navigiere() {
     return;
   }
   const sichtbar = sichtbareBereiche();
-  const gesucht = location.hash.slice(1);
+  const [gesucht, einheitInHash] = location.hash.slice(1).split("/");
+  if (
+    einheitInHash &&
+    einheitInHash !== kontext.aktiveId &&
+    kontext.einheiten.some((e) => e.id === einheitInHash)
+  ) {
+    waehleEinheit(einheitInHash);
+    aktualisiereDock();
+  }
   const treffer = sichtbar.find((b) => b.schluessel === gesucht);
   // Ohne Hash gilt der erste Bereich; ein unbekannter Hash ist ein toter Link
   if (gesucht && !treffer) {
