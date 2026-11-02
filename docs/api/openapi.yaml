@@ -3268,6 +3268,40 @@ paths:
         "429":
           $ref: "#/components/responses/ZuVieleAnfragen429"
   /api/v1/admin/einheiten/{einheitId}/logo:
+    get:
+      operationId: leseAdminEinheitLogo
+      summary: Logo der Einheit für die Verwaltung lesen
+      tags:
+        - Verwaltung
+      description: |
+        Das gespeicherte, bereinigte Logo (PNG oder SVG), das die Verwaltung anzeigt. Die Adresse steht als `logoUrl` in der Liste der Einheiten. Gleiche Antwort-Header wie bei `GET /api/v1/einheiten/{einheitId}/logo`; die Einwilligung der App gilt hier nicht.
+
+        Wer aufrufen darf: Kommando, Stellvertretungen und Kantonsadmin (mit zweitem Faktor). Ohne Logo 404. Statuscodes: 200, 400, 401, 403, 404, 426.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/EinheitIdPfad"
+      responses:
+        "200":
+          description: Das Bild.
+          content:
+            image/svg+xml:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
     put:
       operationId: setzeAdminEinheitLogo
       summary: Logo der Einheit hochladen
@@ -5339,7 +5373,7 @@ components:
                 description: Name des Bezirks.
               logoUrl:
                 type: [string, "null"]
-                description: Pfad zum Logo (`GET /api/v1/einheiten/{einheitId}/logo`), mit `?v=` als Stand des Bildes; `null` ohne Logo.
+                description: Pfad zum Logo (`GET /api/v1/admin/einheiten/{einheitId}/logo`), mit `?v=` als Stand des Bildes; `null` ohne Logo.
               kommandant:
                 description: Kommandantin oder Kommandant; `null`, solange keine Person eingesetzt ist.
                 oneOf:

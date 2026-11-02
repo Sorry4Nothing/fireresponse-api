@@ -18,11 +18,12 @@ import {
 } from "../../db/schema.js";
 import {
   legeEinheitAn,
-  logoUrl,
+  adminLogoUrl,
   uebergibKommando,
   UebergabeFehler,
 } from "../../einheiten.js";
 import { eingabe } from "../../eingabe.js";
+import { logoAntwort } from "../logo.js";
 import { eindeutigkeitsVerstoss, Konflikt } from "../../konflikt.js";
 import {
   erstelleKontoFabrik,
@@ -83,7 +84,7 @@ export function erstelleEinheitenRouten({ db }: { db: Db }) {
             typ: einheit.typ,
             bezirkId: einheit.bezirkId,
             bezirk: bezirk.name,
-            logoUrl,
+            logoUrl: adminLogoUrl,
             kommandantId: user.id,
             kommandantName: user.name,
             lodur: einheit.lodurUrlVerschluesselt,
@@ -163,6 +164,12 @@ export function erstelleEinheitenRouten({ db }: { db: Db }) {
           }
           throw fehler;
         }
+      })
+      .get("/:einheitId/logo", eingabe("param", pfadSchema), async (c) => {
+        const person = c.get("person");
+        const { einheitId } = c.req.valid("param");
+        await pruefeEinheit(db, person, einheitId, "verwalten");
+        return logoAntwort(c, db, einheitId);
       })
       // Der Body ist das Bild selbst (SVG oder PNG, quadratisch, höchstens 500 KB); der Typ ergibt sich aus den Bytes. Gespeichert wird das bereinigte Ergebnis, nie die Eingabe
       .put(
