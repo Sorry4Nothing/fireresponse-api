@@ -3272,7 +3272,7 @@ paths:
       tags:
         - Verwaltung
       description: |
-        Kommando, Stellvertretungen und Kantonsadmin (mit zweitem Faktor). Mindestens ein Feld. `abzeichenSterne` (0 bis 5) ersetzt ein eigenes Bild; `null` lässt das Bild stehen.
+        Kommando, Stellvertretungen und Kantonsadmin (mit zweitem Faktor). Mindestens ein Feld. `abzeichenSterne` (0 bis 2) ersetzt ein eigenes Bild; `null` lässt das Bild stehen.
 
         Statuscodes: 204, 400, 401, 403, 404, 409, 426, 429.
       parameters:
@@ -4522,7 +4522,7 @@ components:
                       sterne:
                         type: integer
                         minimum: 0
-                        maximum: 5
+                        maximum: 2
                   - type: object
                     required: [art, typ, url]
                     properties:
@@ -4567,7 +4567,7 @@ components:
         abzeichenSterne:
           type: [integer, "null"]
           minimum: 0
-          maximum: 5
+          maximum: 2
     AdminRaengeOrdnen:
       type: object
       required: [ids]
@@ -5181,7 +5181,7 @@ components:
       type: object
       description: |
         Das Rang-Abzeichen; mehr vom Rang erfährt die App nicht. Das Objekt kommt für jede Person mit Rang. `kuerzel` ist immer da; dazu
-        entweder `sterne` (0 bis 5) oder `bildUrl`, das andere Feld ist `null`. Hat der Rang weder Sterne noch Bild, sind beide `null`
+        entweder `sterne` (0 bis 2) oder `bildUrl`, das andere Feld ist `null`. Hat der Rang weder Sterne noch Bild, sind beide `null`
         und die App zeigt nur das Kürzel. `null` statt des Objekts heisst nur noch: kein Rang.
       required: [kuerzel, sterne, bildUrl]
       properties:
@@ -5196,7 +5196,7 @@ components:
             - integer
             - "null"
           minimum: 0
-          maximum: 5
+          maximum: 2
         bildUrl:
           type:
             - string
@@ -5262,6 +5262,44 @@ components:
               properties:
                 typ:
                   const: keine
+    AdminRangAnzeige:
+      type: object
+      description: Rang einer Person mit Abzeichen, für Listen der Verwaltung.
+      required: [id, name, kuerzel, abzeichen]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        kuerzel:
+          type: string
+        abzeichen:
+          description: Sterne, eigenes Bild oder keines.
+          oneOf:
+            - type: "null"
+            - type: object
+              required: [art, sterne]
+              properties:
+                art:
+                  type: string
+                  enum: [sterne]
+                sterne:
+                  type: integer
+                  minimum: 0
+                  maximum: 2
+            - type: object
+              required: [art, typ, url]
+              properties:
+                art:
+                  type: string
+                  enum: [bild]
+                typ:
+                  type: string
+                  enum: [svg, png]
+                url:
+                  type: string
+                  description: Pfad zum Bild (`GET .../abzeichen`), mit `?v=` als Stand des Bildes.
     AuswertungZahlen:
       type: object
       description: Anmeldungen als Zahlen; `quote` ist `ja` geteilt durch die Summe, drei Stellen, `null` ohne Bezug.
@@ -5445,7 +5483,7 @@ components:
             allOf:
               - $ref: "#/components/schemas/AuswertungZahlen"
               - type: object
-                required: [art, id, name, rolle, einheit, termine]
+                required: [art, id, name, rolle, rang, einheit, termine]
                 properties:
                   art:
                     type: string
@@ -5459,6 +5497,11 @@ components:
                   rolle:
                     type: [string, "null"]
                     enum: [kommandant, stellvertretung, leitung, null]
+                  rang:
+                    description: Rang der Person; `null` ohne Rang.
+                    oneOf:
+                      - type: "null"
+                      - $ref: "#/components/schemas/AdminRangAnzeige"
                   einheit:
                     $ref: "#/components/schemas/AuswertungEinheitKurz"
                   termine:
@@ -5656,13 +5699,18 @@ components:
                 oneOf:
                   - type: "null"
                   - type: object
-                    required: [id, name]
+                    required: [id, name, rang]
                     properties:
                       id:
                         type: string
                         format: uuid
                       name:
                         type: string
+                      rang:
+                        description: Rang der Person in der Einheit; `null` ohne Rang.
+                        oneOf:
+                          - type: "null"
+                          - $ref: "#/components/schemas/AdminRangAnzeige"
               teilnehmende:
                 type: integer
                 description: Zahl der aktiven teilnehmenden Personen.

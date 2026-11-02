@@ -11,7 +11,7 @@ import {
 } from "./dom.js";
 import { mehrzahl } from "./konten.js";
 
-// Ränge einer Einheit mit Abzeichen: 0 bis 5 Sterne oder ein eigenes Bild (SVG oder PNG). Die Prüfung und die Bereinigung des Bildes macht der Server; hier steht nur eine Vorprüfung, damit niemand 500 KB umsonst schickt.
+// Ränge einer Einheit mit Abzeichen: 0 bis 2 Sterne oder ein eigenes Bild (SVG oder PNG). Die Prüfung und die Bereinigung des Bildes macht der Server; hier steht nur eine Vorprüfung, damit niemand 500 KB umsonst schickt.
 
 const BILD_MAX = 500 * 1024;
 
@@ -61,8 +61,9 @@ function abzeichenGrund() {
 
 // Das Abzeichen der Vorlage mit n Sternen (Hochformat 100:130, schmal wie die Miliz-Abzeichen); Zierde, der Text steht daneben
 function sterneAbzeichen(n) {
-  const radius = n >= 4 ? 4.5 : 5.5;
-  const abstand = n === 5 ? 10 : n === 4 ? 12 : n === 3 ? 14 : 16;
+  // Grösste Sterne, die noch in die schwarze Fläche passen (Breite ca. 56 im Inhalt); mehr als 2 gibt es neu nicht, ältere Ränge schrumpfen mit
+  const abstand = Math.min(24, 56 / n);
+  const radius = Math.min(10, abstand * 0.45);
   const mitte = 50 - ((n - 1) * abstand) / 2;
   // Inhalt um die Mitte (50,65) auf 95 % verkleinert, damit er in die kürzere schwarze Fläche passt
   return [
@@ -154,6 +155,10 @@ export function abzeichen(rang, groesse = "m") {
   return knoten;
 }
 
+// Name des Rangs mit seinem Abzeichen davor; rang ist ein Rang der API mit name und abzeichen
+export const rangZelle = (rang) =>
+  el("span", { class: "rang-zelle" }, abzeichen(rang, "k"), rang.name);
+
 // Miliz-Ränge gehören den Leitenden; für Teilnehmende gibt die API sie nicht frei
 export const ohneMiliz = (raenge) => raenge.filter((r) => r.typ !== "miliz");
 
@@ -231,7 +236,7 @@ function blatt(rang, einheit, raenge, ctx, neu) {
     typ: "number",
     wert: String(rang?.abzeichen?.sterne ?? 0),
     min: 0,
-    max: 5,
+    max: 2,
     inputmode: "numeric",
   });
   const dateiId = neueId("abzeichen-datei");
@@ -259,7 +264,7 @@ function blatt(rang, einheit, raenge, ctx, neu) {
   const vorschau = el("div", { class: "abzeichen-vorschau" });
   const zeigeVorschau = () => {
     if (art.wert === "sterne") {
-      const n = Math.max(0, Math.min(5, Number(sterne.eingabe.value) || 0));
+      const n = Math.max(0, Math.min(2, Number(sterne.eingabe.value) || 0));
       vorschau.replaceChildren(
         abzeichen(
           { name: "Vorschau", abzeichen: { art: "sterne", sterne: n } },
@@ -442,10 +447,10 @@ function blatt(rang, einheit, raenge, ctx, neu) {
       !(
         Number.isInteger(Number(sterne.eingabe.value)) &&
         Number(sterne.eingabe.value) >= 0 &&
-        Number(sterne.eingabe.value) <= 5
+        Number(sterne.eingabe.value) <= 2
       )
     ) {
-      fehler.textContent = "Die Anzahl der Sterne ist eine Zahl von 0 bis 5.";
+      fehler.textContent = "Die Anzahl der Sterne ist eine Zahl von 0 bis 2.";
     } else if (
       art.wert === "bild" &&
       !datei.files?.length &&

@@ -175,7 +175,7 @@ describe("Ändern, Ordnen", () => {
       (
         await senden(kommando(), "PATCH", `${basis()}/${id}`, {
           name: "Umbenannt",
-          abzeichenSterne: 4,
+          abzeichenSterne: 1,
           reihenfolge: neueReihenfolge,
         })
       ).status,
@@ -184,7 +184,7 @@ describe("Ändern, Ordnen", () => {
     expect(rang).toMatchObject({
       name: "Umbenannt",
       reihenfolge: neueReihenfolge,
-      abzeichen: { art: "sterne", sterne: 4 },
+      abzeichen: { art: "sterne", sterne: 1 },
     });
     // Dieselbe Reihenfolge nochmals: 409 mit eigenem Code
     const zweiter = await legeRangAn();
@@ -234,13 +234,13 @@ describe("Ändern, Ordnen", () => {
     }
   });
 
-  test("ungültige Eingaben: Sterne über 5, Reihenfolge 0, leerer Name, fremde Felder", async () => {
+  test("ungültige Eingaben: Sterne über 2, Reihenfolge 0, leerer Name, fremde Felder", async () => {
     const id = await legeRangAn();
     const schlecht = [
       { reihenfolge: 1000 },
       { reihenfolge: 0 },
       { name: " " },
-      { abzeichenSterne: 6 },
+      { abzeichenSterne: 3 },
       { einheitId: welt.einheit.jfA },
     ];
     for (const body of schlecht) {
@@ -293,7 +293,7 @@ describe("Ändern, Ordnen", () => {
 
 describe("Abzeichen", () => {
   test("ein SVG wird bereinigt gespeichert und mit sicheren Kopfzeilen ausgeliefert", async () => {
-    const id = await legeRangAn({ abzeichenSterne: 3 });
+    const id = await legeRangAn({ abzeichenSterne: 2 });
     const antwort = await senden(
       kommando(),
       "PUT",

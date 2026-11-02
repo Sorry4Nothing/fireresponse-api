@@ -9,6 +9,7 @@ import {
   pruefeAbzeichen,
 } from "../../abzeichen.js";
 import type { Db } from "../../db/client.js";
+import { adminAbzeichen } from "../../rang-anzeige.js";
 import { einheit, einheitRolle, rang, teilnehmende } from "../../db/schema.js";
 import { eingabe } from "../../eingabe.js";
 import { eindeutigkeitsVerstoss, Konflikt } from "../../konflikt.js";
@@ -20,7 +21,7 @@ const rangPfad = z.strictObject({ einheitId: z.uuid(), rangId: z.uuid() });
 const name = z.string().trim().min(1).max(100);
 const kuerzel = z.string().trim().min(1).max(20);
 const reihenfolge = z.int().min(1).max(999);
-const sterne = z.int().min(0).max(5);
+const sterne = z.int().min(0).max(2);
 const typ = z.enum(["kf", "jf", "miliz"]);
 const aendernSchema = z
   .strictObject({
@@ -100,16 +101,7 @@ export function erstelleRangRouten({ db }: { db: Db }) {
             kuerzel: r.kuerzel,
             typ: r.typ,
             reihenfolge: r.reihenfolge,
-            abzeichen:
-              r.bildTyp !== null
-                ? {
-                    art: "bild" as const,
-                    typ: r.bildTyp,
-                    url: `/api/v1/admin/einheiten/${einheitId}/raenge/${r.id}/abzeichen?v=${r.bildStand}`,
-                  }
-                : r.sterne !== null
-                  ? { art: "sterne" as const, sterne: r.sterne }
-                  : null,
+            abzeichen: adminAbzeichen({ ...r, einheitId }),
             teilnehmende: r.teilnehmende,
             rollen: r.rollen,
           })),

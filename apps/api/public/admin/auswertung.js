@@ -12,6 +12,7 @@ import {
   tabelle,
 } from "./dom.js";
 import { datumfeld } from "./datumfeld.js";
+import { abzeichen } from "./raenge.js";
 
 // Auswertung auf Basis der Anmeldungen (Ja, Nein, offen), nie der Anwesenheit; kein Export. Eigenes Modul mit dem Einstieg zeige(bereich, ctx) wie die übrigen Bereiche: Zum Einhängen genügt ein Eintrag in BEREICHE von admin.js. Die Zahlen kommen fertig von /api/v1/admin/auswertung/*; hier wird nur angezeigt.
 
@@ -535,7 +536,12 @@ function zeichneQuoten(d, zustand) {
             el(
               "td",
               {},
-              p.art === "teilnehmende" ? "Teilnehmende" : ROLLEN[p.rolle],
+              el(
+                "span",
+                { class: "rang-zelle" },
+                abzeichen(p.rang, "k"),
+                p.art === "teilnehmende" ? "Teilnehmende" : ROLLEN[p.rolle],
+              ),
             ),
             el("td", { class: "zahl" }, zahl(p.termine)),
             el("td", { class: "zahl" }, zahl(p.ja)),

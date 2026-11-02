@@ -710,7 +710,7 @@ a.punkt[aria-current="page"] .i {
 td.zahl,
 th.zahl {
   font-variant-numeric: tabular-nums;
-  text-align: right;
+  text-align: center;
 }
 
 /* Werkzeugleiste: Suche, Filter, Zähler; die Hauptaktion steht rechts */
