@@ -327,6 +327,7 @@ function logoAbschnitt(e, ctx, neu, schliesse) {
       return;
     }
     schliesse();
+    await ctx.einheitenNeu();
     neu();
     ctx.melde(meldung);
   };
@@ -533,7 +534,15 @@ function zeichne(bereich, ctx, daten, neu) {
             el(
               "div",
               { class: "wer" },
-              icon("einheit"),
+              e.logoUrl
+                ? el("img", {
+                    class: "einheit-logo",
+                    src: e.logoUrl,
+                    alt: `Logo von ${e.name}`,
+                    width: 40,
+                    height: 40,
+                  })
+                : icon("einheit"),
               el(
                 "div",
                 {},

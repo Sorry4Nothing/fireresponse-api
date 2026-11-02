@@ -85,6 +85,21 @@ describe("Einheitslogo", () => {
     ).toMatch(new RegExp(`^${leseUrl()}\\?v=[0-9a-f]{8}$`));
   });
 
+  test("die Verwaltung liest das Logo unter der Admin-Adresse, die logoUrl der Liste zeigt dorthin", async () => {
+    const bild = await senden(kommando, "GET", adminUrl());
+    expect(bild.status).toBe(200);
+    expect(bild.headers.get("content-type")).toBe("image/svg+xml");
+
+    const liste = (await (
+      await senden(kommando, "GET", "/api/v1/admin/einheiten")
+    ).json()) as { einheiten: { id: string; logoUrl: string | null }[] };
+    expect(
+      liste.einheiten.find((e) => e.id === welt.einheit.kfA)?.logoUrl,
+    ).toMatch(new RegExp(`^${adminUrl()}\\?v=[0-9a-f]{8}$`));
+
+    expect((await senden(fremd, "GET", adminUrl())).status).toBe(404);
+  });
+
   test("eine andere Einheit sieht das Logo nicht (404)", async () => {
     expect((await senden(fremd, "GET", leseUrl())).status).toBe(404);
   });

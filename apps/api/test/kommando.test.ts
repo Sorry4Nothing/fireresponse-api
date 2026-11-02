@@ -351,10 +351,10 @@ describe("legeEinheitAn", () => {
       .where(eq(schema.rang.einheitId, id))
       .orderBy(schema.rang.reihenfolge);
     expect(raenge).toEqual(
-      [0, 1, 2, 3, 4, 5].map((n) => ({
+      [null, 0, 1, 2].map((sterne, n) => ({
         name: `Rang ${n}`,
         reihenfolge: (n + 1) * 10,
-        sterne: n,
+        sterne,
       })),
     );
   });

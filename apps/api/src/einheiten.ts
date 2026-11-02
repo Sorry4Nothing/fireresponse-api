@@ -4,18 +4,23 @@ import { auditLog, einheit, einheitRolle, rang } from "./db/schema.js";
 
 type Tx = Pick<Db, "select" | "insert" | "update" | "delete">;
 
-// Rang 0 bis 5 mit 0 bis 5 Sternen, wie im Design; danach frei änderbar. Die Migration 0004 füllt bestehende Einheiten gleich
-export const STANDARD_RAENGE = [0, 1, 2, 3, 4, 5].map((n) => ({
+// Vier Standard-Ränge wie im Design: ohne Abzeichen, ohne Stern, 1 Stern, 2 Sterne; danach frei änderbar. Die Migration 0005 stellt bestehende Einheiten gleich um
+export const STANDARD_RAENGE = [null, 0, 1, 2].map((sterne, n) => ({
   name: `Rang ${n}`,
   kuerzel: `R${n}`,
   reihenfolge: (n + 1) * 10,
-  abzeichenSterne: n,
+  abzeichenSterne: sterne,
 }));
 
 // Adresse des Logos oder null; ?v= ändert sich mit dem Bild, damit die App ihren Speicher danach richten kann
 export const logoUrl = sql<
   string | null
 >`case when ${einheit.logoBild} is null then null else '/api/v1/einheiten/' || ${einheit.id} || '/logo?v=' || left(md5(${einheit.logoBild}), 8) end`;
+
+// Wie logoUrl, aber die Adresse der Verwaltung: Sie fragt die Einwilligung der App nicht ab
+export const adminLogoUrl = sql<
+  string | null
+>`case when ${einheit.logoBild} is null then null else '/api/v1/admin/einheiten/' || ${einheit.id} || '/logo?v=' || left(md5(${einheit.logoBild}), 8) end`;
 
 // Eine Einheit entsteht nur zusammen mit ihrer Kommandantin oder ihrem Kommandanten. Aufrufen in einer Transaktion
 export async function legeEinheitAn(
