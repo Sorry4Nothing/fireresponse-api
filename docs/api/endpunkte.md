@@ -6,23 +6,25 @@ Je Route steht, welche Persona welchen Status bekommt. 2xx heisst erlaubt, 401 n
 
 ## Seiten und Gesundheit
 
-| Route                                         | Zweck                                                 | Status je Persona |
-| --------------------------------------------- | ----------------------------------------------------- | ----------------- |
-| `GET /health`                                 | Gesundheitsprüfung                                    | **200** alle      |
-| `GET /datenschutz`                            | Datenschutzerklärung als HTML-Seite                   | **200** alle      |
-| `GET /konto-loeschen`                         | Hinweis zum Löschen des Kontos als HTML-Seite         | **200** alle      |
-| `GET /support`                                | Support-Seite als HTML-Seite                          | **200** alle      |
-| `GET /admin`                                  | Verwaltung im Browser als HTML-Seite                  | **200** alle      |
-| `GET /admin/admin.css`                        | Stilvorlage der Verwaltung                            | **200** alle      |
-| `GET /admin/admin.js`                         | Hauptskript der Verwaltung (Anmeldung und Navigation) | **200** alle      |
-| `GET /admin/api.js`                           | Skript der Verwaltung – Aufrufe gegen die API         | **200** alle      |
-| `GET /admin/dom.js`                           | Skript der Verwaltung – Bausteine der Oberfläche      | **200** alle      |
-| `GET /admin/favicon.svg`                      | Symbol der Verwaltung im Browser-Tab                  | **200** alle      |
-| `GET /admin/hintergrund.svg`                  | Logo als Hintergrund der Verwaltung                   | **200** alle      |
-| `GET /admin/system.js`                        | Skript der Verwaltung – Bereich System                | **200** alle      |
-| `GET /admin/uebersicht.js`                    | Skript der Verwaltung – Bereich Übersicht             | **200** alle      |
-| `GET /.well-known/apple-app-site-association` | Apple App Site Association (noch leer)                | **200** alle      |
-| `GET /.well-known/assetlinks.json`            | Android Digital Asset Links (noch leer)               | **200** alle      |
+| Route                                         | Zweck                                                      | Status je Persona |
+| --------------------------------------------- | ---------------------------------------------------------- | ----------------- |
+| `GET /health`                                 | Gesundheitsprüfung                                         | **200** alle      |
+| `GET /datenschutz`                            | Datenschutzerklärung als HTML-Seite                        | **200** alle      |
+| `GET /nutzungsbedingungen`                    | Nutzungsbedingungen mit Auftragsbearbeitung als HTML-Seite | **200** alle      |
+| `GET /konto-loeschen`                         | Hinweis zum Löschen des Kontos als HTML-Seite              | **200** alle      |
+| `GET /support`                                | Support-Seite als HTML-Seite                               | **200** alle      |
+| `GET /admin`                                  | Verwaltung im Browser als HTML-Seite                       | **200** alle      |
+| `GET /admin/admin.css`                        | Stilvorlage der Verwaltung                                 | **200** alle      |
+| `GET /admin/admin.js`                         | Hauptskript der Verwaltung (Anmeldung und Navigation)      | **200** alle      |
+| `GET /admin/api.js`                           | Skript der Verwaltung – Aufrufe gegen die API              | **200** alle      |
+| `GET /admin/dom.js`                           | Skript der Verwaltung – Bausteine der Oberfläche           | **200** alle      |
+| `GET /admin/favicon.svg`                      | Symbol der Verwaltung im Browser-Tab                       | **200** alle      |
+| `GET /admin/hintergrund.svg`                  | Logo als Hintergrund der Verwaltung                        | **200** alle      |
+| `GET /admin/konten.js`                        | Skript der Verwaltung – Bereich Konto löschen              | **200** alle      |
+| `GET /admin/system.js`                        | Skript der Verwaltung – Bereich System                     | **200** alle      |
+| `GET /admin/uebersicht.js`                    | Skript der Verwaltung – Bereich Übersicht                  | **200** alle      |
+| `GET /.well-known/apple-app-site-association` | Apple App Site Association (noch leer)                     | **200** alle      |
+| `GET /.well-known/assetlinks.json`            | Android Digital Asset Links (noch leer)                    | **200** alle      |
 
 ## Anmeldung (better-auth)
 
@@ -74,6 +76,8 @@ Je Route steht, welche Persona welchen Status bekommt. 2xx heisst erlaubt, 401 n
 | `POST /api/v1/admin/einheiten/:einheitId/zeitregeln`       | Erinnerungsregel anlegen             | **201** kantonsadmin, kommandoJfA, stellvertretung1JfA, stellvertretung2JfA<br>**401** deaktiviert, ohneLogin<br>**403** kantonsadminOhneZweitenFaktor, kommandoKfBOhneZweitenFaktor, leitendeJfA, leitendeJfAElternKfA, elternJfA, elternAundB, teilnehmendeSelbstJfA, elternNachWechsel, ohneEinwilligung, mussPasswortAendern<br>**404** kommandoKfA, kommandoJfB, elternKfA |
 | `PATCH /api/v1/admin/einheiten/:einheitId/zeitregeln/:id`  | Erinnerungsregel ändern              | **204** kantonsadmin, kommandoJfA, stellvertretung1JfA, stellvertretung2JfA<br>**401** deaktiviert, ohneLogin<br>**403** kantonsadminOhneZweitenFaktor, kommandoKfBOhneZweitenFaktor, leitendeJfA, leitendeJfAElternKfA, elternJfA, elternAundB, teilnehmendeSelbstJfA, elternNachWechsel, ohneEinwilligung, mussPasswortAendern<br>**404** kommandoKfA, kommandoJfB, elternKfA |
 | `DELETE /api/v1/admin/einheiten/:einheitId/zeitregeln/:id` | Erinnerungsregel löschen             | **204** kantonsadmin, kommandoJfA, stellvertretung1JfA, stellvertretung2JfA<br>**401** deaktiviert, ohneLogin<br>**403** kantonsadminOhneZweitenFaktor, kommandoKfBOhneZweitenFaktor, leitendeJfA, leitendeJfAElternKfA, elternJfA, elternAundB, teilnehmendeSelbstJfA, elternNachWechsel, ohneEinwilligung, mussPasswortAendern<br>**404** kommandoKfA, kommandoJfB, elternKfA |
+| `GET /api/v1/admin/konten`                                 | Ein Konto nach Benutzername suchen   | **200** kantonsadmin, kommandoJfA, stellvertretung1JfA, stellvertretung2JfA<br>**401** deaktiviert, ohneLogin<br>**403** kantonsadminOhneZweitenFaktor, kommandoKfBOhneZweitenFaktor, leitendeJfA, leitendeJfAElternKfA, elternJfA, elternAundB, teilnehmendeSelbstJfA, elternNachWechsel, ohneEinwilligung, mussPasswortAendern<br>**404** kommandoKfA, kommandoJfB, elternKfA |
+| `DELETE /api/v1/admin/konten/:userId`                      | Ein Konto endgültig löschen          | **204** kantonsadmin, kommandoJfA, stellvertretung1JfA, stellvertretung2JfA<br>**401** deaktiviert, ohneLogin<br>**403** kantonsadminOhneZweitenFaktor, kommandoKfBOhneZweitenFaktor, leitendeJfA, leitendeJfAElternKfA, elternJfA, elternAundB, teilnehmendeSelbstJfA, elternNachWechsel, ohneEinwilligung, mussPasswortAendern<br>**404** kommandoKfA, kommandoJfB, elternKfA |
 
 ## App: personen
 

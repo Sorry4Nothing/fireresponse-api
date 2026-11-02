@@ -1,0 +1,14 @@
+$kind: http-request
+name: "GET /nutzungsbedingungen"
+order: 2500
+method: GET
+url: "{{baseUrl}}/nutzungsbedingungen"
+headers:
+  - key: "Cookie"
+    value: "{{cookie}}"
+  - key: "expo-origin"
+    value: "{{expoOrigin}}"
+  - key: "X-Forwarded-For"
+    value: "{{ip}}"
+  - key: "X-App-Version"
+    value: "{{appVersion}}"

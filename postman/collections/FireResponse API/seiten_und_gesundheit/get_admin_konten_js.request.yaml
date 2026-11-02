@@ -1,0 +1,14 @@
+$kind: http-request
+name: "GET /admin/konten.js"
+order: 11500
+method: GET
+url: "{{baseUrl}}/admin/konten.js"
+headers:
+  - key: "Cookie"
+    value: "{{cookie}}"
+  - key: "expo-origin"
+    value: "{{expoOrigin}}"
+  - key: "X-Forwarded-For"
+    value: "{{ip}}"
+  - key: "X-App-Version"
+    value: "{{appVersion}}"
