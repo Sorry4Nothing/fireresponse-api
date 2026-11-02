@@ -36,6 +36,8 @@ Je Route steht, welche Persona welchen Status bekommt. 2xx heisst erlaubt, 401 n
 | `GET /.well-known/apple-app-site-association` | Apple App Site Association (noch leer)                                         | **200** alle      |
 | `GET /.well-known/assetlinks.json`            | Android Digital Asset Links (noch leer)                                        | **200** alle      |
 | `GET /admin/auswertung.js`                    | Skript der Verwaltung – Bereich Auswertung                                     | **200** alle      |
+| `GET /admin/datum.js`                         | Skript der Verwaltung – Datumslogik des Datepickers                            | **200** alle      |
+| `GET /admin/datumfeld.js`                     | Skript der Verwaltung – Datumsfeld mit Kalender                                | **200** alle      |
 
 ## Anmeldung (better-auth)
 
