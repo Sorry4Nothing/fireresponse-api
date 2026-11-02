@@ -45,7 +45,7 @@ export async function legeEinheitAn(
     .returning({ id: einheit.id });
   await tx
     .insert(rang)
-    .values(STANDARD_RAENGE.map((r) => ({ ...r, einheitId: neu.id })));
+    .values(STANDARD_RAENGE.map((r) => ({ ...r, typ, einheitId: neu.id })));
   await tx
     .insert(einheitRolle)
     .values({ userId: kommandantId, einheitId: neu.id, typ: "kommandant" });

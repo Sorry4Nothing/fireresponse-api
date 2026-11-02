@@ -14,6 +14,31 @@ import { mehrzahl } from "./konten.js";
 // Ränge einer Einheit mit Abzeichen: 0 bis 5 Sterne oder ein eigenes Bild (SVG oder PNG). Die Prüfung und die Bereinigung des Bildes macht der Server; hier steht nur eine Vorprüfung, damit niemand 500 KB umsonst schickt.
 
 const BILD_MAX = 500 * 1024;
+
+export const RANGTYP = {
+  kf: "Kinderfeuerwehr",
+  jf: "Jugendfeuerwehr",
+  miliz: "Miliz-Feuerwehr",
+};
+
+// Dienstgrade der Feuerwehr in der Schweiz in der Reihenfolge und Schreibweise der Quelle (Offiziers-, Unteroffiziers-, Mannschaftsgrade). Sie sind nur eine Auswahlhilfe: Name und Kürzel bleiben danach frei änderbar
+// Quelle: Wikipedia, «Dienstgrade der Feuerwehr in der Schweiz»
+export const MILIZ_GRADE = [
+  ["Oberst", "Oberst"],
+  ["Oberstleutnant", "Oberstlt"],
+  ["Major", "Maj"],
+  ["Hauptmann", "Hptm"],
+  ["Oberleutnant", "Oblt"],
+  ["Leutnant", "Lt"],
+  ["Adjutant Unteroffizier", "Adj Uof"],
+  ["Feldweibel", "Fw"],
+  ["Fourier", "Four"],
+  ["Wachtmeister", "Wm"],
+  ["Korporal", "Kpl"],
+  ["Gefreiter", "Gfr"],
+  ["Soldat", "Sdt"],
+  ["Rekrut / Aspirant", "Rekr / Asp"],
+].map(([name, kuerzel]) => ({ name, kuerzel }));
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 const svg = (tag, eigenschaften = {}, ...kinder) => {
@@ -181,6 +206,44 @@ function blatt(rang, einheit, raenge, ctx, neu) {
     maxlength: 20,
     required: true,
   });
+  // Typ des Rangs; beim Anlegen der Typ der Einheit. Bei Miliz hilft eine Auswahl der Schweizer Dienstgrade, Name und Kürzel auszufüllen
+  const rangTyp = { wert: rang?.typ ?? einheit.typ };
+  const gradIndex = MILIZ_GRADE.findIndex(
+    (g) => g.name === rang?.name && g.kuerzel === rang?.kuerzel,
+  );
+  const grad = auswahl({
+    label: "Dienstgrad übernehmen",
+    optionen: [
+      ["", "Freie Eingabe"],
+      ...MILIZ_GRADE.map((g, i) => [String(i), `${g.name} (${g.kuerzel})`]),
+    ],
+    wert: String(gradIndex < 0 ? "" : gradIndex),
+  });
+  grad.eingabe.addEventListener("change", () => {
+    const g = MILIZ_GRADE[Number(grad.eingabe.value)];
+    if (!g) return;
+    name.eingabe.value = g.name;
+    kuerzel.eingabe.value = g.kuerzel;
+  });
+  const typGruppe = neueId("rang-typ");
+  const typOptionen = Object.entries(RANGTYP).flatMap(([wert, text]) => {
+    const id = neueId("rang-typ-option");
+    return [
+      el("input", {
+        type: "radio",
+        id,
+        name: typGruppe,
+        value: wert,
+        checked: wert === rangTyp.wert,
+        onchange: () => {
+          rangTyp.wert = wert;
+          grad.wurzel.hidden = wert !== "miliz";
+        },
+      }),
+      el("label", { for: id }, icon("haken"), text),
+    ];
+  });
+  grad.wurzel.hidden = rangTyp.wert !== "miliz";
   const hoechste = raenge.reduce((m, r) => Math.max(m, r.reihenfolge), 0);
   const reihenfolge = feld({
     label: "Reihenfolge",
@@ -299,6 +362,12 @@ function blatt(rang, einheit, raenge, ctx, neu) {
       onsubmit: (e) => e.preventDefault(),
     },
     el("h3", {}, "Angaben"),
+    el(
+      "div",
+      { class: "seg", role: "radiogroup", "aria-label": "Typ des Rangs" },
+      typOptionen,
+    ),
+    grad.wurzel,
     name.wurzel,
     el("div", { class: "zweispaltig" }, kuerzel.wurzel, reihenfolge.wurzel),
     el("h3", {}, "Abzeichen"),
@@ -428,6 +497,7 @@ function blatt(rang, einheit, raenge, ctx, neu) {
     const felder = {
       name: name.eingabe.value.trim(),
       kuerzel: kuerzel.eingabe.value.trim(),
+      typ: rangTyp.wert,
       reihenfolge: n,
     };
     if (art.wert === "sterne") {
@@ -524,7 +594,8 @@ function zeichne(bereich, ctx, einheit, raenge, neu) {
           el(
             "ul",
             { class: "chips" },
-            chip(`Kürzel ${r.kuerzel}`, "stufe"),
+            chip(RANGTYP[r.typ], "stufe"),
+            chip(`Kürzel ${r.kuerzel}`),
             chip(`Nr. ${r.reihenfolge}`),
             chip(mehrzahl(n, "Person", "Personen")),
             r.abzeichen?.art === "sterne" &&

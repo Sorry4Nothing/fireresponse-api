@@ -109,6 +109,7 @@ const liste = async (k = kommando()) =>
       raenge: {
         id: string;
         name: string;
+        typ: string;
         reihenfolge: number;
         abzeichen: null | {
           art: string;
@@ -186,6 +187,51 @@ describe("Anlegen, Ändern, Ordnen", () => {
     expect(await doppelt.json()).toMatchObject({
       code: "RANG_REIHENFOLGE_BELEGT",
     });
+  });
+
+  test("der Typ gilt je Rang: ohne Angabe der Typ der Einheit, wählbar und änderbar, nur kf, jf oder miliz", async () => {
+    // KF A: ein Rang ohne Typ ist Kinderfeuerwehr
+    const ohne = await legeRangAn();
+    const mitMiliz = await legeRangAn({ typ: "miliz", name: "Hauptmann" });
+    const alle = await liste();
+    expect(alle.find((r) => r.id === ohne)!.typ).toBe("kf");
+    expect(alle.find((r) => r.id === mitMiliz)!.typ).toBe("miliz");
+    expect(
+      (
+        await senden(kommando(), "PATCH", `${basis()}/${ohne}`, {
+          typ: "jf",
+        })
+      ).status,
+    ).toBe(204);
+    expect((await liste()).find((r) => r.id === ohne)!.typ).toBe("jf");
+    for (const typ of ["Miliz", "", "ff", null, 1]) {
+      expect(
+        (await senden(kommando(), "PATCH", `${basis()}/${ohne}`, { typ }))
+          .status,
+      ).toBe(400);
+      expect(
+        (
+          await senden(kommando(), "POST", basis(), {
+            name: "A",
+            kuerzel: "A",
+            reihenfolge: 5,
+            typ,
+          })
+        ).status,
+      ).toBe(400);
+    }
+    // Ein Rang einer Jugendfeuerwehr ohne Angabe: jf
+    const jfA = `/api/v1/admin/einheiten/${welt.einheit.jfA}/raenge`;
+    const neu = await senden(konten.kommandoJfA, "POST", jfA, {
+      name: "Typ-Test",
+      kuerzel: "TT",
+      reihenfolge: 998,
+    });
+    expect(neu.status).toBe(201);
+    const jfListe = (await (
+      await senden(konten.kommandoJfA, "GET", jfA)
+    ).json()) as { raenge: { name: string; typ: string }[] };
+    expect(jfListe.raenge.find((r) => r.name === "Typ-Test")!.typ).toBe("jf");
   });
 
   test("ungültige Eingaben: Sterne über 5, Reihenfolge 0, leerer Name, fremde Felder", async () => {

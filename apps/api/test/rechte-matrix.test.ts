@@ -552,13 +552,14 @@ const MATRIX: Record<string, Zeile> = {
     body: () => ({
       name: "Matrix",
       kuerzel: "MX",
+      typ: "miliz",
       reihenfolge: naechsteReihenfolge++,
     }),
     erwartet: VERWALTEN_JF_A(201),
   },
   "PATCH /api/v1/admin/einheiten/:einheitId/raenge/:rangId": {
     url: (w) => `/api/v1/admin/einheiten/${w.einheit.jfA}/raenge/${bildRangId}`,
-    body: () => ({ name: "Rang mit Bild" }),
+    body: () => ({ name: "Rang mit Bild", typ: "jf" }),
     erwartet: VERWALTEN_JF_A(204),
   },
   // Jede Anfrage verbraucht ihren Rang: einer pro Persona
@@ -743,6 +744,9 @@ const MATRIX: Record<string, Zeile> = {
   },
   // Statische Datei der Verwaltung (Auswertung)
   "GET /admin/auswertung.js": { erwartet: alle(200) },
+  // Statische Dateien der Verwaltung (Datepicker)
+  "GET /admin/datum.js": { erwartet: alle(200) },
+  "GET /admin/datumfeld.js": { erwartet: alle(200) },
 };
 
 const abzeichenSvg = new TextEncoder().encode(

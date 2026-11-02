@@ -178,6 +178,36 @@ paths:
             text/javascript:
               schema:
                 type: string
+  /admin/datum.js:
+    get:
+      operationId: getAdminDatumSkript
+      summary: Skript der Verwaltung – Datumslogik des Datepickers
+      tags:
+        - Allgemein
+      security: []
+      description: Statische Datei der Verwaltung (siehe `GET /admin`), ohne Anmeldung.
+      responses:
+        "200":
+          description: Datei (`text/javascript; charset=UTF-8`).
+          content:
+            text/javascript:
+              schema:
+                type: string
+  /admin/datumfeld.js:
+    get:
+      operationId: getAdminDatumfeldSkript
+      summary: Skript der Verwaltung – Datumsfeld mit Kalender
+      tags:
+        - Allgemein
+      security: []
+      description: Statische Datei der Verwaltung (siehe `GET /admin`), ohne Anmeldung.
+      responses:
+        "200":
+          description: Datei (`text/javascript; charset=UTF-8`).
+          content:
+            text/javascript:
+              schema:
+                type: string
   /admin/dom.js:
     get:
       operationId: getAdminDomSkript
@@ -3174,7 +3204,7 @@ paths:
       tags:
         - Verwaltung
       description: |
-        Kommando, Stellvertretungen und Kantonsadmin (mit zweitem Faktor). Die Reihenfolge ist je Einheit eindeutig (409 `RANG_REIHENFOLGE_BELEGT`); eine Einheit hat höchstens 99 Ränge (409 `RAENGE_VOLL`). Ein Bild lädt `PUT .../abzeichen` hoch.
+        Kommando, Stellvertretungen und Kantonsadmin (mit zweitem Faktor). Der Typ (`kf`, `jf`, `miliz`) ist frei wählbar, auch abweichend vom Typ der Einheit. Die Reihenfolge ist je Einheit eindeutig (409 `RANG_REIHENFOLGE_BELEGT`); eine Einheit hat höchstens 99 Ränge (409 `RAENGE_VOLL`). Ein Bild lädt `PUT .../abzeichen` hoch.
 
         Statuscodes: 201, 400, 401, 403, 404, 409, 426, 429.
       parameters:
@@ -4453,7 +4483,16 @@ components:
           items:
             type: object
             required:
-              [id, name, kuerzel, reihenfolge, abzeichen, teilnehmende, rollen]
+              [
+                id,
+                name,
+                kuerzel,
+                typ,
+                reihenfolge,
+                abzeichen,
+                teilnehmende,
+                rollen,
+              ]
             properties:
               id:
                 type: string
@@ -4462,6 +4501,8 @@ components:
                 type: string
               kuerzel:
                 type: string
+              typ:
+                $ref: "#/components/schemas/RangTyp"
               reihenfolge:
                 type: integer
                 minimum: 1
@@ -4498,6 +4539,10 @@ components:
               rollen:
                 type: integer
                 description: Kommando, Stellvertretungen und Leitende mit diesem Rang.
+    RangTyp:
+      type: string
+      enum: [kf, jf, miliz]
+      description: Kinderfeuerwehr, Jugendfeuerwehr oder Miliz-Feuerwehr (Schweizer Dienstgrade). Der Typ ordnet den Rang nur ein; die Verwaltung bietet bei `miliz` die Dienstgrade zur Übernahme an, der Server prüft den Namen nicht dagegen. Die Apps erfahren ihn nicht.
     AdminRangAnlegen:
       type: object
       required: [name, kuerzel, reihenfolge]
@@ -4511,6 +4556,9 @@ components:
           type: string
           minLength: 1
           maxLength: 20
+        typ:
+          $ref: "#/components/schemas/RangTyp"
+          description: Fehlt er, gilt der Typ der Einheit (`kf` oder `jf`).
         reihenfolge:
           type: integer
           minimum: 1
@@ -4539,6 +4587,8 @@ components:
           type: string
           minLength: 1
           maxLength: 20
+        typ:
+          $ref: "#/components/schemas/RangTyp"
         reihenfolge:
           type: integer
           minimum: 1
