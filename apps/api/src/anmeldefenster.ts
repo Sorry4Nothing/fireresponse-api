@@ -8,9 +8,9 @@ export const ANMELDEFENSTER_STANDARD = 42;
 export const anmeldungAb = (tage: number): SQL<string> =>
   sql`((${programmBeginn} at time zone 'Europe/Zurich')::date - ${tage}::int)`;
 
-// Das Fenster ist offen, sobald der Tag erreicht ist; die Uhr der Datenbank entscheidet
-export const fensterOffen = (tage: number): SQL<boolean> =>
-  sql`(${anmeldungAb(tage)} <= (now() at time zone 'Europe/Zurich')::date)`;
+// Das Fenster ist offen, sobald der Tag erreicht ist; die Uhr der Datenbank entscheidet, ausser der Aufrufer gibt `jetzt` vor (der Zeitregel-Prüfer rechnet mit seinem eigenen Zeitpunkt)
+export const fensterOffen = (tage: number, jetzt?: Date): SQL<boolean> =>
+  sql`(${anmeldungAb(tage)} <= (${jetzt ? sql`${jetzt.toISOString()}::timestamptz` : sql`now()`} at time zone 'Europe/Zurich')::date)`;
 
 // Aktiv, nicht begonnen und im Fenster: nur dann lässt sich antworten
 export const antwortOffen = (tage: number): SQL<boolean> =>

@@ -118,6 +118,7 @@ const vorhanden = async (tokens: string[]) =>
 
 const PUSH = {
   typ: "programm",
+  kanal: "termine",
   id: "programm-1",
   titel: "Neues Programm",
 } as const;
@@ -170,6 +171,7 @@ describe("Inhalt", () => {
     const [token] = await legeTokens(1);
     await sendePush({ db, fcm }, [max], {
       typ: "programm",
+      kanal: "termine",
       id: "programm-1",
       titel: "Waldtag am Sa 31.10. wurde verschoben",
     });
@@ -178,7 +180,7 @@ describe("Inhalt", () => {
         token!,
         "Waldtag am Sa 31.10. wurde verschoben",
         { typ: "programm", id: "programm-1" },
-        "programme",
+        "termine",
       ),
     ]);
     // Namen und E-Mail-Adressen der Personen stehen in den Zeilen, aber in keiner Anfrage

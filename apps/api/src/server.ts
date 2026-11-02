@@ -52,6 +52,10 @@ starteSitzungenAufraeumen(() => loescheAbgelaufeneSitzungen(db));
 // Ohne Schlüssel gäbe es nichts zu senden, und eine Erinnerung gälte trotzdem als gesendet
 if (fcm) {
   starteZeitregelPruefer(() =>
-    pruefeZeitregeln({ datenbankUrl: konfiguration.DATABASE_URL, fcm }),
+    pruefeZeitregeln({
+      datenbankUrl: konfiguration.DATABASE_URL,
+      fcm,
+      anmeldefensterTage: konfiguration.ANMELDEFENSTER_TAGE,
+    }),
   );
 }

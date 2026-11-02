@@ -41,7 +41,7 @@ const app = erstelleApp({
   db,
   auth,
   fcm: fcmAttrappe,
-  // Das Datum der Termine ist fest (für den Text des Pushes), das Fenster darum weit offen
+  // Die Termine liegen fest im Oktober 2027, das Fenster ist darum weit offen
   anmeldefensterTage: 365,
   seiten: ladeSeiten(),
 });
@@ -135,12 +135,14 @@ describe("Anmelde-Push bei PUT /programme/:id/teilnahmen/:teilnehmendeId", () =>
           tSl,
           "Neue Anmeldung",
           { typ: "programm", id: p.id },
-          "programme",
-          "Waldtag am Sa 30.10.",
+          "anmeldungen",
+          "In Fire-Response",
         ),
       ]),
     );
-    expect(JSON.stringify(fcmAttrappe.nachrichten)).not.toContain("Kind");
+    expect(JSON.stringify(fcmAttrappe.nachrichten)).not.toMatch(
+      /Kind|Waldtag|Sa 30/,
+    );
   });
 
   test("Abmeldung und Wechsel von «nein» auf «ja» haben je ihren Text", async () => {
@@ -155,8 +157,8 @@ describe("Anmelde-Push bei PUT /programme/:id/teilnahmen/:teilnehmendeId", () =>
     await melde(eltern, p.id, "ja");
 
     expect(fcmAttrappe.nachrichten.map((n) => n.notification)).toEqual([
-      { title: "Neue Abmeldung", body: "Waldtag am Sa 30.10." },
-      { title: "Neue Anmeldung", body: "Waldtag am Sa 30.10." },
+      { title: "Neue Abmeldung", body: "In Fire-Response" },
+      { title: "Neue Anmeldung", body: "In Fire-Response" },
     ]);
   });
 

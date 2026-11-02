@@ -91,6 +91,18 @@ Jedes Release rollt `deploy/deploy.sh vX.Y.Z` aus, nach `git fetch --tags && git
 
 Das Image des Edge-Caddys und seine Seiten-Dateien gehören nicht zu diesem Skript (siehe «Edge-Caddy»).
 
+### Firebase-Projekt für die Pushes
+
+Die Pushes laufen über ein eigenes Firebase-Projekt, das nur FireResponse nutzt. Einmal einrichten:
+
+1. In der Firebase-Konsole ein Projekt anlegen und Cloud Messaging aktivieren. Für iOS den APNs-Authentifizierungsschlüssel (`.p8`) des Apple Developer Programs hochladen. Die Apps registrieren je ihre Bundle-ID bzw. Paketnamen im Projekt; die Konfigurationsdateien (`google-services.json`, `GoogleService-Info.plist`) gehören zu den Apps, nicht in dieses Repo.
+2. Unter «Projekteinstellungen», «Dienstkonten» einen neuen privaten Schlüssel für das Firebase-Admin-SDK erzeugen. Die JSON-Datei liegt nur auf dem Server unter `deploy/secrets/fcm-service-account.json` (Ordner 700, Datei 400, Besitzer `1000:1000`), nie im Repo, nie im Chat, nie in einer E-Mail. Geht die Datei verloren, erzeugt man in der Konsole einen neuen Schlüssel.
+3. `docker-compose.prod.yml` setzt `FCM_SCHLUESSEL_DATEI` auf den Pfad im Container. Nach dem Ablegen der Datei die API neu starten; im Log steht beim Start nicht mehr `ohne-schluessel`.
+4. Die Apps legen die Android-Kanäle `termine` und `anmeldungen` an. Die Kanal-IDs stehen in der Android-Konfiguration des Pushes (`android.notification.channelId`).
+5. Test: Mit dem Konto des Kommandos auf einem Gerät anmelden (das Gerät registriert sein Push-Token), dann mit einem Elternkonto der Einheit ein künftiges Programm im Anmeldefenster beantworten. Das Gerät des Kommandos zeigt «Neue Anmeldung» mit dem Text «In Fire-Response».
+
+Push-Texte tragen nie Namen und nie den Titel eines Termins: Sie stehen je nach Handy auf dem gesperrten Bildschirm und laufen über Apple und Google. Schlüssel tauschen: siehe «Datenpanne».
+
 ### Deploy aus GitHub
 
 Statt von Hand rollt der Workflow «Deploy» ([`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml)) einen Tag aus, nachdem eine Person ihn in GitHub freigegeben hat. Er prüft, dass der Tag `vX.Y.Z` heisst, auf `main` liegt und sein Image im GHCR existiert, und verbindet sich dann per SSH. Der Server führt für diesen Schlüssel nur [`deploy/ssh-deploy.sh`](../deploy/ssh-deploy.sh) aus: Es nimmt den Tag als einziges Argument, checkt ihn aus und startet `deploy/deploy.sh vX.Y.Z`. Der Ablauf auf dem Server bleibt derselbe wie von Hand.
