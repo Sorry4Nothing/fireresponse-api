@@ -7,6 +7,7 @@ import {
   type KategorieId,
 } from "../src/datenkategorien.js";
 import * as schema from "../src/db/schema.js";
+import { ladeSeiten } from "../src/seiten.js";
 
 // Tabelle -> Spalten, wie das Drizzle-Schema sie anlegt
 const tabellen = Object.fromEntries(
@@ -50,6 +51,18 @@ describe("Datenkategorien und Schema", () => {
       ...Object.values(GERAET),
     ]);
     expect([...benutzt].sort()).toEqual([...ids].sort());
+  });
+});
+
+describe("Datenschutzerklärung", () => {
+  const seite = ladeSeiten().datenschutz.replace(/\s+/g, " ");
+
+  // Seite, Schema und Store-Angaben haben dieselbe Quelle; fehlt der Platzhalter, fehlen die Kategorien auf der Seite
+  test.each(ids)("%s steht mit Zweck und Frist auf der Seite", (id) => {
+    const k = KATEGORIEN[id];
+    for (const text of [k.titel, k.zweck, k.frist]) {
+      expect(seite).toContain(text);
+    }
   });
 });
 

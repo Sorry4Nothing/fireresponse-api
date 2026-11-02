@@ -1,0 +1,14 @@
+$kind: http-request
+name: "GET /admin/konto-loeschen.js"
+order: 17000
+method: GET
+url: "{{baseUrl}}/admin/konto-loeschen.js"
+headers:
+  - key: "Cookie"
+    value: "{{cookie}}"
+  - key: "expo-origin"
+    value: "{{expoOrigin}}"
+  - key: "X-Forwarded-For"
+    value: "{{ip}}"
+  - key: "X-App-Version"
+    value: "{{appVersion}}"

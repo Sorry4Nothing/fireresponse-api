@@ -13,13 +13,159 @@
   <body>
     <main>
       <h1>Datenschutzerklärung</h1>
-      <p>Der Text folgt.</p>
+      <p class="hinweis">
+        Entwurf, Fassung {{FASSUNG}}: Dieser Text ist noch nicht rechtlich
+        geprüft. Stellen mit «[…]» sind vor der Veröffentlichung zu ergänzen.
+      </p>
+      <p class="meta">
+        Diese Erklärung informiert nach Art. 19 des Bundesgesetzes über den
+        Datenschutz (DSG) darüber, wie FireResponse Personendaten bearbeitet.
+      </p>
+
+      <h2>Wer ist verantwortlich?</h2>
       <p>
-        Verantwortlich ist {{STELLE}}. Du erreichst sie per E-Mail an
-        {{KONTAKT}}.
+        FireResponse ist ein Dienst für Jugend- und Kinderfeuerwehren im Kanton
+        Zürich: Die App zeigt die Termine (Übungen) der Einheit und nimmt Ja-
+        oder Nein-Anmeldungen entgegen.
       </p>
       <p>
-        Weitere Seiten: <a href="/konto-loeschen">Konto löschen</a> und
+        Für die Daten ihrer Einheiten ist der jeweilige Bezirk verantwortlich.
+        Betrieben wird der Dienst von {{STELLE}}. Sie bearbeitet die Daten im
+        Auftrag der Bezirke (siehe
+        <a href="/nutzungsbedingungen">Nutzungsbedingungen</a>) und ist die
+        Kontaktstelle für Fragen zum Datenschutz. Du erreichst sie per E-Mail an
+        {{KONTAKT}}.
+      </p>
+
+      <h2>Welche Daten bearbeiten wir, wozu und wie lange?</h2>
+      <p>
+        Wir bearbeiten nur Daten, die der Dienst braucht. Die Daten kommen von
+        dir, von deinem Kommando (Konten, Teilnehmende, Rollen) und vom Kalender
+        der Einheit (Termine). Wir verkaufen keine Daten, zeigen keine Werbung,
+        verfolgen dich nicht über andere Apps oder Webseiten und setzen keine
+        Analyse-Dienste von Dritten ein.
+      </p>
+      {{KATEGORIEN}}
+      <p class="meta">
+        Das Profilbild und die Telefonnummer sind freiwillig. Ein Protokoll der
+        Verwaltung und die Angaben zu Bezirken und Einheiten enthalten keine
+        Personendaten von Teilnehmenden.
+      </p>
+
+      <h2>Kinder und Jugendliche</h2>
+      <p>
+        Teilnehmende sind oft minderjährig. Die Eltern melden ihre Kinder an
+        oder ab; ältere Teilnehmende können ein eigenes Konto haben. Pro
+        teilnehmende Person antwortet entweder die Familie oder die Person
+        selbst. Teilnehmende ohne eigenes Konto haben kein Profilbild. Pushes
+        nennen nie den Namen eines Kindes.
+      </p>
+
+      <h2>Wer sieht welche Daten?</h2>
+      <ul>
+        <li>
+          Eltern und Teilnehmende sehen die Termine ihrer Einheit, ihre eigenen
+          Anmeldungen und die Kontaktangaben des Kommandos.
+        </li>
+        <li>Leitende sehen zusätzlich alle Anmeldungen ihrer Einheit.</li>
+        <li>
+          Das Kommando (Kommandantin oder Kommandant und Stellvertretungen)
+          verwaltet die Konten und Teilnehmenden seiner Einheit und sieht die
+          Auswertung der Anmeldungen seiner Einheit.
+        </li>
+        <li>
+          Die Kantonsadministration sieht die Daten aller Bezirke und Einheiten.
+        </li>
+        <li>
+          Die technische Betreuung kann bei Wartung und Fehlersuche auf die
+          Datenbank zugreifen.
+        </li>
+      </ul>
+
+      <h2>Auswertung der Anmeldungen</h2>
+      <p>
+        Die Verwaltung (nicht die App) wertet die Anmeldungen aus: wer sich zu
+        welchem Termin mit Ja oder Nein gemeldet hat, die Teilnahmequote pro
+        Person in einem Zeitraum und eine Jahresübersicht pro Einheit. Sie dient
+        der Planung und dem Gespräch mit den Teilnehmenden und ihren Eltern. Die
+        Grundlage sind die Anmeldungen, keine Anwesenheitskontrolle. Die
+        Auswertung wird bei jeder Abfrage neu berechnet, nirgends gespeichert
+        und lässt sich nicht exportieren. Es ist kein Tracking.
+      </p>
+
+      <h2>An wen geben wir Daten weiter?</h2>
+      <ul>
+        <li>
+          Push-Mitteilungen laufen über Firebase Cloud Messaging (Google) und
+          über den Push-Dienst von Apple. Sie erhalten das Push-Token deines
+          Geräts und den Text der Mitteilung; der Text nennt nie den Namen einer
+          Person.
+        </li>
+        <li>
+          Server und Datenbank betreibt ein Hosting-Anbieter […]. Standort der
+          Daten: […].
+        </li>
+        <li>
+          Die verschlüsselten Sicherungen liegen bei einem Speicher-Anbieter in
+          der Schweiz […].
+        </li>
+        <li>
+          Den Kalender der Einheit ruft der Server alle 15 Minuten beim Anbieter
+          der Kalender-Software (Lodur) ab, nur von Adressen, die der Betreiber
+          freigegeben hat. Dorthin gehen der Link der Einheit und die Adresse
+          des Servers; Daten von Personen gehen nie dorthin.
+        </li>
+        <li>
+          Beim Festlegen eines Passworts prüft der Server, ob es in bekannten
+          Datenlecks vorkommt. Dazu geht nur ein Teil (die ersten 5 Zeichen)
+          einer Prüfsumme des Passworts an den Dienst «Have I Been Pwned»; das
+          Passwort selbst verlässt den Server nie.
+        </li>
+      </ul>
+      <p>
+        Apple und Google können Daten auch ausserhalb der Schweiz bearbeiten,
+        auch in Ländern ohne gleichwertigen Datenschutz, etwa in den USA. Die
+        Grundlage dafür sind ihre vertraglichen Zusicherungen […].
+      </p>
+
+      <h2>Wie lange bleiben die Daten?</h2>
+      <p>
+        Die Aufbewahrung steht bei jeder Datenkategorie oben. Wird ein Konto
+        gelöscht, ist es sofort weg. In den Sicherungen bleiben die Daten noch
+        bis zum Ablauf ihrer Aufbewahrung (derzeit bis zu rund vier Monate); aus
+        ihnen wird nur nach einem Ausfall wiederhergestellt. Die Protokolle des
+        Servers werden nach 14 Tagen gelöscht.
+      </p>
+
+      <h2>Wie schützen wir die Daten?</h2>
+      <p>
+        Die Verbindung ist verschlüsselt. Passwörter speichern wir nur als
+        Prüfwert. Jede Anfrage prüft der Server gegen deine Rolle und deine
+        Einheit; du siehst nur, was dir zusteht. Die Verwaltung verlangt einen
+        zweiten Faktor. Die Datenbank ist von aussen nicht erreichbar, und die
+        Sicherungen sind verschlüsselt.
+      </p>
+
+      <h2>Deine Rechte</h2>
+      <p>
+        Du hast das Recht auf Auskunft, Berichtigung, Löschung und Herausgabe
+        deiner Daten und kannst der Bearbeitung widersprechen. Bei Kindern üben
+        die Eltern diese Rechte aus. Schreib dazu an {{KONTAKT}} oder wende dich
+        an das Kommando deiner Einheit. Wie du ein Konto löschen lässt, steht
+        unter
+        <a href="/konto-loeschen">Konto löschen</a>. Eine Beschwerde kannst du
+        beim Eidgenössischen Datenschutz- und Öffentlichkeitsbeauftragten
+        einreichen: <a href="https://www.edoeb.admin.ch">www.edoeb.admin.ch</a>.
+      </p>
+
+      <h2>Änderungen</h2>
+      <p>
+        Ändert sich diese Erklärung, steigt ihre Fassung. Die App fragt dich
+        dann beim nächsten Start erneut nach deiner Einwilligung.
+      </p>
+      <p>
+        Weitere Seiten: <a href="/nutzungsbedingungen">Nutzungsbedingungen</a>,
+        <a href="/konto-loeschen">Konto löschen</a> und
         <a href="/support">Support</a>.
       </p>
     </main>
@@ -27,6 +173,7 @@
     <footer>
       <ul>
         <li><a href="/datenschutz" aria-current="page">Datenschutz</a></li>
+        <li><a href="/nutzungsbedingungen">Nutzungsbedingungen</a></li>
         <li><a href="/konto-loeschen">Konto löschen</a></li>
         <li><a href="/support">Support</a></li>
       </ul>

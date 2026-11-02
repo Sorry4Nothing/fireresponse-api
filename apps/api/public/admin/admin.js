@@ -2,6 +2,7 @@ import { ApiFehler, anfrage, beiSitzungsende, fehlertext } from "./api.js";
 import { avatar, codefeld, el, feld, icon, knopf, kopf, leere } from "./dom.js";
 import * as auswertung from "./auswertung.js";
 import * as einheiten from "./einheiten.js";
+import * as kontoLoeschen from "./konto-loeschen.js";
 import { zeigeEinrichtung } from "./einrichtung.js";
 import {
   aktiveEinheit,
@@ -82,6 +83,13 @@ const BEREICHE = [
     symbol: "auswertung",
     untertitel:
       "Anmeldungen auswerten: Quote pro Person, Termine, Jahresübersicht.",
+  },
+  {
+    schluessel: "konto-loeschen",
+    name: "Konto löschen",
+    modul: kontoLoeschen,
+    symbol: "papierkorb",
+    untertitel: "Ein Konto endgültig löschen, nach Rückfrage.",
   },
   {
     schluessel: "system",

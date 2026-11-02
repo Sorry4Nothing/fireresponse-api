@@ -1,6 +1,6 @@
 $kind: http-request
 name: "GET /admin/hintergrund.svg"
-order: 14000
+order: 15000
 method: GET
 url: "{{baseUrl}}/admin/hintergrund.svg"
 headers:

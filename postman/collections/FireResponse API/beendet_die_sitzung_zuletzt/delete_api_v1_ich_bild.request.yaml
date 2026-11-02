@@ -1,6 +1,6 @@
 $kind: http-request
 name: "DELETE /api/v1/ich/bild"
-order: 87000
+order: 89000
 method: DELETE
 url: "{{baseUrl}}/api/v1/ich/bild"
 headers:

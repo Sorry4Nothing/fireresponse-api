@@ -26,6 +26,7 @@ import { erstellePersonenRouten } from "./routes/admin/personen.js";
 import { erstelleRangRouten } from "./routes/admin/raenge.js";
 import { erstelleStellvertretungsRouten } from "./routes/admin/stellvertretungen.js";
 import { erstelleTeilnehmendeRouten } from "./routes/admin/teilnehmende.js";
+import { erstelleKontenRouten } from "./routes/admin/konten.js";
 import { erstelleLodurRouten } from "./routes/admin/lodur.js";
 import { erstelleSystemRouten } from "./routes/admin/system.js";
 import { erstelleZeitregelRouten } from "./routes/admin/zeitregeln.js";
@@ -95,6 +96,7 @@ export function erstelleApp({
     admin: AdminDateien;
     datenschutz: string;
     kontoLoeschen: string;
+    nutzungsbedingungen: string;
     support: string;
   };
   // Hosts, die ein Lodur-Link haben darf (LODUR_ERLAUBTE_HOSTS); leer heisst: kein Link möglich
@@ -215,6 +217,7 @@ export function erstelleApp({
         "/api/v1/admin/einheiten/:einheitId/zeitregeln",
         erstelleZeitregelRouten({ db }),
       )
+      .route("/api/v1/admin/konten", erstelleKontenRouten({ db }))
       .route(
         "/api/v1/admin/einheiten/:einheitId/personen",
         erstellePersonenRouten({ db }),
@@ -258,6 +261,7 @@ export function erstelleApp({
       })
       // Seiten für die Stores, ohne Login und ausserhalb der Versionsprüfung
       .get("/datenschutz", (c) => c.html(seiten.datenschutz))
+      .get("/nutzungsbedingungen", (c) => c.html(seiten.nutzungsbedingungen))
       .get("/konto-loeschen", (c) => c.html(seiten.kontoLoeschen))
       .get("/support", (c) => c.html(seiten.support))
       // Verwaltung im Browser: nur die statische Hülle, Daten kommen über /api/v1/admin/*
