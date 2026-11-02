@@ -124,6 +124,7 @@ const MATRIX: Record<string, Zeile> = {
   "GET /health": { erwartet: alle(200) },
   // Statische Seiten und .well-known: offen für alle, auch deaktiviert und ohne Login
   "GET /datenschutz": { erwartet: alle(200) },
+  "GET /nutzungsbedingungen": { erwartet: alle(200) },
   "GET /konto-loeschen": { erwartet: alle(200) },
   "GET /support": { erwartet: alle(200) },
   // Verwaltung im Browser (#141): statische Dateien, die Daten kommen erst über die abgesicherten Admin-Routen

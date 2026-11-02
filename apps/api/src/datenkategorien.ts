@@ -35,7 +35,7 @@ export const KATEGORIEN = {
     zweck:
       "Andere Personen erkennen, wen sie erreichen. Das Bild ist freiwillig, und jede Person lädt nur ihr eigenes hoch.",
     frist:
-      "Bis die Person das Bild löscht oder das Konto deaktiviert oder gelöscht wird. Von Kindern gibt es nie ein Bild.",
+      "Bis die Person das Bild löscht oder das Konto deaktiviert oder gelöscht wird. Teilnehmende ohne eigenes Konto haben kein Bild.",
     apple: ["User Content: Photos or Videos"],
     google: ["Photos and videos: Photos"],
   },
@@ -66,7 +66,7 @@ export const KATEGORIEN = {
   anmeldungen: {
     titel: "Anmeldungen und Abmeldungen",
     zweck:
-      "Zeigen, ob eine teilnehmende Person zu einem Programm kommt (Ja oder Nein) und ob eine Leitungsperson dabei ist.",
+      "Zeigen, ob eine teilnehmende Person zu einem Programm kommt (Ja oder Nein) und ob eine Leitungsperson dabei ist. Die Verwaltung wertet die Anmeldungen aus: Teilnahmequote pro Person und Jahresübersicht pro Einheit.",
     frist: `Bis das Kommando die Anmeldung, die teilnehmende Person oder das Programm löscht. ${AUF_ANFRAGE}`,
     apple: ["Other Data"],
     google: ["App activity: Other actions"],

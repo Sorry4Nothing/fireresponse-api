@@ -11,6 +11,7 @@ import {
 } from "vitest";
 import { erstelleApp } from "../src/app.js";
 import { erstelleDb } from "../src/db/client.js";
+import { EINWILLIGUNG_VERSION } from "../src/einwilligung.js";
 import { ladeSeiten, setzeKontakt } from "../src/seiten.js";
 import { bereiteAuthTestsVor, erstelleTestAuth } from "./hilfen/auth.js";
 import { API_URL } from "./hilfen/datenbank.js";
@@ -41,6 +42,11 @@ const geladen = ladeSeiten();
 // Ohne Cookie («ohne Login»); seite === null heisst: Der genaue Inhalt kommt erst mit #24, hier zählt nur gültiges JSON
 test.each<[string, string, string | null]>([
   ["/datenschutz", "text/html; charset=UTF-8", geladen.datenschutz],
+  [
+    "/nutzungsbedingungen",
+    "text/html; charset=UTF-8",
+    geladen.nutzungsbedingungen,
+  ],
   ["/konto-loeschen", "text/html; charset=UTF-8", geladen.kontoLoeschen],
   ["/support", "text/html; charset=UTF-8", geladen.support],
   ["/.well-known/apple-app-site-association", "application/json", null],
@@ -157,6 +163,7 @@ describe("Seiten für die Stores", () => {
   const alle = Object.entries({
     datenschutz: seiten.datenschutz,
     kontoLoeschen: seiten.kontoLoeschen,
+    nutzungsbedingungen: seiten.nutzungsbedingungen,
     support: seiten.support,
   });
 
@@ -203,13 +210,33 @@ describe("Seiten für die Stores", () => {
     },
   );
 
-  test("jede Seite verlinkt die beiden anderen", () => {
-    for (const [html, pfade] of [
-      [seiten.datenschutz, ["/konto-loeschen", "/support"]],
-      [seiten.kontoLoeschen, ["/datenschutz", "/support"]],
-      [seiten.support, ["/datenschutz", "/konto-loeschen"]],
-    ] as const) {
-      for (const pfad of pfade) expect(html).toContain(`href="${pfad}"`);
+  test("jede Seite verlinkt die drei anderen", () => {
+    const pfade = {
+      datenschutz: "/datenschutz",
+      nutzungsbedingungen: "/nutzungsbedingungen",
+      kontoLoeschen: "/konto-loeschen",
+      support: "/support",
+    };
+    for (const [name, html] of alle) {
+      for (const [andere, pfad] of Object.entries(pfade)) {
+        if (andere !== name) expect(html).toContain(`href="${pfad}"`);
+      }
+    }
+  });
+
+  test("die Nutzungsbedingungen regeln die Zustimmung der Bezirke durch die Nutzung, die Auftragsbearbeitung und die Sicht der Kantonsadministration", () => {
+    const text = seiten.nutzungsbedingungen.replace(/\s+/g, " ");
+    expect(text).toContain("indem seine Einheiten FireResponse nutzen");
+    expect(text).toContain("Auftragsbearbeitung");
+    expect(text).toContain("Unterauftragsbearbeiter");
+    expect(text).toContain("sieht die Daten aller Bezirke und Einheiten");
+  });
+
+  test("die Datenschutzerklärung nennt die Auswertung der Anmeldungen und trägt die Fassung der Einwilligung", () => {
+    const text = seiten.datenschutz.replace(/\s+/g, " ");
+    expect(text).toContain("Auswertung der Anmeldungen");
+    for (const html of [seiten.datenschutz, seiten.nutzungsbedingungen]) {
+      expect(html).toContain(`Fassung ${EINWILLIGUNG_VERSION}`);
     }
   });
 

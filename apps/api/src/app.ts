@@ -73,6 +73,7 @@ export function erstelleApp({
     admin: AdminDateien;
     datenschutz: string;
     kontoLoeschen: string;
+    nutzungsbedingungen: string;
     support: string;
   };
 }) {
@@ -178,8 +179,9 @@ export function erstelleApp({
           return c.text("fehler", 503);
         }
       })
-      // Seiten für die Stores, ohne Login und ausserhalb der Versionsprüfung; die Texte folgen in #63
+      // Seiten für die Stores, ohne Login und ausserhalb der Versionsprüfung
       .get("/datenschutz", (c) => c.html(seiten.datenschutz))
+      .get("/nutzungsbedingungen", (c) => c.html(seiten.nutzungsbedingungen))
       .get("/konto-loeschen", (c) => c.html(seiten.kontoLoeschen))
       .get("/support", (c) => c.html(seiten.support))
       // Verwaltung im Browser (#141): nur die statische Hülle, Daten kommen über /api/v1/admin/*
