@@ -13,6 +13,7 @@ import {
   user,
 } from "../db/schema.js";
 import { bildUrl } from "../bild.js";
+import { logoUrl } from "../einheiten.js";
 import { eingabe } from "../eingabe.js";
 import type { Person } from "../rechte.js";
 import { telefonSchema } from "../telefon.js";
@@ -57,6 +58,7 @@ export function erstelleIchRouten({ db }: { db: Db }) {
             typ: einheit.typ,
             bezirk: bezirk.name,
             rolle: einheitRolle.typ,
+            logoUrl,
           })
           .from(einheitRolle)
           .innerJoin(einheit, eq(einheit.id, einheitRolle.einheitId))

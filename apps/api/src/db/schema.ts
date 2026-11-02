@@ -56,9 +56,16 @@ export const einheit = pgTable(
     syncOkAm: zeitpunkt("sync_ok_am"),
     // Nur ein Fehlercode, nie eine Meldung
     syncFehler: text("sync_fehler"),
+    // Eigenes Logo (SVG/PNG, vom Server geprüft und bereinigt); beide Spalten gehören zusammen
+    logoBild: bytea("logo_bild"),
+    logoBildTyp: text("logo_bild_typ"),
   },
   (t) => [
     unique("einheit_bezirk_typ_eindeutig").on(t.bezirkId, t.typ),
+    check(
+      "einheit_logo_check",
+      sql`(${t.logoBild} is null and ${t.logoBildTyp} is null) or (${t.logoBild} is not null and ${t.logoBildTyp} in ('svg', 'png') and octet_length(${t.logoBild}) <= 512000)`,
+    ),
     // text({ enum }) prüft nur in TypeScript, nicht in der Datenbank
     check("einheit_typ_check", sql`${t.typ} in ('jf', 'kf')`),
   ],

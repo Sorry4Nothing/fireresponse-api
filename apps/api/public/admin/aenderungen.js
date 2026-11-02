@@ -29,6 +29,8 @@ const AKTIONEN = {
   raenge_geordnet: "Ränge geordnet",
   rang_abzeichen_gesetzt: "Abzeichen gesetzt",
   rang_abzeichen_entfernt: "Abzeichen entfernt",
+  einheit_logo_gesetzt: "Logo gesetzt",
+  einheit_logo_entfernt: "Logo entfernt",
   zeitregel_angelegt: "Erinnerung angelegt",
   zeitregel_geaendert: "Erinnerung geändert",
   zeitregel_geloescht: "Erinnerung gelöscht",

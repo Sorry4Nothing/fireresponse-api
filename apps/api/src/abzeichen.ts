@@ -9,13 +9,39 @@ const fehler = (text: string): never => {
   throw new AbzeichenFehler(text);
 };
 
-// Hochformat 100:130, wie im Design; 5 % Spiel, damit gerundete Pixelmasse durchgehen
-const VERHAELTNIS = 100 / 130;
+// Form und Grösse, die ein Bild haben muss; 5 % Spiel beim Verhältnis, damit gerundete Pixelmasse durchgehen
+type Regel = {
+  verhaeltnis: number;
+  minBreite: number;
+  minHoehe: number;
+  maxBreite: number;
+  maxHoehe: number;
+  form: string;
+};
 const TOLERANZ = 0.05;
-const passtZumVerhaeltnis = (breite: number, hoehe: number) =>
+const passtZumVerhaeltnis = (regel: Regel, breite: number, hoehe: number) =>
   breite > 0 &&
   hoehe > 0 &&
-  Math.abs(breite / hoehe - VERHAELTNIS) <= VERHAELTNIS * TOLERANZ;
+  Math.abs(breite / hoehe - regel.verhaeltnis) <= regel.verhaeltnis * TOLERANZ;
+
+// Hochformat 100:130, wie im Design
+const ABZEICHEN: Regel = {
+  verhaeltnis: 100 / 130,
+  minBreite: 200,
+  minHoehe: 260,
+  maxBreite: 4000,
+  maxHoehe: 5200,
+  form: "im Hochformat 100:130",
+};
+// Das Logo einer Einheit: quadratisch
+const LOGO: Regel = {
+  verhaeltnis: 1,
+  minBreite: 128,
+  minHoehe: 128,
+  maxBreite: 4000,
+  maxHoehe: 4000,
+  form: "quadratisch",
+};
 
 export type Abzeichen = { typ: "svg" | "png"; inhalt: Uint8Array };
 
@@ -23,7 +49,7 @@ const PNG_KOPF = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 // Nur diese Blöcke bleiben: Text, Zeitstempel, EXIF und Profile fallen weg
 const PNG_BLOECKE = new Set(["IHDR", "PLTE", "tRNS", "IDAT", "IEND"]);
 
-function pruefePng(daten: Uint8Array): Abzeichen {
+function pruefePng(daten: Uint8Array, regel: Regel): Abzeichen {
   const ansicht = new DataView(daten.buffer, daten.byteOffset, daten.length);
   const teile: Uint8Array[] = [daten.subarray(0, 8)];
   let ab = 8;
@@ -50,15 +76,19 @@ function pruefePng(daten: Uint8Array): Abzeichen {
   }
   // Nach IEND darf nichts mehr folgen
   if (!ende || ab !== daten.length) fehler("Das PNG ist beschädigt.");
-  if (breite < 200 || hoehe < 260) {
-    fehler("Das Bild ist zu klein: mindestens 200 × 260 Pixel.");
+  if (breite < regel.minBreite || hoehe < regel.minHoehe) {
+    fehler(
+      `Das Bild ist zu klein: mindestens ${regel.minBreite} × ${regel.minHoehe} Pixel.`,
+    );
   }
   // Eine Obergrenze gegen Bilder, die beim Anzeigen viel Speicher brauchen
-  if (breite > 4000 || hoehe > 5200) {
-    fehler("Das Bild ist zu gross: höchstens 4000 × 5200 Pixel.");
+  if (breite > regel.maxBreite || hoehe > regel.maxHoehe) {
+    fehler(
+      `Das Bild ist zu gross: höchstens ${regel.maxBreite} × ${regel.maxHoehe} Pixel.`,
+    );
   }
-  if (!passtZumVerhaeltnis(breite, hoehe)) {
-    fehler("Das Bild muss im Hochformat 100:130 sein.");
+  if (!passtZumVerhaeltnis(regel, breite, hoehe)) {
+    fehler(`Das Bild muss ${regel.form} sein.`);
   }
   const inhalt = new Uint8Array(teile.reduce((s, t) => s + t.length, 0));
   let stelle = 0;
@@ -197,7 +227,7 @@ const TAG_ANFANG =
 const TAG_ENDE = /<\/([A-Za-z][\w:.-]*)\s*>/y;
 const ATTRIBUT = /([^\s=/>"']+)\s*=\s*(?:"([^"<]*)"|'([^'<]*)')/g;
 
-function pruefeSvg(daten: Uint8Array): Abzeichen {
+function pruefeSvg(daten: Uint8Array, regel: Regel): Abzeichen {
   let text: string;
   try {
     text = new TextDecoder("utf-8", { fatal: true }).decode(daten);
@@ -306,21 +336,26 @@ function pruefeSvg(daten: Uint8Array): Abzeichen {
   if (viewBox?.length !== 4 || viewBox.some((n) => !Number.isFinite(n))) {
     fehler("Die SVG-Datei braucht ein viewBox.");
   }
-  if (!passtZumVerhaeltnis(viewBox![2], viewBox![3])) {
-    fehler("Das Bild muss im Hochformat 100:130 sein.");
+  if (!passtZumVerhaeltnis(regel, viewBox![2], viewBox![3])) {
+    fehler(`Das Bild muss ${regel.form} sein.`);
   }
   return { typ: "svg", inhalt: new TextEncoder().encode(ausgabe) };
 }
 
-// Wirft AbzeichenFehler mit einem Text für die Verwaltung (nie ein Teil der Eingabe). Gibt die bereinigten Bytes zurück, die in die Datenbank gehören
-export function pruefeAbzeichen(daten: Uint8Array): Abzeichen {
+function pruefeBild(daten: Uint8Array, regel: Regel): Abzeichen {
   if (daten.length === 0) fehler("Die Datei ist leer.");
   if (daten.length > ABZEICHEN_MAX_BYTES) {
     fehler("Die Datei ist grösser als 500 KB.");
   }
-  if (PNG_KOPF.every((byte, i) => daten[i] === byte)) return pruefePng(daten);
+  if (PNG_KOPF.every((byte, i) => daten[i] === byte))
+    return pruefePng(daten, regel);
   // SVG beginnt mit Text: erstes Zeichen nach Leerraum und BOM ist «<»
   const anfang = new TextDecoder().decode(daten.subarray(0, 64));
-  if (/^[\s\\uFEFF]*</.test(anfang)) return pruefeSvg(daten);
+  if (/^[\s\\uFEFF]*</.test(anfang)) return pruefeSvg(daten, regel);
   return fehler("Bitte ein SVG oder PNG senden.");
 }
+
+// Wirft AbzeichenFehler mit einem Text für die Verwaltung (nie ein Teil der Eingabe). Gibt die bereinigten Bytes zurück, die in die Datenbank gehören
+export const pruefeAbzeichen = (daten: Uint8Array) =>
+  pruefeBild(daten, ABZEICHEN);
+export const pruefeLogo = (daten: Uint8Array) => pruefeBild(daten, LOGO);

@@ -102,6 +102,7 @@ describe("GET /api/v1/ich", () => {
           typ: "jf",
           bezirk: expect.stringMatching(/^Bezirk A /),
           rolle: "leitung",
+          logoUrl: null,
         },
       ],
       teilnehmende: [

@@ -302,6 +302,88 @@ async function uebergabe(e, ctx, neu, fertig) {
   });
 }
 
+// Logo der Einheit: sehen, ersetzen oder entfernen (Kommando, Stellvertretungen, Kantonsadmin)
+function logoAbschnitt(e, ctx, neu, schliesse) {
+  const dateiId = neueId("logo-datei");
+  const datei = el("input", {
+    id: dateiId,
+    type: "file",
+    accept: "image/svg+xml,image/png,.svg,.png",
+  });
+  const fehler = el("p", {
+    class: "hinweis hinweis--fehler",
+    role: "alert",
+    tabindex: "-1",
+    hidden: true,
+  });
+  const sende = async (aufgabe, meldung) => {
+    fehler.hidden = true;
+    try {
+      await aufgabe();
+    } catch (f) {
+      fehler.textContent = fehlertext(f);
+      fehler.hidden = false;
+      fehler.focus();
+      return;
+    }
+    schliesse();
+    neu();
+    ctx.melde(meldung);
+  };
+  return el(
+    "div",
+    { class: "abschnitt" },
+    el("h3", {}, "Logo"),
+    e.logoUrl
+      ? el("img", {
+          src: e.logoUrl,
+          alt: `Logo von ${e.name}`,
+          width: 96,
+          height: 96,
+        })
+      : el("p", { class: "leise" }, "Kein Logo hinterlegt."),
+    el(
+      "div",
+      { class: "feld" },
+      el("label", { for: dateiId }, "Bild (SVG oder PNG)"),
+      datei,
+      el(
+        "p",
+        { class: "hilfe" },
+        "Quadratisch, bei PNG mindestens 128 × 128 Pixel, höchstens 500 KB. Der Server prüft die Datei und bereinigt ein SVG.",
+      ),
+    ),
+    fehler,
+    knopf("Logo hochladen", {
+      onclick: () => {
+        if (!datei.files?.length) {
+          fehler.textContent = "Bitte ein Bild wählen.";
+          fehler.hidden = false;
+          fehler.focus();
+          return;
+        }
+        sende(
+          () =>
+            anfrage(
+              "PUT",
+              `/api/v1/admin/einheiten/${e.id}/logo`,
+              datei.files[0],
+            ),
+          "Logo ist gespeichert.",
+        );
+      },
+    }),
+    e.logoUrl &&
+      knopf("Logo entfernen", {
+        onclick: () =>
+          sende(
+            () => anfrage("DELETE", `/api/v1/admin/einheiten/${e.id}/logo`),
+            "Logo ist entfernt.",
+          ),
+      }),
+  );
+}
+
 function details(e, ctx, neu) {
   const blatt = seitenblatt({
     titel: e.name,
@@ -320,6 +402,7 @@ function details(e, ctx, neu) {
             onclick: () => uebergabe(e, ctx, neu, () => blatt.close()),
           }),
       ),
+      logoAbschnitt(e, ctx, neu, () => blatt.close()),
       el(
         "div",
         { class: "abschnitt" },

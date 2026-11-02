@@ -323,6 +323,42 @@ describe("legeEinheitAn", () => {
     ]);
   });
 
+  test("legt die Standard-Ränge 0 bis 5 an", async () => {
+    const [admin, kommandant] = await Promise.all([
+      person("kantonsadmin"),
+      person("elternJfA"),
+    ]);
+    const [bezirk] = await db
+      .insert(schema.bezirk)
+      .values({ name: `Raenge ${randomUUID()}` })
+      .returning();
+    const id = await db.transaction((tx) =>
+      legeEinheitAn(tx, {
+        bezirkId: bezirk.id,
+        typ: "kf",
+        name: "Neue KF",
+        kommandantId: kommandant.id!,
+        akteurId: admin.id!,
+      }),
+    );
+    const raenge = await db
+      .select({
+        name: schema.rang.name,
+        reihenfolge: schema.rang.reihenfolge,
+        sterne: schema.rang.abzeichenSterne,
+      })
+      .from(schema.rang)
+      .where(eq(schema.rang.einheitId, id))
+      .orderBy(schema.rang.reihenfolge);
+    expect(raenge).toEqual(
+      [0, 1, 2, 3, 4, 5].map((n) => ({
+        name: `Rang ${n}`,
+        reihenfolge: (n + 1) * 10,
+        sterne: n,
+      })),
+    );
+  });
+
   test("scheitert die Kommandantin oder der Kommandant, entsteht keine Einheit", async () => {
     const admin = await person("kantonsadmin");
     const [bezirk] = await db
