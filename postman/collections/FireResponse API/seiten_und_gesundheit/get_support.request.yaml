@@ -1,6 +1,6 @@
 $kind: http-request
 name: "GET /support"
-order: 5000
+order: 6000
 method: GET
 url: "{{baseUrl}}/support"
 headers:

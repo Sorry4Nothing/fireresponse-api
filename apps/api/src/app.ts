@@ -1,3 +1,4 @@
+import { datenschutzText } from "./datenschutz-text.js";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { HTTPException } from "hono/http-exception";
@@ -109,6 +110,8 @@ export function erstelleApp({
   // Zahlen der laufenden Instanz; nach einem Neustart leer
   const metriken = erstelleMetriken();
   const kleinesLimit = bodyLimit({ maxSize: 64 * 1024 });
+  // Einmal beim Start aus der fertig gerenderten Seite; die Seite ändert sich nur mit einem neuen Start
+  const datenschutz = datenschutzText(seiten.datenschutz);
   return (
     // nutzerId setzt personAusSitzung, sobald es die Sitzung gelesen hat
     new Hono<{ Variables: { nutzerId?: string } }>()
@@ -175,6 +178,11 @@ export function erstelleApp({
           hatKommandoOderStellvertretung(db, userId),
         ),
       )
+      // Öffentlich, vor der Sitzung: Die App zeigt den Text vor der Einwilligung. Kein eigenes Rate-Limit, wie die Seite /datenschutz: statisch, ohne Datenbank, und der Reverse-Proxy begrenzt
+      .get("/api/v1/datenschutz", (c) => {
+        c.header("Cache-Control", "public, max-age=3600");
+        return c.json(datenschutz);
+      })
       // Einen Origin sendet nur ein Browser (die Verwaltung), die App nicht; erlaubt ist dieselbe Liste, die better-auth unter /api/auth prüft: BETTER_AUTH_URL und das App-Schema. Vor der Sitzung, damit eine fremde Seite keine Abfrage auslöst
       .use("/api/v1/*", async (c, next) => {
         const herkunft = c.req.header("Origin");

@@ -1,6 +1,6 @@
 $kind: http-request
 name: "GET /nutzungsbedingungen"
-order: 3000
+order: 4000
 method: GET
 url: "{{baseUrl}}/nutzungsbedingungen"
 headers:

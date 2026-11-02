@@ -247,3 +247,87 @@ describe("Seiten für die Stores", () => {
     expect(seiten.kontoLoeschen).toContain("mailto:kontakt@example.org");
   });
 });
+
+describe("GET /api/v1/datenschutz", () => {
+  const holen = async (kopf: Record<string, string> = {}) =>
+    app.request("/api/v1/datenschutz", { headers: kopf });
+  const kontakt = {
+    stelle: "Muster & Söhne",
+    email: "datenschutz@example.org",
+  };
+  const mitKontakt = erstelleApp({
+    appMinVersion: "1.2.0",
+    sql,
+    db,
+    auth,
+    seiten: ladeSeiten(kontakt),
+  });
+
+  test("antwortet ohne Login mit Fassung und Abschnitten, öffentlich cachebar", async () => {
+    const antwort = await holen();
+    expect(antwort.status).toBe(200);
+    expect(antwort.headers.get("content-type")).toContain("application/json");
+    expect(antwort.headers.get("cache-control")).toBe("public, max-age=3600");
+    const body = await antwort.json();
+    expect(body.version).toBe(EINWILLIGUNG_VERSION);
+    expect(body.abschnitte.length).toBeGreaterThan(5);
+    for (const a of body.abschnitte) {
+      expect(Object.keys(a).sort()).toEqual(["text", "titel"]);
+      expect(a.titel).not.toBe("");
+      expect(a.text).not.toBe("");
+    }
+  });
+
+  test("hat dieselben Abschnitte in derselben Reihenfolge wie die Seite", async () => {
+    const body = await (await holen()).json();
+    const titelDerSeite = [
+      ...geladen.datenschutz.matchAll(/<h[12]>([\s\S]*?)<\/h[12]>/g),
+    ].map((t) => t[1]!.replace(/\s+/g, " ").trim());
+    expect(body.abschnitte.map((a: { titel: string }) => a.titel)).toEqual(
+      titelDerSeite,
+    );
+    // Gleiche Buchstaben und Ziffern in gleicher Reihenfolge; Satzzeichen, Leerraum und Listenpunkte zählen nicht
+    const kern = (t: string) => t.replace(/[^\p{L}\p{N}]/gu, "");
+    const seite = geladen.datenschutz
+      .replace(/<style>[\s\S]*?<\/style>|<footer>[\s\S]*<\/footer>/g, "")
+      .replace(/<head>[\s\S]*?<\/head>/, "")
+      .replace(/<[^>]+>/g, "")
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&amp;/g, "&");
+    const json = body.abschnitte
+      .flatMap((a: { titel: string; text: string }) => [a.titel, a.text])
+      .join(" ");
+    expect(kern(json)).toBe(kern(seite));
+  });
+
+  test("enthält Klartext: kein HTML, Absätze mit Leerzeile, Kategorien und Fassung", async () => {
+    const body = await (await holen()).json();
+    const alles = JSON.stringify(body);
+    expect(alles).not.toMatch(/<\/?[a-z]/i);
+    expect(alles).not.toContain("{{");
+    expect(alles).not.toContain("&amp;");
+    expect(body.abschnitte[0].text).toContain(
+      `Fassung ${EINWILLIGUNG_VERSION}`,
+    );
+    const daten = body.abschnitte.find((a: { titel: string }) =>
+      a.titel.startsWith("Welche Daten"),
+    );
+    expect(daten.text.split("\n\n").length).toBeGreaterThan(3);
+    expect(daten.text).toContain("Wozu: ");
+    expect(daten.text).toContain("Wie lange: ");
+  });
+
+  test("setzt Stelle und Adresse wie die Seite ein und entmaskiert Zeichen", async () => {
+    const antwort = await mitKontakt.request("/api/v1/datenschutz");
+    const text = JSON.stringify(await antwort.json());
+    expect(text).toContain("Muster & Söhne");
+    expect(text).toContain("datenschutz@example.org");
+    expect(text).not.toContain("&amp;");
+  });
+
+  test("antwortet bei zu alter App-Version mit 426", async () => {
+    const antwort = await holen({ "X-App-Version": "1.0.0" });
+    expect(antwort.status).toBe(426);
+  });
+});

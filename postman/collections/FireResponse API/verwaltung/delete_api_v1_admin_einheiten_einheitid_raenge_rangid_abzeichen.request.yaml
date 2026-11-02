@@ -1,6 +1,6 @@
 $kind: http-request
 name: "DELETE /api/v1/admin/einheiten/:einheitId/raenge/:rangId/abzeichen"
-order: 78000
+order: 79000
 method: DELETE
 url: "{{baseUrl}}/api/v1/admin/einheiten/{{einheit_jfA}}/raenge/{{bildRangId}}/abzeichen"
 headers:

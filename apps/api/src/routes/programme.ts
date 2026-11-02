@@ -15,7 +15,11 @@ import {
   teilnehmendeKonto,
   user,
 } from "../db/schema.js";
-import { abzeichen, abzeichenFelder } from "../abzeichen-anzeige.js";
+import {
+  abzeichen,
+  abzeichenFelder,
+  mitAbzeichen,
+} from "../abzeichen-anzeige.js";
 import {
   ANMELDEFENSTER_STANDARD,
   anmeldungAb,
@@ -294,61 +298,81 @@ export function erstelleProgrammRouten({
       const { einheitId } = await ladeSichtbar(person, id);
       // Ganze Liste: das Kantonsadmin-Konto sowie Kommando und Leitende der Einheit; sonst nur die eigenen Teilnehmenden
       const gesamt = person.kantonsadmin || hatRolleIn(person, einheitId);
-      const liste = await db
-        .select({
-          id: teilnehmende.id,
-          vorname: teilnehmende.vorname,
-          nachname: teilnehmende.nachname,
-          status: sql<Antwort>`coalesce(${teilnahme.status}, 'offen')`,
-        })
-        .from(teilnehmende)
-        .leftJoin(
-          teilnahme,
-          and(
-            eq(teilnahme.teilnehmendeId, teilnehmende.id),
-            eq(teilnahme.programmId, id),
-          ),
-        )
-        .where(
-          and(
-            eq(teilnehmende.einheitId, einheitId),
-            isNull(teilnehmende.inaktivSeit),
-            gesamt
-              ? undefined
-              : sql`exists (select 1 from teilnehmende_konto where teilnehmende_konto.teilnehmende_id = ${teilnehmende.id} and teilnehmende_konto.user_id = ${person.id})`,
-          ),
-        )
-        .orderBy(
-          asc(teilnehmende.vorname),
-          asc(teilnehmende.nachname),
-          asc(teilnehmende.id),
-        );
+      const liste = (
+        await db
+          .select({
+            id: teilnehmende.id,
+            vorname: teilnehmende.vorname,
+            nachname: teilnehmende.nachname,
+            status: sql<Antwort>`coalesce(${teilnahme.status}, 'offen')`,
+            ...abzeichenFelder,
+          })
+          .from(teilnehmende)
+          .leftJoin(
+            teilnahme,
+            and(
+              eq(teilnahme.teilnehmendeId, teilnehmende.id),
+              eq(teilnahme.programmId, id),
+            ),
+          )
+          .leftJoin(
+            rang,
+            and(
+              eq(rang.id, teilnehmende.rangId),
+              eq(rang.einheitId, teilnehmende.einheitId),
+            ),
+          )
+          .where(
+            and(
+              eq(teilnehmende.einheitId, einheitId),
+              isNull(teilnehmende.inaktivSeit),
+              gesamt
+                ? undefined
+                : sql`exists (select 1 from teilnehmende_konto where teilnehmende_konto.teilnehmende_id = ${teilnehmende.id} and teilnehmende_konto.user_id = ${person.id})`,
+            ),
+          )
+          .orderBy(
+            asc(teilnehmende.vorname),
+            asc(teilnehmende.nachname),
+            asc(teilnehmende.id),
+          )
+      ).map(mitAbzeichen);
       // Sichtbar, aber weder mit Rolle noch mit eigenen Teilnehmenden in dieser Einheit: kein Recht
       if (!gesamt && liste.length === 0) throw new HTTPException(403);
       const leitende = gesamt
-        ? await db
-            .select({
-              id: user.id,
-              name: user.name,
-              bildUrl,
-              rolle: einheitRolle.typ,
-              status: sql<Antwort>`coalesce(${leitungAnmeldung.status}, 'offen')`,
-            })
-            .from(einheitRolle)
-            .innerJoin(
-              user,
-              and(eq(user.id, einheitRolle.userId), aktivesKonto()),
-            )
-            .leftJoin(profilbild, eq(profilbild.userId, user.id))
-            .leftJoin(
-              leitungAnmeldung,
-              and(
-                eq(leitungAnmeldung.programmId, id),
-                eq(leitungAnmeldung.userId, einheitRolle.userId),
-              ),
-            )
-            .where(eq(einheitRolle.einheitId, einheitId))
-            .orderBy(rollenReihenfolge, asc(user.name), asc(user.id))
+        ? (
+            await db
+              .select({
+                id: user.id,
+                name: user.name,
+                bildUrl,
+                rolle: einheitRolle.typ,
+                status: sql<Antwort>`coalesce(${leitungAnmeldung.status}, 'offen')`,
+                ...abzeichenFelder,
+              })
+              .from(einheitRolle)
+              .innerJoin(
+                user,
+                and(eq(user.id, einheitRolle.userId), aktivesKonto()),
+              )
+              .leftJoin(profilbild, eq(profilbild.userId, user.id))
+              .leftJoin(
+                rang,
+                and(
+                  eq(rang.id, einheitRolle.rangId),
+                  eq(rang.einheitId, einheitRolle.einheitId),
+                ),
+              )
+              .leftJoin(
+                leitungAnmeldung,
+                and(
+                  eq(leitungAnmeldung.programmId, id),
+                  eq(leitungAnmeldung.userId, einheitRolle.userId),
+                ),
+              )
+              .where(eq(einheitRolle.einheitId, einheitId))
+              .orderBy(rollenReihenfolge, asc(user.name), asc(user.id))
+          ).map(mitAbzeichen)
         : [];
       const zaehle = (l: { status: Antwort }[]) => ({
         ja: l.filter((e) => e.status === "ja").length,
