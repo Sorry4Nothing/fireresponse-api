@@ -113,7 +113,7 @@ export function protokolliere(
     einheitId: string | null;
     akteurId: string;
     aktion: string;
-    zielTyp: "person" | "teilnehmende" | "bezirk" | "einheit";
+    zielTyp: "person" | "teilnehmende" | "bezirk" | "einheit" | "rang";
     zielId: string;
     details?: Record<string, unknown>;
   },
