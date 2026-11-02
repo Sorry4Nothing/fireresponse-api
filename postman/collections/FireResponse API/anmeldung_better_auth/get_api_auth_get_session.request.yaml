@@ -1,6 +1,6 @@
 $kind: http-request
 name: "GET /api/auth/get-session"
-order: 18000
+order: 27000
 method: GET
 url: "{{baseUrl}}/api/auth/get-session"
 headers:

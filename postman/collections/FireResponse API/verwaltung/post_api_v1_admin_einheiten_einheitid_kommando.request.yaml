@@ -1,6 +1,6 @@
 $kind: http-request
 name: "POST /api/v1/admin/einheiten/:einheitId/kommando"
-order: 35000
+order: 46000
 method: POST
 url: "{{baseUrl}}/api/v1/admin/einheiten/{{einheit_jfA}}/kommando"
 headers:
@@ -18,7 +18,7 @@ body:
   type: json
   content: |-
     {
-      "neuerKommandantId": "01a19986-fe2b-7a40-9825-15216324b52a",
+      "neuerKommandantId": "01a199c8-3fde-7f8c-bc4d-4579039fa0c6",
       "bisherigeRolle": {
         "typ": "keine"
       }

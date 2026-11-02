@@ -1,8 +1,8 @@
 $kind: http-request
 name: "PUT /api/v1/admin/einheiten/:einheitId/stellvertretungen/:userId"
-order: 41000
+order: 52000
 method: PUT
-url: "{{baseUrl}}/api/v1/admin/einheiten/{{einheit_jfA}}/stellvertretungen/01a19986-fe19-7090-94e3-346b20203c68"
+url: "{{baseUrl}}/api/v1/admin/einheiten/{{einheit_jfA}}/stellvertretungen/01a199c8-3fde-7fa6-b7f5-e68bc1d9351f"
 headers:
   - key: "Cookie"
     value: "{{cookie}}"
