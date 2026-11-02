@@ -1951,7 +1951,7 @@ paths:
       operationId: setzeAdminLodurLink
       summary: Lodur-Link der Einheit setzen
       description: |
-        Kantonsadmin, Kommandant und Stellvertretungen der Einheit. Speichert den ganzen Link verschlüsselt (AES-GCM) und ersetzt einen bisherigen. Der Stand des Syncs beginnt von vorn; der nächste Lauf (alle 15 Minuten) holt den Kalender. Es gibt keinen manuellen Auslöser. Das Setzen steht im Audit-Log, ohne den Link.
+        Kantonsadmin, Kommandant und Stellvertretungen der Einheit. Speichert den ganzen Link verschlüsselt (AES-GCM) und ersetzt einen bisherigen. Der Stand des Syncs beginnt von vorn, und die API ruft den Kalender sofort ab, bevor sie antwortet (bis zu 15 Sekunden je Abruf): Die Antwort zeigt `syncOkAm` bei Erfolg oder den Code in `syncFehler`; der Link bleibt in beiden Fällen gespeichert. Danach holt der Lauf alle 15 Minuten den Kalender. Es gibt keinen weiteren manuellen Auslöser. Das Setzen steht im Audit-Log, ohne den Link.
 
         Der Link ist die öffentliche Terminliste der Einheit in Lodur (`…/index.php?modul=13&what=10&year=2026`, eine HTML-Tabelle). Er bleibt, wie eingegeben; der Sync setzt `year` bei jedem Abruf selbst: das laufende Jahr, ab Oktober auch das nächste (ein Fehler dort lässt den Lauf nicht scheitern). Ein ICS-Kalender (`text/calendar`) wird weiter gelesen, hat aber keine Art und damit keine Anmeldung.
 
@@ -3140,7 +3140,7 @@ paths:
       tags:
         - Verwaltung
       description: |
-        Kommando, Stellvertretungen und Kantonsadmin (mit zweitem Faktor), nur in der Einheit im Pfad. Ändert Vor- und Nachname (das eigene Konto der Person trägt den Namen mit), Rang (`null` entfernt ihn; ein Rang einer anderen Einheit ist 400) und `aktiv`: `false` setzt die Person auf inaktiv (sie bleibt erhalten, antwortet aber nicht mehr), `true` macht sie wieder aktiv. Die Änderung steht im Audit-Log ohne Namen.
+        Kommando, Stellvertretungen und Kantonsadmin (mit zweitem Faktor), nur in der Einheit im Pfad. Ändert Vor- und Nachname (das eigene Konto der Person trägt den Namen mit), Rang (`null` entfernt ihn; ein Rang einer anderen Einheit oder vom Typ `miliz` ist 400: Miliz-Ränge gehören den Leitenden) und `aktiv`: `false` setzt die Person auf inaktiv (sie bleibt erhalten, antwortet aber nicht mehr), `true` macht sie wieder aktiv. Die Änderung steht im Audit-Log ohne Namen.
 
         Statuscodes: 204, 400, 401, 403, 404, 426, 429.
       parameters:

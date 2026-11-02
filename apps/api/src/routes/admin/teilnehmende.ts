@@ -276,7 +276,7 @@ export function erstelleTeilnehmendeRouten({ db }: { db: Db }) {
             if (aenderung.rangId) {
               // Ein Rang einer anderen Einheit ist eine ungültige Eingabe, kein 404 der URL
               const [eigener] = await tx
-                .select({ id: rang.id })
+                .select({ id: rang.id, typ: rang.typ })
                 .from(rang)
                 .where(
                   and(
@@ -284,7 +284,10 @@ export function erstelleTeilnehmendeRouten({ db }: { db: Db }) {
                     eq(rang.einheitId, einheitId),
                   ),
                 );
-              if (!eigener) throw new HTTPException(400);
+              // Miliz-Ränge gehören den Leitenden
+              if (!eigener || eigener.typ === "miliz") {
+                throw new HTTPException(400);
+              }
             }
             const felder: PgUpdateSetSource<typeof teilnehmende> = {};
             if (aenderung.vorname !== undefined) {
@@ -355,10 +358,13 @@ export function erstelleTeilnehmendeRouten({ db }: { db: Db }) {
             if (rangId) {
               // Ein Rang einer anderen Einheit ist eine ungültige Eingabe, kein 404 der URL
               const [eigener] = await tx
-                .select({ id: rang.id })
+                .select({ id: rang.id, typ: rang.typ })
                 .from(rang)
                 .where(and(eq(rang.id, rangId), eq(rang.einheitId, einheitId)));
-              if (!eigener) throw new HTTPException(400);
+              // Miliz-Ränge gehören den Leitenden
+              if (!eigener || eigener.typ === "miliz") {
+                throw new HTTPException(400);
+              }
             }
             const [neu] = await tx
               .insert(teilnehmende)
