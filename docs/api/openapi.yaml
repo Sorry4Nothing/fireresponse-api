@@ -988,7 +988,9 @@ paths:
         Kommandant, Stellvertretung oder Leitung ist oder für die sie als Eltern oder selbst eine aktive teilnehmende Person angemeldet hat;
         das Konto des Kantonsadmins sieht alle Einheiten. Die App schickt nie eine Einheit mit: Der Server leitet sie aus dem Konto ab.
 
-        `googleBeschreibung` ist nur für Kommando, Leitende und das Konto des Kantonsadmins gefüllt, sonst `null`.
+        Jeder Eintrag trägt `anmeldungAb`, den Schweizer Kalendertag, ab dem sich anmelden lässt (`ANMELDEFENSTER_TAGE` Tage
+        vor dem Beginn, Standard 42). Spätere Programme sind sichtbar; die App zeigt dort «Anmeldung ab <Datum>».
+        `teilnahmeOffen` sagt, ob sich jetzt antworten lässt (aktiv, nicht begonnen, Fenster offen).
 
         Statuscodes: 200 Erfolg; 400 `von` oder `bis` fehlt, ist kein gültiges Datum `JJJJ-MM-TT`, beginnt mit Jahr
         0000 oder es gibt unbekannte Query-Parameter; 401 keine gültige Sitzung (auch deaktiviertes Konto);
@@ -1036,8 +1038,11 @@ paths:
       tags:
         - Programme
       description: |
-        Liefert die Felder des Listeneintrags (mit `teilnehmende`) und zusätzlich `teilnahmeOffen` und
-        (nur für Kommando und Leitende der Einheit) `eigeneAnmeldung`.
+        Liefert die Felder des Listeneintrags (mit `teilnehmende` samt Rang-Abzeichen) und zusätzlich `thema`, `info`, `aufgebot`,
+        die Kontaktperson des Termins (`kontakt`) und (nur für Kommando und Leitende der Einheit) `eigeneAnmeldung`.
+        Die Kontaktperson ist die Kommandantin oder der Kommandant, solange sie oder er nicht «nein» gesagt hat; sonst die erste
+        Stellvertretung ohne «nein»; haben alle «nein» gesagt, wieder die Kommandantin oder der Kommandant. «Offen» ist keine Absage.
+        Die Telefonnummer des Kontakts sehen nur Eltern und Teilnehmende mit aktiver Person in der Einheit, sonst ist `telefon` `null`.
 
         Wer aufrufen darf: jede angemeldete Person, für die das Programm sichtbar ist (Regeln wie bei der Liste).
         Ein Programm, das die Person nicht sieht oder das es nicht gibt, ist 404.
@@ -1111,7 +1116,8 @@ paths:
         Die Person kommt aus der Sitzung. Das Konto des Kantonsadmins, Eltern und Teilnehmende bekommen 403, wer die Einheit nicht sieht 404.
 
         Reihenfolge der Prüfung: Eingabe (400); Programm nicht sichtbar (404); keine Rolle in der Einheit (403);
-        Programm schon begonnen (409, Code `PROGRAMM_BEGONNEN`). Statuscodes: 204, 400, 401, 403, 404, 409, 426, 429.
+        Programm schon begonnen (409, Code `PROGRAMM_BEGONNEN`); Anmeldefenster noch nicht offen (409, Code
+        `ANMELDEFENSTER_NICHT_OFFEN`). Statuscodes: 204, 400, 401, 403, 404, 409, 426, 429.
       parameters:
         - $ref: "#/components/parameters/AppVersion"
         - $ref: "#/components/parameters/ProgrammIdPfad"
@@ -1134,15 +1140,21 @@ paths:
           $ref: "#/components/responses/NichtGefunden404"
         "409":
           description: |
-            Das Programm hat schon begonnen. Die Anmeldung lässt sich nicht mehr ändern. Der Fehlercode ist
-            `PROGRAMM_BEGONNEN`.
+            Das Programm hat schon begonnen (`PROGRAMM_BEGONNEN`) oder die Anmeldung öffnet erst später
+            (`ANMELDEFENSTER_NICHT_OFFEN`, die Meldung nennt den Tag).
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Fehler"
-              example:
-                code: PROGRAMM_BEGONNEN
-                message: Das Programm hat schon begonnen.
+              examples:
+                begonnen:
+                  value:
+                    code: PROGRAMM_BEGONNEN
+                    message: Das Programm hat schon begonnen.
+                fensterZu:
+                  value:
+                    code: ANMELDEFENSTER_NICHT_OFFEN
+                    message: Die Anmeldung öffnet am 23.01.2027.
         "426":
           $ref: "#/components/responses/AppVeraltet426"
         "429":
@@ -1226,7 +1238,8 @@ paths:
         Wert gleich, geht kein Push hinaus. Ein Fehler beim Push lässt den Aufruf nicht scheitern.
 
         Reihenfolge der Prüfung: Eingabe (400); Programm nicht sichtbar oder Person nicht die eigene (404, ohne Unterscheidung);
-        inaktive Person (403); Programm noch offen (409).
+        inaktive Person (403); Programm abgesagt oder begonnen (409, `PROGRAMM_GESCHLOSSEN`); Anmeldefenster noch nicht
+        offen (409, `ANMELDEFENSTER_NICHT_OFFEN`). Zwei Elternteile: Die letzte Antwort gilt.
       parameters:
         - $ref: "#/components/parameters/AppVersion"
         - $ref: "#/components/parameters/ProgrammIdPfad"
@@ -1250,19 +1263,109 @@ paths:
           $ref: "#/components/responses/NichtGefunden404"
         "409":
           description: |
-            Das Programm ist abgesagt (Status nicht «aktiv») oder hat schon begonnen. Die Teilnahme lässt sich nicht
-            mehr ändern. Der Fehlercode ist `PROGRAMM_GESCHLOSSEN`.
+            Das Programm ist abgesagt (Status nicht «aktiv») oder hat schon begonnen (`PROGRAMM_GESCHLOSSEN`), oder die
+            Anmeldung öffnet erst später (`ANMELDEFENSTER_NICHT_OFFEN`, die Meldung nennt den Tag).
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Fehler"
-              example:
-                code: PROGRAMM_GESCHLOSSEN
-                message: Das Programm ist abgesagt oder hat schon begonnen. Die Teilnahme lässt sich nicht mehr ändern.
+              examples:
+                geschlossen:
+                  value:
+                    code: PROGRAMM_GESCHLOSSEN
+                    message: Das Programm ist abgesagt oder hat schon begonnen. Die Teilnahme lässt sich nicht mehr ändern.
+                fensterZu:
+                  value:
+                    code: ANMELDEFENSTER_NICHT_OFFEN
+                    message: Die Anmeldung öffnet am 23.01.2027.
         "426":
           $ref: "#/components/responses/AppVeraltet426"
         "429":
           $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/einheiten/{einheitId}/kontakt:
+    get:
+      operationId: einheitKontaktLesen
+      summary: Kontakt der Einheit lesen
+      tags:
+        - Programme
+      description: |
+        Der Kontakt der Einheit für die Info-Seite «Konto aufs Kind übertragen»: die Kommandantin oder der Kommandant
+        (ist das Konto deaktiviert, die erste Stellvertretung). `kontakt` ist nur dann `null`, wenn die Einheit keine
+        Kommandantin und keinen Kommandanten hat. Die Telefonnummer sehen nur Eltern und Teilnehmende mit aktiver Person in
+        dieser Einheit, sonst ist `telefon` `null`.
+
+        Wer aufrufen darf: jede Person, die die Einheit sieht (Rolle in der Einheit, aktive teilnehmende Person darin oder
+        Kantonsadmin-Konto); sonst 404. Statuscodes: 200, 400, 401, 403, 404, 426.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/EinheitIdPfad"
+      responses:
+        "200":
+          description: Der Kontakt.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [kontakt]
+                properties:
+                  kontakt:
+                    oneOf:
+                      - $ref: "#/components/schemas/Kontakt"
+                      - type: "null"
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+  /api/v1/raenge/{id}/abzeichen:
+    get:
+      operationId: abzeichenBildLesen
+      summary: Eigenes Bild eines Rang-Abzeichens lesen
+      tags:
+        - Programme
+      description: |
+        Liefert das Bild eines Abzeichens (PNG oder SVG). Die Adresse steht als `bildUrl` im `abzeichen` der Teilnehmenden und
+        der Kontaktperson; die App ruft sie mit der Sitzung auf. Abzeichen mit Sternen haben kein Bild (nur `sterne`).
+
+        Die Antwort trägt `Cache-Control: private, no-store`, `X-Content-Type-Options: nosniff` und eine CSP, die Skripte und
+        Nachladen sperrt. Wer die Einheit des Rangs nicht sieht, ein Rang ohne Bild und ein unbekannter Rang sind 404, ohne Unterschied.
+        Statuscodes: 200, 400, 401, 403, 404, 426.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - name: id
+          in: path
+          required: true
+          description: ID des Rangs, aus `bildUrl`.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Das Bild.
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/svg+xml:
+              schema:
+                type: string
+                format: binary
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
   /api/v1/einwilligung:
     get:
       operationId: einwilligungLesen
@@ -1910,8 +2013,8 @@ components:
         - ende
         - tagVon
         - tagBis
-        - googleOrt
-        - googleBeschreibung
+        - anmeldungAb
+        - teilnahmeOffen
         - einheit
         - teilnehmende
       properties:
@@ -1945,15 +2048,13 @@ components:
             - string
             - "null"
           format: date
-        googleOrt:
-          type:
-            - string
-            - "null"
-        googleBeschreibung:
-          type:
-            - string
-            - "null"
-          description: Nur für Kommando, Leitende und das Konto des Kantonsadmins gefüllt, sonst `null`.
+        anmeldungAb:
+          type: string
+          format: date
+          description: Schweizer Kalendertag, ab dem sich anmelden lässt; die App zeigt «Anmeldung ab <Datum>», solange `teilnahmeOffen` falsch ist und der Tag in der Zukunft liegt.
+        teilnahmeOffen:
+          type: boolean
+          description: Aktiv, noch nicht begonnen und Anmeldefenster offen; nur dann lassen sich Antworten ändern.
         einheit:
           $ref: "#/components/schemas/ProgrammEinheit"
         teilnehmende:
@@ -1974,11 +2075,25 @@ components:
       allOf:
         - $ref: "#/components/schemas/ProgrammListeneintrag"
         - type: object
-          required: [teilnahmeOffen]
+          required: [thema, info, aufgebot, kontakt]
           properties:
-            teilnahmeOffen:
-              type: boolean
-              description: Aktiv und noch nicht begonnen; nur dann lassen sich Antworten ändern.
+            thema:
+              type:
+                - string
+                - "null"
+            info:
+              type:
+                - string
+                - "null"
+            aufgebot:
+              type:
+                - string
+                - "null"
+            kontakt:
+              description: Die Kontaktperson des Termins.
+              oneOf:
+                - $ref: "#/components/schemas/Kontakt"
+                - type: "null"
             eigeneAnmeldung:
               type: string
               enum: [ja, nein, offen]
@@ -2379,7 +2494,7 @@ components:
     ProgrammTeilnehmende:
       type: object
       description: Eine eigene aktive teilnehmende Person der Einheit des Programms mit ihrer Antwort.
-      required: [id, vorname, status]
+      required: [id, vorname, status, abzeichen]
       properties:
         id:
           type: string
@@ -2392,6 +2507,52 @@ components:
             - "null"
           enum: [ja, nein, null]
           description: "`null` heisst offen."
+        abzeichen:
+          oneOf:
+            - $ref: "#/components/schemas/Abzeichen"
+            - type: "null"
+    Abzeichen:
+      type: object
+      description: Das Rang-Abzeichen; mehr vom Rang erfährt die App nicht. Entweder `sterne` (0 bis 5) oder `bildUrl`, das andere Feld ist `null`. `null` statt des Objekts heisst kein Rang oder kein Abzeichen.
+      required: [sterne, bildUrl]
+      properties:
+        sterne:
+          type:
+            - integer
+            - "null"
+          minimum: 0
+          maximum: 5
+        bildUrl:
+          type:
+            - string
+            - "null"
+          description: Pfad zu `GET /api/v1/raenge/{id}/abzeichen`.
+    Kontakt:
+      type: object
+      required: [id, name, rolle, bildUrl, abzeichen, telefon]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        rolle:
+          type: string
+          enum: [kommandant, stellvertretung]
+        bildUrl:
+          type:
+            - string
+            - "null"
+          description: Pfad zu `GET /api/v1/personen/{id}/bild` oder `null` ohne Bild.
+        abzeichen:
+          oneOf:
+            - $ref: "#/components/schemas/Abzeichen"
+            - type: "null"
+        telefon:
+          type:
+            - string
+            - "null"
+          description: Nur für Eltern und Teilnehmende mit aktiver Person in der Einheit gefüllt, sonst `null`.
     KommandoUebergabe:
       type: object
       required: [neuerKommandantId, bisherigeRolle]

@@ -1,0 +1,14 @@
+$kind: http-request
+name: "GET /api/v1/einheiten/:einheitId/kontakt"
+order: 33000
+method: GET
+url: "{{baseUrl}}/api/v1/einheiten/{{einheit_jfA}}/kontakt"
+headers:
+  - key: "Cookie"
+    value: "{{cookie}}"
+  - key: "expo-origin"
+    value: "{{expoOrigin}}"
+  - key: "X-Forwarded-For"
+    value: "{{ip}}"
+  - key: "X-App-Version"
+    value: "{{appVersion}}"
