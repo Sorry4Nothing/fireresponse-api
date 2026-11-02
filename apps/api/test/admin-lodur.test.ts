@@ -107,9 +107,11 @@ describe("PUT /api/v1/admin/einheiten/:einheitId/lodur", () => {
 
   test("GET zeigt den Stand, den Link nie", async () => {
     await anfrage(kommando, "PUT", { url: LINK });
+    // Relativ zu jetzt: ein festes Datum würde nach 60 Minuten /health der parallelen Tests auf «sync-veraltet» kippen
+    const syncOkAm = new Date();
     await db
       .update(schema.einheit)
-      .set({ syncOkAm: new Date("2026-11-02T12:00:00Z"), syncFehler: "leer" })
+      .set({ syncOkAm, syncFehler: "leer" })
       .where(eq(schema.einheit.id, welt.einheit.jfA));
     const res = await anfrage(admin, "GET");
     expect(res.status).toBe(200);
@@ -117,7 +119,7 @@ describe("PUT /api/v1/admin/einheiten/:einheitId/lodur", () => {
     expect(JSON.parse(text)).toEqual({
       gesetzt: true,
       maskiert: `https://${HOST}/…`,
-      syncOkAm: "2026-11-02T12:00:00.000Z",
+      syncOkAm: syncOkAm.toISOString(),
       syncFehler: "leer",
     });
     expect(text).not.toContain(GEHEIMNIS);
