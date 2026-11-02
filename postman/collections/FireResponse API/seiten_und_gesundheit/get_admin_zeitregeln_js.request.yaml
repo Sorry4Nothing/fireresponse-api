@@ -1,6 +1,6 @@
 $kind: http-request
 name: "GET /admin/zeitregeln.js"
-order: 22000
+order: 23000
 method: GET
 url: "{{baseUrl}}/admin/zeitregeln.js"
 headers:

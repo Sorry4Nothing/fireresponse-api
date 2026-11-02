@@ -1,6 +1,6 @@
 $kind: http-request
 name: "POST /api/auth/two-factor/verify-totp"
-order: 30000
+order: 31000
 method: POST
 url: "{{baseUrl}}/api/auth/two-factor/verify-totp"
 headers:

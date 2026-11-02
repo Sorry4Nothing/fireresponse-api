@@ -3,6 +3,8 @@ import { defineConfig } from "eslint/config";
 import tseslint from "typescript-eslint";
 
 export default defineConfig(
+  // Fremder Code (qrcode-generator, MIT) unverändert
+  { ignores: ["public/admin/qrcode.js"] },
   js.configs.recommended,
   tseslint.configs.recommended,
   {

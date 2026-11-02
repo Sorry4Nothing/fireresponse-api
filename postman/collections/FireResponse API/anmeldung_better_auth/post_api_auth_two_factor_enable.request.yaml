@@ -1,6 +1,6 @@
 $kind: http-request
 name: "POST /api/auth/two-factor/enable"
-order: 32000
+order: 33000
 method: POST
 url: "{{baseUrl}}/api/auth/two-factor/enable"
 headers:

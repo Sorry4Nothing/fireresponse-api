@@ -324,6 +324,21 @@ paths:
             text/javascript:
               schema:
                 type: string
+  /admin/qrcode.js:
+    get:
+      operationId: getAdminQrcodeSkript
+      summary: Skript der Verwaltung – QR-Code für den zweiten Faktor (qrcode-generator, MIT)
+      tags:
+        - Allgemein
+      security: []
+      description: Statische Datei der Verwaltung (siehe `GET /admin`), ohne Anmeldung.
+      responses:
+        "200":
+          description: Datei (`text/javascript; charset=UTF-8`).
+          content:
+            text/javascript:
+              schema:
+                type: string
   /admin/raenge.js:
     get:
       operationId: getAdminRaengeSkript

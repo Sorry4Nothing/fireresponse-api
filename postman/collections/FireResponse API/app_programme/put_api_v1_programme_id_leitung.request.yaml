@@ -1,6 +1,6 @@
 $kind: http-request
 name: "PUT /api/v1/programme/:id/leitung"
-order: 41000
+order: 42000
 method: PUT
 url: "{{baseUrl}}/api/v1/programme/{{offenProgrammId}}/leitung"
 headers:

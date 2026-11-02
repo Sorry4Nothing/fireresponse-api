@@ -1,7 +1,48 @@
 import { anfrage, fehlertext } from "./api.js";
 import { codefeld, el, feld, icon, knopf } from "./dom.js";
+import { qrcode } from "./qrcode.js";
 
 // Zweiten Faktor (Authenticator-App) für ein Konto der Verwaltung einrichten: Passwort bestätigen, Schlüssel und Ersatzcodes sichern, Code bestätigen. Das Konto gehört dann zum Faktor, nicht die einzelne Sitzung.
+
+const SVG_NS = "http://www.w3.org/2000/svg";
+
+// Der QR-Code entsteht hier im Browser aus dem Link des Authenticators; das Geheimnis geht an keinen Dienst. Immer dunkel auf hellem Grund mit ruhiger Zone von 4 Modulen, auch im Dunkelmodus: Sonst liest ihn keine Kamera
+export function qrBild(inhalt) {
+  const qr = qrcode(0, "M");
+  qr.addData(inhalt, "Byte");
+  qr.make();
+  const n = qr.getModuleCount();
+  const rand = 4;
+  const gross = n + 2 * rand;
+  const svg = document.createElementNS(SVG_NS, "svg");
+  for (const [name, wert] of Object.entries({
+    class: "qr",
+    viewBox: `0 0 ${gross} ${gross}`,
+    role: "img",
+    "aria-label": "QR-Code für die Authenticator-App",
+    "shape-rendering": "crispEdges",
+  })) {
+    svg.setAttribute(name, wert);
+  }
+  const grund = document.createElementNS(SVG_NS, "rect");
+  grund.setAttribute("width", String(gross));
+  grund.setAttribute("height", String(gross));
+  grund.setAttribute("fill", "#ffffff");
+  // Ein Pfad für alle dunklen Module
+  let d = "";
+  for (let zeile = 0; zeile < n; zeile++) {
+    for (let spalte = 0; spalte < n; spalte++) {
+      if (qr.isDark(zeile, spalte)) {
+        d += `M${spalte + rand} ${zeile + rand}h1v1h-1z`;
+      }
+    }
+  }
+  const module = document.createElementNS(SVG_NS, "path");
+  module.setAttribute("d", d);
+  module.setAttribute("fill", "#000000");
+  svg.append(grund, module);
+  return svg;
+}
 
 const gruppiert = (schluessel) => schluessel.replace(/(.{4})(?=.)/g, "$1 ");
 
@@ -99,26 +140,24 @@ export function zeigeEinrichtung({ seite, fertig, abmelden }) {
     const formular = el(
       "form",
       { class: "formular", novalidate: true },
-      el("h2", {}, "1. Schlüssel in die App eintragen"),
+      el("h2", {}, "1. QR-Code scannen"),
       el(
         "p",
         { class: "hilfe" },
-        "Öffne deine Authenticator-App, wähle «Konto hinzufügen» und gib diesen Schlüssel ein (Typ: zeitbasiert).",
+        "Scanne den QR-Code mit deiner Authenticator-App.",
       ),
-      el("p", { class: "geheimnis" }, gruppiert(schluessel)),
+      el("div", { class: "qr-rahmen" }, qrBild(totpURI)),
+      // Nur für den Fall, dass die Kamera nicht geht: eingeklappt, damit der Schlüssel nicht im Weg steht
       el(
-        "div",
-        { class: "aktionen aktionen--unten" },
-        knopf("Schlüssel kopieren", {
-          symbol: "kopieren",
-          onclick: kopiere(schluessel),
-        }),
+        "details",
+        { class: "qr-ausweg" },
+        el("summary", {}, "Scannen nicht möglich?"),
         el(
-          "a",
-          { class: "knopf", href: totpURI, rel: "noreferrer" },
-          icon("schluessel"),
-          "In der App öffnen",
+          "p",
+          { class: "hilfe" },
+          "Gib diesen Schlüssel in der App ein (Typ: zeitbasiert).",
         ),
+        el("p", { class: "geheimnis" }, gruppiert(schluessel)),
       ),
       el("h2", {}, "2. Ersatzcodes sichern"),
       el(
@@ -168,8 +207,8 @@ export function zeigeEinrichtung({ seite, fertig, abmelden }) {
     });
     seite({
       ueber: "Zweiter Faktor einrichten · Schritt 2 von 2",
-      titel: "Schlüssel und Ersatzcodes",
-      text: "Trage den Schlüssel ein, sichere die Ersatzcodes und bestätige mit einem Code.",
+      titel: "QR-Code und Ersatzcodes",
+      text: "Scanne den QR-Code, sichere die Ersatzcodes und bestätige mit einem Code.",
       kopfzeichen: el("span", { class: "kreis" }, icon("schild")),
       inhalt: [formular],
     });

@@ -6,32 +6,33 @@ Je Route steht, welche Persona welchen Status bekommt. 2xx heisst erlaubt, 401 n
 
 ## Seiten und Gesundheit
 
-| Route                                         | Zweck                                                              | Status je Persona |
-| --------------------------------------------- | ------------------------------------------------------------------ | ----------------- |
-| `GET /health`                                 | Gesundheitsprüfung                                                 | **200** alle      |
-| `GET /datenschutz`                            | Datenschutzerklärung als HTML-Seite                                | **200** alle      |
-| `GET /konto-loeschen`                         | Hinweis zum Löschen des Kontos als HTML-Seite                      | **200** alle      |
-| `GET /support`                                | Support-Seite als HTML-Seite                                       | **200** alle      |
-| `GET /admin`                                  | Verwaltung im Browser als HTML-Seite                               | **200** alle      |
-| `GET /admin/admin.css`                        | Stilvorlage der Verwaltung                                         | **200** alle      |
-| `GET /admin/admin.js`                         | Hauptskript der Verwaltung (Anmeldung und Navigation)              | **200** alle      |
-| `GET /admin/aenderungen.js`                   | Skript der Verwaltung – Bereich System (Änderungen und Sync-Stand) | **200** alle      |
-| `GET /admin/api.js`                           | Skript der Verwaltung – Aufrufe gegen die API                      | **200** alle      |
-| `GET /admin/dom.js`                           | Skript der Verwaltung – Bausteine der Oberfläche                   | **200** alle      |
-| `GET /admin/einheiten.js`                     | Skript der Verwaltung – Bereich Einheiten                          | **200** alle      |
-| `GET /admin/einrichtung.js`                   | Skript der Verwaltung – Einrichtung des zweiten Faktors            | **200** alle      |
-| `GET /admin/favicon.svg`                      | Symbol der Verwaltung im Browser-Tab                               | **200** alle      |
-| `GET /admin/hintergrund.svg`                  | Logo als Hintergrund der Verwaltung                                | **200** alle      |
-| `GET /admin/konten.js`                        | Skript der Verwaltung – Aktionen an Konten                         | **200** alle      |
-| `GET /admin/kontext.js`                       | Skript der Verwaltung – gewählte Einheit und Umschalter            | **200** alle      |
-| `GET /admin/personen.js`                      | Skript der Verwaltung – Bereich Personen                           | **200** alle      |
-| `GET /admin/raenge.js`                        | Skript der Verwaltung – Bereich Ränge                              | **200** alle      |
-| `GET /admin/system.js`                        | Skript der Verwaltung – Bereich System                             | **200** alle      |
-| `GET /admin/teilnehmende.js`                  | Skript der Verwaltung – Bereich Teilnehmende                       | **200** alle      |
-| `GET /admin/uebersicht.js`                    | Skript der Verwaltung – Bereich Übersicht                          | **200** alle      |
-| `GET /admin/zeitregeln.js`                    | Skript der Verwaltung – Bereich Zeitregeln                         | **200** alle      |
-| `GET /.well-known/apple-app-site-association` | Apple App Site Association (noch leer)                             | **200** alle      |
-| `GET /.well-known/assetlinks.json`            | Android Digital Asset Links (noch leer)                            | **200** alle      |
+| Route                                         | Zweck                                                                          | Status je Persona |
+| --------------------------------------------- | ------------------------------------------------------------------------------ | ----------------- |
+| `GET /health`                                 | Gesundheitsprüfung                                                             | **200** alle      |
+| `GET /datenschutz`                            | Datenschutzerklärung als HTML-Seite                                            | **200** alle      |
+| `GET /konto-loeschen`                         | Hinweis zum Löschen des Kontos als HTML-Seite                                  | **200** alle      |
+| `GET /support`                                | Support-Seite als HTML-Seite                                                   | **200** alle      |
+| `GET /admin`                                  | Verwaltung im Browser als HTML-Seite                                           | **200** alle      |
+| `GET /admin/admin.css`                        | Stilvorlage der Verwaltung                                                     | **200** alle      |
+| `GET /admin/admin.js`                         | Hauptskript der Verwaltung (Anmeldung und Navigation)                          | **200** alle      |
+| `GET /admin/aenderungen.js`                   | Skript der Verwaltung – Bereich System (Änderungen und Sync-Stand)             | **200** alle      |
+| `GET /admin/api.js`                           | Skript der Verwaltung – Aufrufe gegen die API                                  | **200** alle      |
+| `GET /admin/dom.js`                           | Skript der Verwaltung – Bausteine der Oberfläche                               | **200** alle      |
+| `GET /admin/einheiten.js`                     | Skript der Verwaltung – Bereich Einheiten                                      | **200** alle      |
+| `GET /admin/einrichtung.js`                   | Skript der Verwaltung – Einrichtung des zweiten Faktors                        | **200** alle      |
+| `GET /admin/favicon.svg`                      | Symbol der Verwaltung im Browser-Tab                                           | **200** alle      |
+| `GET /admin/hintergrund.svg`                  | Logo als Hintergrund der Verwaltung                                            | **200** alle      |
+| `GET /admin/konten.js`                        | Skript der Verwaltung – Aktionen an Konten                                     | **200** alle      |
+| `GET /admin/kontext.js`                       | Skript der Verwaltung – gewählte Einheit und Umschalter                        | **200** alle      |
+| `GET /admin/personen.js`                      | Skript der Verwaltung – Bereich Personen                                       | **200** alle      |
+| `GET /admin/qrcode.js`                        | Skript der Verwaltung – QR-Code für den zweiten Faktor (qrcode-generator, MIT) | **200** alle      |
+| `GET /admin/raenge.js`                        | Skript der Verwaltung – Bereich Ränge                                          | **200** alle      |
+| `GET /admin/system.js`                        | Skript der Verwaltung – Bereich System                                         | **200** alle      |
+| `GET /admin/teilnehmende.js`                  | Skript der Verwaltung – Bereich Teilnehmende                                   | **200** alle      |
+| `GET /admin/uebersicht.js`                    | Skript der Verwaltung – Bereich Übersicht                                      | **200** alle      |
+| `GET /admin/zeitregeln.js`                    | Skript der Verwaltung – Bereich Zeitregeln                                     | **200** alle      |
+| `GET /.well-known/apple-app-site-association` | Apple App Site Association (noch leer)                                         | **200** alle      |
+| `GET /.well-known/assetlinks.json`            | Android Digital Asset Links (noch leer)                                        | **200** alle      |
 
 ## Anmeldung (better-auth)
 
