@@ -17,10 +17,4 @@ headers:
 body:
   type: json
   content: |-
-    {
-      "ids": [
-        "{{rangId}}",
-        "{{abzeichenRangId}}",
-        "{{bildRangId}}"
-      ]
-    }
+    {"ids": {{rangIds}}}

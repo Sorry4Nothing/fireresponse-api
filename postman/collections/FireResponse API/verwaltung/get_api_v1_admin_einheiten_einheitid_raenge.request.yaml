@@ -12,3 +12,9 @@ headers:
     value: "{{ip}}"
   - key: "X-App-Version"
     value: "{{appVersion}}"
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      const liste = pm.response.code === 200 ? pm.response.json().raenge.map((rang) => rang.id) : ["00000000-0000-4000-8000-000000000000"];
+      pm.environment.set("rangIds", JSON.stringify(liste));
