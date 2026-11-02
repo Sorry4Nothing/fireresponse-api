@@ -1,0 +1,14 @@
+$kind: http-request
+name: "GET /support"
+order: 4000
+method: GET
+url: "{{baseUrl}}/support"
+headers:
+  - key: "Cookie"
+    value: "{{cookie}}"
+  - key: "expo-origin"
+    value: "{{expoOrigin}}"
+  - key: "X-Forwarded-For"
+    value: "{{ip}}"
+  - key: "X-App-Version"
+    value: "{{appVersion}}"

@@ -1,0 +1,3360 @@
+openapi: 3.1.0
+info:
+  title: FireResponse API
+  version: 1.0.0
+  description: Schnittstelle des Backends für die nativen Apps (Android, iOS). Sie beschreibt, was der Code in apps/api tatsächlich liefert; test/openapi.test.ts vergleicht Pfade und Methoden mit den Routen der App.
+servers:
+  - url: https://api.example.org
+    description: Platzhalter; die echte Adresse steht in der Konfiguration der App
+security:
+  - sitzung: []
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      summary: Gesundheitsprüfung
+      tags:
+        - Allgemein
+      security: []
+      description: |
+        Öffentlich, ohne Anmeldung, ausserhalb der Versionsprüfung (kein `X-App-Version` nötig).
+        Antwortet «ok» (200), wenn die Datenbank erreichbar ist. Sonst «fehler» mit 503. Für Überwachung, nicht für die App.
+      responses:
+        "200":
+          description: Alles in Ordnung.
+          content:
+            text/plain:
+              schema:
+                type: string
+                enum:
+                  - ok
+        "503":
+          description: Datenbank nicht erreichbar.
+          content:
+            text/plain:
+              schema:
+                type: string
+                enum:
+                  - fehler
+  /datenschutz:
+    get:
+      operationId: getDatenschutzSeite
+      summary: Datenschutzerklärung als HTML-Seite
+      tags:
+        - Allgemein
+      security: []
+      description: |
+        Öffentliche Seite für die App-Stores, ohne Anmeldung und ausserhalb der Versionsprüfung.
+        Alle Personen (auch deaktivierte und nicht angemeldete) erhalten 200.
+        Die Seite nennt die Datenkategorien, Empfänger, Fristen und Rechte; die verantwortliche Stelle
+        und ihre E-Mail-Adresse setzt der Server aus `VERANTWORTLICHE_STELLE` und `KONTAKT_EMAIL` ein.
+      responses:
+        "200":
+          description: HTML-Seite (`text/html; charset=UTF-8`).
+          content:
+            text/html:
+              schema:
+                type: string
+  /konto-loeschen:
+    get:
+      operationId: getKontoLoeschenSeite
+      summary: Hinweis zum Löschen des Kontos als HTML-Seite
+      tags:
+        - Allgemein
+      security: []
+      description: |
+        Öffentliche Seite für die App-Stores, ohne Anmeldung und ausserhalb der Versionsprüfung.
+        Die Person löscht ihr Konto nicht selbst; die App bietet keine Löschung an und die API hat keine Route dafür.
+        Die Seite nennt den Weg über die Leitung: Auf Anfrage löscht die Leitung Daten, die Anfrage geht an die
+        Kontaktadresse (`KONTAKT_EMAIL`). Die Verwaltung löscht das Konto.
+      responses:
+        "200":
+          description: HTML-Seite (`text/html; charset=UTF-8`).
+          content:
+            text/html:
+              schema:
+                type: string
+  /support:
+    get:
+      operationId: getSupportSeite
+      summary: Support-Seite als HTML-Seite
+      tags:
+        - Allgemein
+      security: []
+      description: |
+        Öffentliche Seite für die App-Stores, ohne Anmeldung und ausserhalb der Versionsprüfung.
+        Nennt die Kontaktadresse (`KONTAKT_EMAIL`) und wer bei was hilft.
+      responses:
+        "200":
+          description: HTML-Seite (`text/html; charset=UTF-8`).
+          content:
+            text/html:
+              schema:
+                type: string
+  /admin:
+    get:
+      operationId: getAdminSeite
+      summary: Verwaltung im Browser als HTML-Seite
+      tags:
+        - Allgemein
+      security: []
+      description: |
+        Statische Hülle der Web-Verwaltung, ohne Anmeldung und ausserhalb der Versionsprüfung. Sie enthält keine Daten:
+        Die Seite meldet sich über `/api/auth/*` an und ruft danach `/api/v1/admin/*` auf, mit dem Session-Cookie
+        und dem zweiten Faktor wie in der App. Alle Personen (auch nicht angemeldete) erhalten 200.
+
+        Die Antwort trägt eine strenge `Content-Security-Policy` (`script-src 'self'`, `style-src 'self'`,
+        `frame-ancestors 'none'`), `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`,
+        `X-Frame-Options: DENY` und `Cache-Control: no-store`. Skripte und Stilvorlage liegen unter
+        `/admin/<Datei>` und tragen dieselben Kopfzeilen (mit `Cache-Control: no-cache`).
+      responses:
+        "200":
+          description: HTML-Seite (`text/html; charset=UTF-8`).
+          content:
+            text/html:
+              schema:
+                type: string
+  /admin/admin.css:
+    get:
+      operationId: getAdminStilvorlage
+      summary: Stilvorlage der Verwaltung
+      tags:
+        - Allgemein
+      security: []
+      description: Statische Datei der Verwaltung (siehe `GET /admin`), ohne Anmeldung.
+      responses:
+        "200":
+          description: Datei (`text/css; charset=UTF-8`).
+          content:
+            text/css:
+              schema:
+                type: string
+  /admin/admin.js:
+    get:
+      operationId: getAdminSkript
+      summary: Hauptskript der Verwaltung (Anmeldung und Navigation)
+      tags:
+        - Allgemein
+      security: []
+      description: Statische Datei der Verwaltung (siehe `GET /admin`), ohne Anmeldung.
+      responses:
+        "200":
+          description: Datei (`text/javascript; charset=UTF-8`).
+          content:
+            text/javascript:
+              schema:
+                type: string
+  /admin/api.js:
+    get:
+      operationId: getAdminApiSkript
+      summary: Skript der Verwaltung – Aufrufe gegen die API
+      tags:
+        - Allgemein
+      security: []
+      description: Statische Datei der Verwaltung (siehe `GET /admin`), ohne Anmeldung.
+      responses:
+        "200":
+          description: Datei (`text/javascript; charset=UTF-8`).
+          content:
+            text/javascript:
+              schema:
+                type: string
+  /admin/auswertung.js:
+    get:
+      operationId: getAdminAuswertungSkript
+      summary: Skript der Verwaltung – Bereich Auswertung
+      tags:
+        - Allgemein
+      security: []
+      description: Statische Datei der Verwaltung (siehe `GET /admin`), ohne Anmeldung.
+      responses:
+        "200":
+          description: Datei (`text/javascript; charset=UTF-8`).
+          content:
+            text/javascript:
+              schema:
+                type: string
+  /admin/dom.js:
+    get:
+      operationId: getAdminDomSkript
+      summary: Skript der Verwaltung – Bausteine der Oberfläche
+      tags:
+        - Allgemein
+      security: []
+      description: Statische Datei der Verwaltung (siehe `GET /admin`), ohne Anmeldung.
+      responses:
+        "200":
+          description: Datei (`text/javascript; charset=UTF-8`).
+          content:
+            text/javascript:
+              schema:
+                type: string
+  /admin/favicon.svg:
+    get:
+      operationId: getAdminFavicon
+      summary: Symbol der Verwaltung im Browser-Tab
+      tags:
+        - Allgemein
+      security: []
+      description: Statische Datei der Verwaltung (siehe `GET /admin`), ohne Anmeldung.
+      responses:
+        "200":
+          description: Datei (`image/svg+xml`).
+          content:
+            image/svg+xml:
+              schema:
+                type: string
+  /admin/hintergrund.svg:
+    get:
+      operationId: getAdminHintergrund
+      summary: Logo als Hintergrund der Verwaltung
+      tags:
+        - Allgemein
+      security: []
+      description: Statische Datei der Verwaltung (siehe `GET /admin`), ohne Anmeldung.
+      responses:
+        "200":
+          description: Datei (`image/svg+xml`).
+          content:
+            image/svg+xml:
+              schema:
+                type: string
+  /admin/system.js:
+    get:
+      operationId: getAdminSystemSkript
+      summary: Skript der Verwaltung – Bereich System
+      tags:
+        - Allgemein
+      security: []
+      description: Statische Datei der Verwaltung (siehe `GET /admin`), ohne Anmeldung.
+      responses:
+        "200":
+          description: Datei (`text/javascript; charset=UTF-8`).
+          content:
+            text/javascript:
+              schema:
+                type: string
+  /admin/uebersicht.js:
+    get:
+      operationId: getAdminUebersichtSkript
+      summary: Skript der Verwaltung – Bereich Übersicht
+      tags:
+        - Allgemein
+      security: []
+      description: Statische Datei der Verwaltung (siehe `GET /admin`), ohne Anmeldung.
+      responses:
+        "200":
+          description: Datei (`text/javascript; charset=UTF-8`).
+          content:
+            text/javascript:
+              schema:
+                type: string
+  /.well-known/apple-app-site-association:
+    get:
+      operationId: getAppleAppSiteAssociation
+      summary: Apple App Site Association (noch leer)
+      tags:
+        - Allgemein
+      security: []
+      description: |
+        Öffentlich, ohne Anmeldung und ausserhalb der Versionsprüfung. Antwortet heute mit einem
+        leeren JSON-Objekt `{}`; der Inhalt wird erst später ergänzt.
+      responses:
+        "200":
+          description: Leeres JSON-Objekt.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                maxProperties: 0
+                example: {}
+  /.well-known/assetlinks.json:
+    get:
+      operationId: getAssetlinks
+      summary: Android Digital Asset Links (noch leer)
+      tags:
+        - Allgemein
+      security: []
+      description: |
+        Öffentlich, ohne Anmeldung und ausserhalb der Versionsprüfung. Antwortet heute mit einer
+        leeren JSON-Liste `[]`; der Inhalt wird erst später ergänzt.
+      responses:
+        "200":
+          description: Leere JSON-Liste.
+          content:
+            application/json:
+              schema:
+                type: array
+                maxItems: 0
+                items: {}
+                example: []
+  /api/auth/sign-in/username:
+    post:
+      operationId: anmeldenMitBenutzername
+      summary: Mit Benutzername und Passwort anmelden
+      tags:
+        - Authentifizierung
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/AppHerkunft"
+      description: |
+        Öffentlich. Einziger Weg zur Anmeldung (E-Mail-Anmeldung und Registrierung gibt es nicht).
+
+        **Sitzung.** Bei Erfolg setzt die Antwort ein Session-Cookie (siehe Sicherheitsschema `sitzung`).
+        Das Cookie ist 90 Tage gültig (`Max-Age=7776000`). Alle weiteren Aufrufe tragen es als `Cookie`-Header.
+
+        **Zweiter Faktor.** Hat die Person den zweiten Faktor eingerichtet (Kantonsadmin, Kommando), setzt die
+        Antwort noch *keine* Sitzung. Sie gibt `twoFactorRedirect: true` zurück und setzt ein Zwischen-Cookie
+        (`two_factor`). Die App schickt es mit dem Code an `POST /api/auth/two-factor/verify-totp` oder
+        `POST /api/auth/two-factor/verify-backup-code`; erst dann entsteht die Sitzung.
+
+        **Startpasswort.** Hat die Person noch ein Startpasswort (`mussPasswortAendern` in
+        `GET /api/auth/get-session` und `GET /api/v1/ich`), zählen bei der Eingabe Gross-/Kleinschreibung,
+        Bindestriche und Leerzeichen nicht. Ist das Startpasswort abgelaufen (7 Tage), ist keine Anmeldung möglich.
+        Solange der Pflichtwechsel offen ist, antwortet jede Route unter `/api/v1` ausser `GET /api/v1/ich`
+        mit 403; die App führt zu `POST /api/auth/change-password`.
+
+        **Fehler.** Jeder Fehlschlag mit Status 4xx (ausser 429) antwortet mit demselben 401 und demselben Text
+        `ANMELDUNG_FEHLGESCHLAGEN`: falsches Passwort, unbekannter Name, Wartezeit, abgelaufenes Startpasswort,
+        deaktiviertes Konto, ungültiger Name, ungültige Herkunft, fehlerhafter Body. Es wird kein Cookie gesetzt.
+        Die App kann die Fälle nicht unterscheiden.
+
+        **Bremse.** Ab dem 5. Fehlversuch in Folge gilt pro Benutzername eine Wartezeit: 1 Minute, dann 5, dann
+        15 Minuten. Liegt der letzte Fehlversuch 15 Minuten zurück, also spätestens nach der längsten Wartezeit,
+        beginnt die Zählung bei 0. Während der Wartezeit antwortet die Route auch bei richtigem Passwort mit 401.
+        Zusätzlich gilt ein Limit von 30 Anfragen je 15 Minuten und Client-IP (429 `ZU_VIELE_ANFRAGEN`, Header
+        `X-Retry-After` in Sekunden).
+
+        **Rollen.** Alle Personen mit Konto; deaktivierte Konten und unbekannte Namen bekommen 401.
+        Statuscodes: 200, 401, 426, 429.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuthAnmeldungAnfrage"
+      responses:
+        "200":
+          description: |
+            Angemeldet (mit `Set-Cookie`) oder zweiter Faktor verlangt (ohne Sitzungs-Cookie).
+          headers:
+            Set-Cookie:
+              description: Session-Cookie bei `AuthAnmeldungErfolg`, Zwischen-Cookie `two_factor` bei `AuthZweiterFaktorAufforderung`.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/AuthAnmeldungErfolg"
+                  - $ref: "#/components/schemas/AuthZweiterFaktorAufforderung"
+        "401":
+          description: Anmeldung fehlgeschlagen (jeder Grund, immer derselbe Text), ohne Cookie.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Fehler"
+              example:
+                code: ANMELDUNG_FEHLGESCHLAGEN
+                message: Anmeldung nicht möglich. Bitte Benutzername und Passwort prüfen oder später nochmals versuchen. Sonst hilft ein Admin.
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/auth/sign-out:
+    post:
+      operationId: abmelden
+      summary: Abmelden (aktuelle Sitzung beenden)
+      tags:
+        - Authentifizierung
+      security:
+        - {}
+        - sitzung: []
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/AppHerkunft"
+      description: |
+        Beendet die Sitzung des mitgeschickten Cookies und löscht es (`Set-Cookie` mit `Max-Age=0`).
+        Antwortet auch ohne oder mit abgelaufener Sitzung mit 200. Der Body darf leer sein oder `{}`.
+
+        Wer offline ist, kann die Sitzung lokal verwerfen; die Server-Sitzung endet dann mit ihrem Ablauf.
+
+        **Rollen.** Alle, auch ohne Sitzung. Statuscodes: 200, 426, 429.
+        Ohne vertraute Herkunft (siehe Parameter `Origin`) antwortet die Route bei mitgeschicktem Cookie mit 403
+        (`INVALID_ORIGIN` oder `MISSING_OR_NULL_ORIGIN`).
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: Sitzung beendet (oder keine vorhanden).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthAbmeldenAntwort"
+        "403":
+          description: Herkunft nicht vertraut oder fehlt.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Fehler"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/auth/get-session:
+    get:
+      operationId: sitzungAbfragen
+      summary: Aktuelle Sitzung und Person lesen
+      tags:
+        - Authentifizierung
+      security:
+        - {}
+        - sitzung: []
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+      description: |
+        Gibt die Sitzung und die angemeldete Person zurück, oder `null` ohne gültige Sitzung (dann 200, nicht 401).
+        Die Antwort trägt `Cache-Control: no-store`.
+
+        Hier erfährt die App, ob der Pflichtwechsel des Passworts offen ist (`user.mussPasswortAendern`)
+        und ob der zweite Faktor eingerichtet ist (`user.twoFactorEnabled`). Das vollständige Profil mit Einheiten und
+        Teilnehmenden liefert `GET /api/v1/ich`.
+
+        **Verlängerung.** Diese Route verlängert die Sitzung um 90 Tage, sobald seit der letzten Verlängerung
+        mehr als 1 Tag vergangen ist, und schickt dann ein neues `Set-Cookie`. Das Cookie ersetzt das alte.
+        Die Routen unter `/api/v1` verlängern nicht.
+
+        **Rollen.** Alle, auch ohne Sitzung. Statuscodes: 200, 426, 429.
+      responses:
+        "200":
+          description: Sitzung mit Person, oder `null`.
+          headers:
+            Set-Cookie:
+              description: Nur bei einer fälligen Verlängerung oder einer ungültigen Sitzung (dann wird das Cookie gelöscht).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: "null"
+                  - $ref: "#/components/schemas/AuthSitzungAntwort"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/auth/change-password:
+    post:
+      operationId: passwortAendern
+      summary: Eigenes Passwort ändern
+      tags:
+        - Authentifizierung
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/AppHerkunft"
+      description: |
+        Ändert das Passwort der angemeldeten Person. Dient auch dem Pflichtwechsel nach einem Startpasswort.
+
+        Der Server beendet dabei immer alle anderen Sitzungen der Person (die Anfrage wird so behandelt, als stünde
+        `revokeOtherSessions: true` darin) und stellt für das aufrufende Gerät eine neue Sitzung aus: Die Antwort
+        trägt ein neues `Set-Cookie`, das das alte ersetzt. Nach Erfolg ist der Pflichtwechsel erledigt
+        (`mussPasswortAendern` wird `false`).
+
+        Bei offenem Pflichtwechsel zählen in `currentPassword` (und beim Vergleich mit `newPassword`) Gross-/Kleinschreibung,
+        Bindestriche und Leerzeichen des Startpassworts nicht.
+
+        **Grenzen.** `newPassword`: mindestens 12, höchstens 128 Zeichen, keine Zeichenregeln. Das neue Passwort darf
+        nicht aus einem bekannten Datenleck stammen (HaveIBeenPwned) und muss sich vom bisherigen unterscheiden.
+        Limit: 5 Anfragen je 15 Minuten und Client-IP (429).
+
+        **Rollen.** Alle angemeldeten Personen, auch bei offenem Pflichtwechsel. Statuscodes: 200, 400, 401, 426, 429.
+        Bekannte Fehlercodes bei 400: `PASSWORD_TOO_SHORT`, `PASSWORD_TOO_LONG`, `INVALID_PASSWORD` (aktuelles Passwort
+        falsch), `PASSWORT_UNVERAENDERT`, `PASSWORD_COMPROMISED`. Der Fehlerkörper ist `{code, message}`; `message`
+        von better-auth-Codes (englische Grossbuchstaben) ist englisch und nicht zur Anzeige gedacht.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuthPasswortAendernAnfrage"
+      responses:
+        "200":
+          description: Passwort geändert; neues Session-Cookie im `Set-Cookie`.
+          headers:
+            Set-Cookie:
+              description: Neues Session-Cookie.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthPasswortAendernAntwort"
+        "400":
+          description: |
+            Eingabe abgelehnt. Codes: `PASSWORD_TOO_SHORT`, `PASSWORD_TOO_LONG`, `INVALID_PASSWORD`,
+            `PASSWORT_UNVERAENDERT`, `PASSWORD_COMPROMISED`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Fehler"
+              example:
+                code: PASSWORT_UNVERAENDERT
+                message: Das neue Passwort muss sich vom bisherigen unterscheiden.
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/auth/revoke-sessions:
+    post:
+      operationId: alleSitzungenBeenden
+      summary: Überall abmelden (alle Sitzungen beenden)
+      tags:
+        - Authentifizierung
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/AppHerkunft"
+      description: |
+        Beendet alle Sitzungen der angemeldeten Person, auch die aufrufende. Danach antwortet jede Route mit 401;
+        die App verwirft ihr Cookie. Sitzungen anderer Personen bleiben unberührt. Der Body darf leer sein oder `{}`.
+
+        **Rollen.** Alle angemeldeten Personen. Statuscodes: 200, 401 (ohne Sitzung oder deaktiviert), 426, 429.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: Alle Sitzungen beendet.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthAlleSitzungenBeendenAntwort"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/auth/two-factor/enable:
+    post:
+      operationId: zweitenFaktorEinrichten
+      summary: Zweiten Faktor (TOTP) einrichten
+      tags:
+        - Authentifizierung
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/AppHerkunft"
+      description: |
+        Erster von zwei Schritten: Erzeugt das Geheimnis und die Ersatzcodes. Der zweite Faktor ist erst nach
+        `POST /api/auth/two-factor/verify-totp` mit dem ersten Code aktiv (`twoFactorEnabled` wird erst dann `true`).
+        Ein Aufruf allein schaltet nichts ein und entsperrt die Admin-Routen nicht.
+
+        Nur Admins richten den zweiten Faktor ein. Für alle anderen Personen (auch ohne Sitzung) antwortet der Pfad
+        mit 404 `NICHT_GEFUNDEN`, als gäbe es ihn nicht. Admins brauchen den Faktor für alle Routen unter
+        `/api/v1/admin`; ohne ihn antworten diese mit 403 `ZWEITER_FAKTOR_FEHLT`.
+
+        Der Link `totpURI` (`otpauth://`) trägt «FireResponse» als Aussteller und den Benutzernamen als Kontonamen,
+        6 Stellen und 30 Sekunden. Er enthält das Geheimnis und wird nur einmal gezeigt. Die zehn Ersatzcodes
+        haben das Format `xxxxx-xxxxx` (je 5 Zeichen `a-z`, `A-Z`, `0-9`) und gelten je einmal.
+
+        Bei bereits aktivem Faktor antwortet die Route mit 400 `TOTP_ALREADY_ENABLED`, mit `method: otp` mit
+        400 `OTP_NOT_CONFIGURED`. Ein falsches Passwort ergibt 400 `INVALID_PASSWORD`. Bei offenem Startpasswort zählen
+        Gross-/Kleinschreibung, Bindestriche und Leerzeichen nicht.
+
+        Wird der Faktor mit dem ersten Code bestätigt, beendet der Server alle anderen Sitzungen der Person
+        und stellt ein neues Session-Cookie aus.
+
+        **Rollen.** Nur Admins (auch ohne bisherigen zweiten Faktor). Statuscodes: 200, 400, 404 (kein Admin oder
+        keine Sitzung), 426, 429.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuthZweiterFaktorEinrichtenAnfrage"
+      responses:
+        "200":
+          description: Geheimnis und Ersatzcodes erzeugt, noch nicht bestätigt.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthZweiterFaktorEinrichtenAntwort"
+        "400":
+          description: |
+            Codes: `INVALID_PASSWORD`, `TOTP_ALREADY_ENABLED`, `OTP_NOT_CONFIGURED`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Fehler"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/auth/two-factor/verify-totp:
+    post:
+      operationId: totpBestaetigen
+      summary: TOTP-Code prüfen (Anmeldung oder Einrichtung)
+      tags:
+        - Authentifizierung
+      security:
+        - zweiterFaktorZwischenschritt: []
+        - sitzung: []
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/AppHerkunft"
+      description: |
+        Zwei Verwendungen:
+
+        1. **Anmeldung.** Nach `POST /api/auth/sign-in/username` mit `twoFactorRedirect: true` schickt die App das
+           Zwischen-Cookie `two_factor` und den Code. Bei einem richtigen Code entsteht die Sitzung (`Set-Cookie`),
+           das Zwischen-Cookie wird gelöscht. Pro Zwischen-Cookie sind 5 Versuche erlaubt, danach 400
+           `TOO_MANY_ATTEMPTS_REQUEST_NEW_CODE` und die App meldet sich neu an. Wiederholte Fehlversuche sperren
+           das Konto vorübergehend (429).
+        2. **Einrichtung.** In einer laufenden Sitzung nach `POST /api/auth/two-factor/enable` bestätigt der erste
+           richtige Code den Faktor. Der Server beendet alle anderen Sitzungen der Person und stellt ein neues
+           Session-Cookie aus, das das alte ersetzt. In dieser Verwendung zählt der Server keine Fehlversuche.
+
+        «Gerät vertrauen» (`trustDevice`) gibt es nicht: Der Server ignoriert das Feld, jede Anmeldung auf einem
+        neuen Gerät fragt nach dem Code.
+
+        Limit: 5 Anfragen je 15 Minuten und Client-IP (429).
+
+        **Rollen.** Alle mit Zwischen-Cookie oder Sitzung; im Betrieb Admins. Statuscodes: 200, 400, 401, 426, 429.
+        Bekannte Fehlercodes: 401 `INVALID_CODE` (falscher Code), 401 `INVALID_TWO_FACTOR_COOKIE` (weder Sitzung noch
+        gültiges Zwischen-Cookie), 400 `TOTP_NOT_ENABLED` (kein Faktor eingerichtet),
+        400 `TOO_MANY_ATTEMPTS_REQUEST_NEW_CODE`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuthCodeAnfrage"
+      responses:
+        "200":
+          description: Code richtig.
+          headers:
+            Set-Cookie:
+              description: Neues Session-Cookie (bei Anmeldung und Einrichtung); das Zwischen-Cookie wird gelöscht.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthZweiterFaktorAnmeldeAntwort"
+        "400":
+          description: |
+            Codes: `TOTP_NOT_ENABLED`, `TOO_MANY_ATTEMPTS_REQUEST_NEW_CODE`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Fehler"
+        "401":
+          description: |
+            Codes: `INVALID_CODE`, `INVALID_TWO_FACTOR_COOKIE`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Fehler"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/auth/two-factor/verify-backup-code:
+    post:
+      operationId: ersatzcodeVerwenden
+      summary: Ersatzcode prüfen (Anmeldung ohne Authenticator)
+      tags:
+        - Authentifizierung
+      security:
+        - zweiterFaktorZwischenschritt: []
+        - sitzung: []
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/AppHerkunft"
+      description: |
+        Wie `POST /api/auth/two-factor/verify-totp` in der Anmeldung, aber mit einem der zehn Ersatzcodes
+        (Format `xxxxx-xxxxx`). Jeder Ersatzcode gilt einmal; derselbe nochmals ergibt 401 `INVALID_BACKUP_CODE`.
+        Bei Erfolg entsteht die Sitzung (`Set-Cookie`). `trustDevice` ignoriert der Server.
+        Limit: 5 Anfragen je 15 Minuten und Client-IP (429).
+
+        **Rollen.** Alle mit Zwischen-Cookie oder Sitzung; im Betrieb Admins. Statuscodes: 200, 400, 401, 426, 429.
+        Bekannte Fehlercodes: 401 `INVALID_BACKUP_CODE`, 401 `INVALID_TWO_FACTOR_COOKIE`,
+        400 `BACKUP_CODES_NOT_ENABLED`, 400 `TOO_MANY_ATTEMPTS_REQUEST_NEW_CODE`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuthCodeAnfrage"
+      responses:
+        "200":
+          description: Ersatzcode richtig, Sitzung ausgestellt.
+          headers:
+            Set-Cookie:
+              description: Neues Session-Cookie; das Zwischen-Cookie wird gelöscht.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthZweiterFaktorAnmeldeAntwort"
+        "400":
+          description: |
+            Codes: `BACKUP_CODES_NOT_ENABLED`, `TOO_MANY_ATTEMPTS_REQUEST_NEW_CODE`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Fehler"
+        "401":
+          description: |
+            Codes: `INVALID_BACKUP_CODE`, `INVALID_TWO_FACTOR_COOKIE`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Fehler"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/ich:
+    get:
+      operationId: ichLesen
+      summary: Eigenes Profil mit Einheiten und Teilnehmenden lesen
+      tags:
+        - Profil
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+      description: |
+        Das Profil der angemeldeten Person: Anzeigename, Benutzername, Schalter, Kantonsadmin-Kennzeichen,
+        Stand des zweiten Faktors und der Einwilligung, die Einheiten mit der Rolle der Person (Kommandant, Stellvertretung, Leitung)
+        und die aktiven teilnehmenden Personen, für die das Konto antwortet (Eltern oder die Person selbst).
+        Nie enthalten sind E-Mail, Bremsfelder, Sperrstatus, Ablauf des Startpassworts sowie Geheimnisse
+        und Codes des zweiten Faktors.
+
+        Inaktive teilnehmende Personen fehlen. `pushAnmeldungen` steht nur bei Personen mit einer Rolle in einer Einheit.
+
+        **Offen bleibt diese Route auch bei offenem Pflichtwechsel des Passworts (`mussPasswortAendern: true`) und ohne gültige
+        Einwilligung (`einwilligung: false`).** Alle anderen Routen unter `/api/v1` ausser `/api/v1/einwilligung` und `/api/v1/admin/*`
+        antworten dann mit 403.
+
+        **Rollen.** Alle angemeldeten Personen, auch ohne zweiten Faktor.
+        Statuscodes: 200, 401 (ohne Sitzung, deaktiviert, Konto gelöscht), 426.
+      responses:
+        "200":
+          description: Das eigene Profil.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IchProfil"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+    patch:
+      operationId: ichAendern
+      summary: Eigene Push-Schalter und Telefonnummer ändern
+      tags:
+        - Profil
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+      description: |
+        Ändert nur die eigenen Schalter und die eigene Telefonnummer; die Person kommt immer aus der Sitzung.
+        Mindestens ein Feld muss im Body stehen. Der Body ist strikt: Jedes andere Feld ergibt 400, ebenso ein
+        leerer Body oder ein Schalter, der kein Boolean ist.
+
+        **Push-Schalter.** `pushProgramme` (Pushes zu Programmen) ist ein Boolean und standardmässig an. Die API wertet ihn bei jedem Versand aus; das Push-Token bleibt dabei bestehen. Ein Push trägt als Daten `typ` (`programm`) und `id` (Programm-ID), woraus die App das Ziel öffnet.
+
+        **Anmelde-Push.** `pushAnmeldungen` (Push an Kommando und Leitende bei An- und Abmeldung für ein Programm) ist ein Boolean und standardmässig an. `GET /api/v1/ich` gibt den Schalter nur Personen mit einer Rolle in einer Einheit zurück; setzen lässt er sich von jeder Person, ohne Wirkung ohne Rolle.
+
+        **Telefonnummer.** Freiwillig, nur für Kommandant und Stellvertretungen (sie sind die Kontakte). `telefon` ist ein Text mit Ziffern und den Zeichen
+        `+ ( ) / . -` sowie Leerzeichen (6 bis 30 Zeichen, nach dem Trimmen); sonst 400. Ein leerer Text oder `null`
+        entfernt die Nummer. Eine Nummer speichern darf nur, wer Kommandant oder Stellvertretung ist (sonst 403); entfernen darf sie
+        jede Person, auch eine, die die Rolle verloren hat.
+
+        **Rollen.** Alle angemeldeten Personen ausser bei offenem Pflichtwechsel des Passworts oder fehlender Einwilligung (403); die Nummer nur
+        Kommandant und Stellvertretungen. Statuscodes: 204, 400, 401, 403, 426.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IchEinstellungen"
+      responses:
+        "204":
+          description: Gespeichert; kein Body.
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+  /api/v1/ich/bild:
+    put:
+      operationId: ichBildSetzen
+      summary: Eigenes Profilbild hochladen
+      tags:
+        - Profil
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+      description: |
+        Setzt das Profilbild der angemeldeten Person; ein vorhandenes Bild wird ersetzt. Jede Person lädt nur ihr
+        eigenes hoch. Teilnehmende Personen ohne eigenes Konto haben nie ein Bild.
+
+        **Body.** Das Bild selbst als Bytes, kein JSON und kein Multipart. Erlaubt sind JPEG, PNG und WebP; der Typ
+        ergibt sich aus den ersten Bytes der Datei, nie aus Dateiendung oder `Content-Type`. Höchstens 5 MiB
+        (5 242 880 Bytes) und höchstens 16 Millionen Pixel; grössere Bilder verkleinert die App vor dem Senden.
+        Wählt die App vorher einen quadratischen Ausschnitt, schneidet der Server nicht noch einmal die Mitte zu.
+
+        **Verarbeitung.** Der Server liest das Bild, dreht es nach der EXIF-Angabe, schneidet es quadratisch aus der
+        Mitte zu, skaliert es auf 256 × 256 Pixel und speichert es als JPEG. Dabei gehen alle Metadaten verloren
+        (EXIF, Aufnahmeort, Farbprofil); das Original wird nicht gespeichert. Transparenz wird weiss.
+
+        **Begrenzung.** Höchstens 10 Uploads je Person in 10 Minuten, fehlgeschlagene eingeschlossen; der Zähler liegt
+        im Arbeitsspeicher des Servers.
+
+        Danach liefert `GET /api/v1/ich` unter `bildUrl` den neuen Pfad.
+
+        **Barrierefreiheit.** Das Bild trägt keinen Text. Die App zeigt es als Zierde neben dem Namen (leerer
+        Alternativtext) und nennt in der Bedienung nur den Namen; ein Bild darf nie allein die Information tragen.
+
+        **Rollen.** Alle angemeldeten Personen ausser bei offenem Pflichtwechsel des Passworts (403).
+        Statuscodes: 204, 401, 403, 413, 415, 426, 429.
+      requestBody:
+        required: true
+        content:
+          image/jpeg:
+            schema:
+              type: string
+              format: binary
+          image/png:
+            schema:
+              type: string
+              format: binary
+          image/webp:
+            schema:
+              type: string
+              format: binary
+      responses:
+        "204":
+          description: Gespeichert; kein Body.
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "413":
+          description: Das Bild ist grösser als 5 MiB (code `ZU_GROSS`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Fehler"
+        "415":
+          description: Kein JPEG, PNG oder WebP, kein lesbares Bild oder zu viele Pixel (code `BILD_FORMAT`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Fehler"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+    delete:
+      operationId: ichBildLoeschen
+      summary: Eigenes Profilbild löschen
+      tags:
+        - Profil
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+      description: |
+        Löscht das Profilbild der angemeldeten Person, jederzeit. Ohne Bild ebenfalls 204. Mit dem Konto verschwindet
+        das Bild von selbst, auch wenn ein Admin die Person löscht. Deaktiviert ein Admin die Person
+        (`POST /api/v1/admin/personen/{id}/deaktivieren`), löscht der Server das Bild ebenfalls; Aktivieren bringt es nicht
+        zurück, die Person lädt dann ein neues hoch.
+
+        **Rollen.** Alle angemeldeten Personen ausser bei offenem Pflichtwechsel des Passworts (403).
+        Statuscodes: 204, 401, 403, 426.
+      responses:
+        "204":
+          description: Gelöscht oder nie vorhanden; kein Body.
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+  /api/v1/personen/{id}/bild:
+    get:
+      operationId: personBildLesen
+      summary: Profilbild einer Person lesen
+      tags:
+        - Profil
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - name: id
+          in: path
+          required: true
+          description: ID der Person (`id` eines Kontakts oder die eigene).
+          schema:
+            type: string
+            format: uuid
+      description: |
+        Liefert das Profilbild als JPEG, 256 × 256 Pixel. Die Adresse steht als `bildUrl` bei den Kontakten und in `GET /api/v1/ich`; die App ruft sie mit der Sitzung auf und baut sie nicht selbst.
+        Das Bild ist nie öffentlich: ohne Sitzung 401.
+
+        **Cache.** Die Antwort trägt `Cache-Control: private, no-store` (auch die Ablehnung) und
+        `X-Content-Type-Options: nosniff`. Das Bild gehört nicht in einen Zwischenspeicher auf der Platte; die App
+        hält es höchstens im Arbeitsspeicher der laufenden Ansicht. Der Wert `v` in `bildUrl` ändert sich mit
+        jedem neuen Bild, ändert aber nichts an der Antwort.
+
+        **Rollen.** Wer eine Person mit Namen sieht, sieht auch ihr Bild, sonst niemand: die Person selbst, das Konto des Kantonsadmins für alle,
+        Kommando und Leitende für alle Rollen ihrer Einheiten, Eltern und Teilnehmende für Kommandant und Stellvertretungen ihrer Einheiten
+        (die Kontakte). Für alle anderen, für Personen ohne Bild und für unbekannte Personen ist die Antwort 404, ohne Unterschied.
+        Statuscodes: 200, 400, 401, 403, 404, 426.
+      responses:
+        "200":
+          description: Das Bild.
+          headers:
+            Cache-Control:
+              description: Immer `private, no-store`.
+              schema:
+                type: string
+                const: private, no-store
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+  /api/v1/push-token:
+    put:
+      operationId: pushTokenRegistrieren
+      summary: Push-Token des Geräts für die aktuelle Sitzung hinterlegen
+      tags:
+        - Push
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+      description: |
+        Hinterlegt das Push-Token des Geräts bei der aktuellen Sitzung. Pro Sitzung gibt es ein Token: Ein neues
+        ersetzt das alte derselben Sitzung. Schickt eine andere Sitzung dasselbe Token (geteiltes Handy), zieht es
+        zu dieser Sitzung um und gehört nicht mehr der früheren Person. Mit dem Ende der Sitzung (Abmelden,
+        Löschen des Kontos) verschwindet auch das Token.
+
+        Der Body ist strikt: Fremde Felder (`userId`, `sessionId`), ein Token in falscher Form, eine andere
+        Plattform oder ein leerer Body ergeben 400. Das Token ist ein FCM-Registrierungstoken: 20 bis 512 Zeichen aus Buchstaben, Ziffern
+        und `_ : . -`. Die Form `ExponentPushToken[…]` aus der früheren Expo-Anbindung ergibt 400.
+
+        **Rollen.** Alle angemeldeten Personen ausser bei offenem Pflichtwechsel des Passworts (403).
+        Statuscodes: 204, 400, 401, 403, 426.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PushTokenAnfrage"
+      responses:
+        "204":
+          description: Hinterlegt; kein Body.
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+  /api/v1/programme:
+    get:
+      operationId: programmeAuflisten
+      summary: Programme eines Zeitfensters auflisten
+      tags:
+        - Programme
+      description: |
+        Liefert alle für die angemeldete Person sichtbaren Programme, die das Fenster `von` bis `bis` berühren,
+        mit dem Namen der Einheit. Das Fenster zählt in Schweizer Kalendertagen und ist beidseitig inklusive:
+        Ein mehrtägiges Programm (Lager) erscheint an jedem seiner Tage. Ist `von` nach `bis`, ist die Liste leer
+        (kein Fehler). Sortiert nach Beginn (ganztägige Programme ab 00:00 Schweizer Zeit ihres ersten Tages),
+        bei Gleichstand nach `id`.
+
+        Wer aufrufen darf: jede angemeldete Person. Sichtbar sind die Programme der Einheiten, in denen die Person
+        Kommandant, Stellvertretung oder Leitung ist oder für die sie als Eltern oder selbst eine aktive teilnehmende Person angemeldet hat;
+        das Konto des Kantonsadmins sieht alle Einheiten. Die App schickt nie eine Einheit mit: Der Server leitet sie aus dem Konto ab.
+
+        Jeder Eintrag trägt `anmeldungAb`, den Schweizer Kalendertag, ab dem sich anmelden lässt (`ANMELDEFENSTER_TAGE` Tage
+        vor dem Beginn, Standard 42). Spätere Programme sind sichtbar; die App zeigt dort «Anmeldung ab <Datum>».
+        `teilnahmeOffen` sagt, ob sich jetzt antworten lässt (aktiv, nicht begonnen, Fenster offen).
+
+        Statuscodes: 200 Erfolg; 400 `von` oder `bis` fehlt, ist kein gültiges Datum `JJJJ-MM-TT`, beginnt mit Jahr
+        0000 oder es gibt unbekannte Query-Parameter; 401 keine gültige Sitzung (auch deaktiviertes Konto);
+        403 das Konto muss zuerst das Passwort ändern oder der Einwilligung zustimmen;
+        426 App-Version zu alt; 429 zu viele Anfragen.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - name: von
+          in: query
+          required: true
+          description: Erster Tag des Fensters (inklusive), Schweizer Kalendertag.
+          schema:
+            type: string
+            format: date
+            example: 2027-03-01
+        - name: bis
+          in: query
+          required: true
+          description: Letzter Tag des Fensters (inklusive), Schweizer Kalendertag.
+          schema:
+            type: string
+            format: date
+            example: 2027-03-31
+      responses:
+        "200":
+          description: Sichtbare Programme im Fenster, möglicherweise leer.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProgrammListe"
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/programme/{id}:
+    get:
+      operationId: programmLesen
+      summary: Ein Programm mit den Teilnahmen der eigenen Personen lesen
+      tags:
+        - Programme
+      description: |
+        Liefert die Felder des Listeneintrags (mit `teilnehmende` samt Rang-Abzeichen) und zusätzlich `thema`, `info`, `aufgebot`,
+        die Kontaktperson des Termins (`kontakt`) und (nur für Kommando und Leitende der Einheit) `eigeneAnmeldung`.
+        Die Kontaktperson ist die Kommandantin oder der Kommandant, solange sie oder er nicht «nein» gesagt hat; sonst die erste
+        Stellvertretung ohne «nein»; haben alle «nein» gesagt, wieder die Kommandantin oder der Kommandant. «Offen» ist keine Absage.
+        Die Telefonnummer des Kontakts sehen nur Eltern und Teilnehmende mit aktiver Person in der Einheit, sonst ist `telefon` `null`.
+
+        Wer aufrufen darf: jede angemeldete Person, für die das Programm sichtbar ist (Regeln wie bei der Liste).
+        Ein Programm, das die Person nicht sieht oder das es nicht gibt, ist 404.
+
+        Statuscodes: 200, 400 (`id` keine UUID), 401, 403 (Pflichtwechsel des Passworts oder Einwilligung offen), 404, 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/ProgrammIdPfad"
+      responses:
+        "200":
+          description: Das Programm.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProgrammDetail"
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/programme/{id}/teilnahmen:
+    get:
+      operationId: teilnahmenUebersicht
+      summary: Anmeldungen eines Programms lesen
+      tags:
+        - Programme
+      description: |
+        Kommando, Leitende und das Konto des Kantonsadmins sehen alle aktiven teilnehmenden Personen der Einheit mit ihrer
+        Antwort (`ja`, `nein`, `offen`) und die Rollen der Einheit (Kommandant zuerst, dann Stellvertretungen nach Reihenfolge, dann Leitende)
+        mit ihrer eigenen Anmeldung. Eltern und Teilnehmende sehen nur ihre eigenen Personen und keine Leitenden.
+        Eine Person, die das Programm sieht, aber weder eine Rolle noch eine eigene teilnehmende Person in der Einheit hat, bekommt 403.
+
+        Statuscodes: 200, 400, 401, 403, 404 (Programm unbekannt oder in keiner sichtbaren Einheit), 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/ProgrammIdPfad"
+      responses:
+        "200":
+          description: Zahlen und Listen.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeilnahmenUebersicht"
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/programme/{id}/leitung:
+    put:
+      operationId: leitungAnmelden
+      summary: Eigene Anmeldung als Leitung melden oder ändern
+      tags:
+        - Programme
+      description: |
+        Meldet die eigene Teilnahme als Kommandant, Stellvertretung oder Leitung der Einheit des Programms an oder ab.
+        Die Person kommt aus der Sitzung. Das Konto des Kantonsadmins, Eltern und Teilnehmende bekommen 403, wer die Einheit nicht sieht 404.
+
+        Reihenfolge der Prüfung: Eingabe (400); Programm nicht sichtbar (404); keine Rolle in der Einheit (403);
+        Programm schon begonnen (409, Code `PROGRAMM_BEGONNEN`); Anmeldefenster noch nicht offen (409, Code
+        `ANMELDEFENSTER_NICHT_OFFEN`). Statuscodes: 204, 400, 401, 403, 404, 409, 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/ProgrammIdPfad"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProgrammAntwort"
+      responses:
+        "204":
+          description: Anmeldung gespeichert. Kein Body.
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "409":
+          description: |
+            Das Programm hat schon begonnen (`PROGRAMM_BEGONNEN`) oder die Anmeldung öffnet erst später
+            (`ANMELDEFENSTER_NICHT_OFFEN`, die Meldung nennt den Tag).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Fehler"
+              examples:
+                begonnen:
+                  value:
+                    code: PROGRAMM_BEGONNEN
+                    message: Das Programm hat schon begonnen.
+                fensterZu:
+                  value:
+                    code: ANMELDEFENSTER_NICHT_OFFEN
+                    message: Die Anmeldung öffnet am 23.01.2027.
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/admin/system:
+    get:
+      operationId: holeAdminSystem
+      summary: Zustand der API und Bestand
+      description: |
+        Nur das Konto des Kantonsadmins (mit zweitem Faktor). Liefert Zahlen für die Übersicht der Verwaltung: Prozess (Node-Version, Laufzeit, Speicher, Verzögerung der Ereignisschleife), Datenbank (erreichbar, Antwortzeit, Verbindungen), Bestand und einige Umgebungs-Flags.
+
+        Die Antwort enthält nie Werte aus der Umgebung, Hosts, Adressen, Schlüssel oder Namen. Ist die Datenbank nicht erreichbar, antwortet die Route trotzdem mit 200 und `datenbank.erreichbar: false`.
+
+        Statuscodes: 200 bei Erfolg. 401. 403 für alle anderen Konten (und ohne zweiten Faktor, Code `ZWEITER_FAKTOR_FEHLT`). 426.
+      tags:
+        - Verwaltung
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+      responses:
+        "200":
+          description: Zustand.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSystem"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/admin/system/requests:
+    get:
+      operationId: holeAdminSystemRequests
+      summary: Zahlen zu den Anfragen an die API
+      description: |
+        Nur das Konto des Kantonsadmins (mit zweitem Faktor). Liefert Zähler und Dauern der Anfragen seit dem Start der API (höchstens die letzten 24 Stunden, in Minuten-Eimern im Arbeitsspeicher). Nach einem Neustart ist alles leer.
+
+        Erfasst werden nur Methode, Routenmuster (nie der konkrete Pfad), Statuscode und Dauer; keine Query, kein Body, keine Header, keine IP-Adressen und keine Personen. Die Abrufe dieser beiden System-Routen und die statischen Dateien unter `/admin` zählen nicht mit. Dauern (`p50Ms`, `p95Ms`) sind die obere Grenze der Dauerklasse, in der das Quantil liegt (Klassen bis 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000 ms); `null` ohne Anfragen. Die Zähler je Route gelten seit dem Start.
+
+        Statuscodes: 200 bei Erfolg. 401. 403 für alle anderen Konten (und ohne zweiten Faktor, Code `ZWEITER_FAKTOR_FEHLT`). 426.
+      tags:
+        - Verwaltung
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+      responses:
+        "200":
+          description: Zähler und Dauern.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSystemRequests"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/programme/{id}/teilnahmen/{teilnehmendeId}:
+    put:
+      operationId: teilnahmeSetzen
+      summary: Teilnahme einer Person melden oder ändern
+      tags:
+        - Programme
+      description: |
+        Setzt die Antwort «ja» oder «nein» für eine teilnehmende Person an einem Programm; eine bestehende Antwort wird
+        überschrieben. Ohne gespeicherte Antwort gilt «offen» (`status` = `null` im Programm). Es gibt kein
+        Zurücksetzen auf «offen».
+
+        Wer aufrufen darf: nur Eltern der Person oder die Person selbst (Konto in `teilnehmende_konto`). Kommando, Leitende und
+        das Konto des Kantonsadmins antworten nicht für andere; für sie und für alle anderen Konten sind fremde Personen 404, auch in
+        derselben Einheit. Das Programm muss in einer sichtbaren Einheit liegen und die Person dort angemeldet sein.
+
+        Setzt der Aufruf die Antwort neu oder ändert er sie, geht ein Push an Kommando und Leitende der Einheit
+        (aktives Konto, `pushAnmeldungen` an), ausser an die Person, die selbst aufruft:
+        Titel «Neue Anmeldung» bei «ja», «Neue Abmeldung» bei «nein», Text «{Programm} am {Datum}», ohne Namen. Bleibt der
+        Wert gleich, geht kein Push hinaus. Ein Fehler beim Push lässt den Aufruf nicht scheitern.
+
+        Reihenfolge der Prüfung: Eingabe (400); Programm nicht sichtbar oder Person nicht die eigene (404, ohne Unterscheidung);
+        inaktive Person (403); Programm abgesagt oder begonnen (409, `PROGRAMM_GESCHLOSSEN`); Anmeldefenster noch nicht
+        offen (409, `ANMELDEFENSTER_NICHT_OFFEN`). Zwei Elternteile: Die letzte Antwort gilt.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/ProgrammIdPfad"
+        - $ref: "#/components/parameters/ProgrammTeilnehmendeIdPfad"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProgrammAntwort"
+      responses:
+        "204":
+          description: Teilnahme gespeichert. Kein Body.
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "409":
+          description: |
+            Das Programm ist abgesagt (Status nicht «aktiv») oder hat schon begonnen (`PROGRAMM_GESCHLOSSEN`), oder die
+            Anmeldung öffnet erst später (`ANMELDEFENSTER_NICHT_OFFEN`, die Meldung nennt den Tag).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Fehler"
+              examples:
+                geschlossen:
+                  value:
+                    code: PROGRAMM_GESCHLOSSEN
+                    message: Das Programm ist abgesagt oder hat schon begonnen. Die Teilnahme lässt sich nicht mehr ändern.
+                fensterZu:
+                  value:
+                    code: ANMELDEFENSTER_NICHT_OFFEN
+                    message: Die Anmeldung öffnet am 23.01.2027.
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/einheiten/{einheitId}/kontakt:
+    get:
+      operationId: einheitKontaktLesen
+      summary: Kontakt der Einheit lesen
+      tags:
+        - Programme
+      description: |
+        Der Kontakt der Einheit für die Info-Seite «Konto aufs Kind übertragen»: die Kommandantin oder der Kommandant
+        (ist das Konto deaktiviert, die erste Stellvertretung). `kontakt` ist nur dann `null`, wenn die Einheit keine
+        Kommandantin und keinen Kommandanten hat. Die Telefonnummer sehen nur Eltern und Teilnehmende mit aktiver Person in
+        dieser Einheit, sonst ist `telefon` `null`.
+
+        Wer aufrufen darf: jede Person, die die Einheit sieht (Rolle in der Einheit, aktive teilnehmende Person darin oder
+        Kantonsadmin-Konto); sonst 404. Statuscodes: 200, 400, 401, 403, 404, 426.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/EinheitIdPfad"
+      responses:
+        "200":
+          description: Der Kontakt.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [kontakt]
+                properties:
+                  kontakt:
+                    oneOf:
+                      - $ref: "#/components/schemas/Kontakt"
+                      - type: "null"
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+  /api/v1/raenge/{id}/abzeichen:
+    get:
+      operationId: abzeichenBildLesen
+      summary: Eigenes Bild eines Rang-Abzeichens lesen
+      tags:
+        - Programme
+      description: |
+        Liefert das Bild eines Abzeichens (PNG oder SVG). Die Adresse steht als `bildUrl` im `abzeichen` der Teilnehmenden und
+        der Kontaktperson; die App ruft sie mit der Sitzung auf. Abzeichen mit Sternen haben kein Bild (nur `sterne`).
+
+        Die Antwort trägt `Cache-Control: private, no-store`, `X-Content-Type-Options: nosniff` und eine CSP, die Skripte und
+        Nachladen sperrt. Wer die Einheit des Rangs nicht sieht, ein Rang ohne Bild und ein unbekannter Rang sind 404, ohne Unterschied.
+        Statuscodes: 200, 400, 401, 403, 404, 426.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - name: id
+          in: path
+          required: true
+          description: ID des Rangs, aus `bildUrl`.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Das Bild.
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/svg+xml:
+              schema:
+                type: string
+                format: binary
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+  /api/v1/einwilligung:
+    get:
+      operationId: einwilligungLesen
+      summary: Aktuelle Fassung der Einwilligung und den eigenen Stand lesen
+      tags:
+        - Profil
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+      description: |
+        Liefert die Version und den Text der aktuellen Einwilligung und ob die angemeldete Person ihr zugestimmt hat (`gueltig`).
+        Die App zeigt den Text beim ersten Start und nach jeder neuen Version. Ohne gültige Einwilligung sperrt die API alle
+        Routen unter `/api/v1` ausser `GET /api/v1/ich`, dieser Route und `/api/v1/admin/*` mit 403 `EINWILLIGUNG_FEHLT`;
+        Passwortwechsel und Abmelden laufen über `/api/auth/*` und bleiben offen.
+
+        Statuscodes: 200, 401, 403 (Pflichtwechsel des Passworts offen), 426.
+      responses:
+        "200":
+          description: Fassung und Stand.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Einwilligung"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+    put:
+      operationId: einwilligungGeben
+      summary: Der aktuellen Fassung zustimmen
+      tags:
+        - Profil
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+      description: |
+        Speichert Zeitpunkt und aktuelle Version der Einwilligung am eigenen Konto. Kein Body: Die Fassung setzt der Server,
+        nicht die App. Ein zweiter Aufruf schreibt Zeitpunkt und Version neu.
+
+        Statuscodes: 204, 401, 403 (Pflichtwechsel des Passworts offen), 426.
+      responses:
+        "204":
+          description: Gespeichert; kein Body.
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+  /api/v1/admin/einheiten/{einheitId}/kommando:
+    post:
+      operationId: kommandoUebergeben
+      summary: Das Kommando einer Einheit übergeben
+      tags:
+        - Verwaltung
+      description: |
+        Nur das Konto des Kantonsadmins (mit zweitem Faktor). Eine bestehende aktive Person wird neue Kommandantin oder neuer Kommandant;
+        die bisherige Person bekommt die Rolle aus `bisherigeRolle` (Stellvertretung an einer Position, Leitung oder keine).
+        Alles geschieht in einer Transaktion: Die Einheit ist nie ohne Kommandanten und nie mit zwei. Bei einer Stellvertretung rücken
+        die Stellvertretungen ab dieser Position um eins nach hinten. Rang und Reihenfolge bleiben bei der jeweiligen Person.
+        Die Übergabe steht im Audit-Log (ohne Namen).
+
+        Reihenfolge der Prüfung: Eingabe (400); Einheit unbekannt oder für das Konto unsichtbar (404); kein Kantonsadmin (403);
+        neue Person unbekannt, deaktiviert oder selbst Kantonsadmin (400); dieselbe Person wie bisher (409 `GLEICHE_PERSON`).
+        Ohne zweiten Faktor sperrt die Verwaltung jedes Konto mit Verwaltungsrolle (403 `ZWEITER_FAKTOR_FEHLT`).
+
+        Statuscodes: 204, 400, 401, 403, 404, 409, 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/EinheitIdPfad"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/KommandoUebergabe"
+      responses:
+        "204":
+          description: Übergeben. Kein Body.
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "409":
+          description: Dieselbe Person ist schon Kommandantin oder Kommandant (`GLEICHE_PERSON`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminKonflikt"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/admin/einheiten/{einheitId}/zeitregeln:
+    get:
+      operationId: listeAdminZeitregeln
+      summary: Erinnerungsregeln der Einheit
+      description: |
+        Kommando der Einheit und Kantonsadmin. Liefert alle Regeln der Einheit, sortiert nach Wochentag und Uhrzeit.
+
+        Statuscodes: 200 bei Erfolg. 403 für Leitende und Eltern der Einheit (und ohne zweiten Faktor, Code `ZWEITER_FAKTOR_FEHLT`); 404, wenn die Einheit unbekannt oder unsichtbar ist.
+      tags:
+        - Verwaltung
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/EinheitIdPfad"
+      responses:
+        "200":
+          description: Regeln der Einheit.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminZeitregelListe"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+    post:
+      operationId: legeAdminZeitregelAn
+      summary: Erinnerungsregel anlegen
+      description: |
+        Kommando der Einheit und Kantonsadmin. Legt eine Regel an, die Konten ohne gespeichertes «ja» oder «nein» an ein Programm erinnert. Der Server prüft jede Minute, ob eine Regel fällig ist: Die Auslösezeit pro Programm ist der letzte passende Wochentag samt Uhrzeit (Schweizer Zeit) vor Programmbeginn. Pro Regel und Programm geht höchstens eine Erinnerung hinaus; eine Regel, die erst nach der Auslösezeit entsteht, holt sie bis zum Programmbeginn nach. Das Anlegen steht im Audit-Log (ohne den Text).
+
+        Statuscodes: 201 bei Erfolg. 400 bei ungültiger Eingabe. 403 für Leitende und Eltern. 404 bei unbekannter oder unsichtbarer Einheit.
+      tags:
+        - Verwaltung
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/EinheitIdPfad"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminZeitregelAnlegen"
+      responses:
+        "201":
+          description: Regel angelegt.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAngelegt"
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/admin/einheiten/{einheitId}/zeitregeln/{id}:
+    patch:
+      operationId: aendereAdminZeitregel
+      summary: Erinnerungsregel ändern
+      description: |
+        Kommando der Einheit und Kantonsadmin, nur Regeln der Einheit im Pfad. Alle Felder sind optional; ein leeres Objekt ist ein No-op und liefert 204. Eine Änderung steht im Audit-Log (welche Felder, ohne den Text). Eine schon gesendete Erinnerung wird durch eine Änderung nie wiederholt.
+
+        Reihenfolge der Prüfungen: Pfad und Body (400), dann Einheit sichtbar (404) und Recht (403), dann Regel in dieser Einheit (404).
+
+        Statuscodes: 204 bei Erfolg. 400 bei ungültiger Eingabe. 403 für Leitende und Eltern. 404, wenn die Einheit oder die Regel unbekannt ist oder zu einer anderen Einheit gehört.
+      tags:
+        - Verwaltung
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/EinheitIdPfad"
+        - $ref: "#/components/parameters/AdminZeitregelId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminZeitregelAendern"
+      responses:
+        "204":
+          description: Geändert (auch bei einem No-op).
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+    delete:
+      operationId: loescheAdminZeitregel
+      summary: Erinnerungsregel löschen
+      description: |
+        Kommando der Einheit und Kantonsadmin, nur Regeln der Einheit im Pfad. Löscht die Regel samt dem Vermerk der gesendeten Erinnerungen; das Löschen steht im Audit-Log.
+
+        Statuscodes: 204 bei Erfolg. 400 bei ungültiger ID. 403 für Leitende und Eltern. 404, wenn die Einheit oder die Regel unbekannt ist oder zu einer anderen Einheit gehört.
+      tags:
+        - Verwaltung
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/EinheitIdPfad"
+        - $ref: "#/components/parameters/AdminZeitregelId"
+      responses:
+        "204":
+          description: Gelöscht.
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/admin/auswertung/filter:
+    get:
+      operationId: auswertungFilter
+      summary: Bezirke und Einheiten für die Filter der Auswertung
+      tags:
+        - Verwaltung
+      description: |
+        Die Einheiten, die die Person auswerten darf, und ihre Bezirke: Kommandant/in und Stellvertretung die eigenen, das Kantonsadmin-Konto alle (`umschalter: true`, dann schaltet die Verwaltung zwischen Bezirken und Einheiten um).
+
+        Statuscodes: 200, 401, 403 (Leitende, Eltern und Teilnehmende; ohne zweiten Faktor mit Code `ZWEITER_FAKTOR_FEHLT`), 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+      responses:
+        "200":
+          description: Auswahl für die Filter.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuswertungFilter"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/admin/auswertung/termine:
+    get:
+      operationId: auswertungTermine
+      summary: Termine eines Zeitraums mit den Zahlen der Anmeldungen
+      tags:
+        - Verwaltung
+      description: |
+        Alle Programme, die im Zeitraum beginnen (Schweizer Kalendertag des Beginns, ein Lager zählt an seinem ersten Tag), mit Ja, Nein und Offen für Teilnehmende und Leitende. Abgesagte Termine sind enthalten (`status`), zählen aber nicht in die Quote. `begonnen` sagt, ob der Beginn vorbei ist. Sortiert nach Beginn.
+
+        Es zählen nur aktive Teilnehmende und aktive Konten; die Zahlen enthalten nie Namen, Konten oder Eltern. Grundlage sind die Anmeldungen, nie eine Präsenzkontrolle.
+
+        Statuscodes: 200, 400 (Zeitraum fehlt, verkehrt, über 366 Tage, unbekannter Parameter), 401, 403, 404 (`einheitId` unbekannt oder unsichtbar), 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/AuswertungVon"
+        - $ref: "#/components/parameters/AuswertungBis"
+        - $ref: "#/components/parameters/AuswertungBezirk"
+        - $ref: "#/components/parameters/AuswertungEinheit"
+        - $ref: "#/components/parameters/AuswertungRolle"
+      responses:
+        "200":
+          description: Termine mit Zahlen.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuswertungTermine"
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/admin/auswertung/termine/{id}:
+    get:
+      operationId: auswertungPraesenzliste
+      summary: Präsenzliste eines Termins
+      tags:
+        - Verwaltung
+      description: |
+        Ja, Nein und Offen für jede aktive teilnehmende Person und jede Person mit Rolle in der Einheit, Teilnehmende und Leitende getrennt, mit den Zahlen je Gruppe. Das ist die Liste der Anmeldungen, keine Anwesenheit. Ohne Antwort gilt `offen`.
+
+        Statuscodes: 200, 400, 401, 403 (kein Recht in der Einheit des Termins), 404 (Termin unbekannt oder in keiner sichtbaren Einheit), 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/ProgrammIdPfad"
+      responses:
+        "200":
+          description: Präsenzliste.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuswertungPraesenzliste"
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/admin/auswertung/quoten:
+    get:
+      operationId: auswertungQuoten
+      summary: Teilnahmequote pro Person im Zeitraum
+      tags:
+        - Verwaltung
+      description: |
+        Eine Zeile je Person und Einheit: Termine, Ja, Nein, Offen und Quote (`ja` geteilt durch `termine`, drei Stellen, `null` ohne Termine). Teilnehmende und Leitende stehen in einer Liste (`art`); `rolle` filtert.
+
+        Bezug sind aktive Programme, die im Zeitraum beginnen und schon begonnen haben: Bei künftigen Terminen sagt «offen» noch nichts, abgesagte zählen nicht. Inaktive Teilnehmende und deaktivierte Konten fehlen. Die Zahlen hängen an der Person, nicht am antwortenden Konto: Ein Wechsel von den Eltern aufs Kind ändert sie nicht. Eine Person zählt für alle Termine des Zeitraums, auch für die vor ihrem Eintritt (es gibt kein Eintrittsdatum).
+
+        Statuscodes: 200, 400, 401, 403, 404 (`einheitId` unbekannt oder unsichtbar), 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/AuswertungVon"
+        - $ref: "#/components/parameters/AuswertungBis"
+        - $ref: "#/components/parameters/AuswertungBezirk"
+        - $ref: "#/components/parameters/AuswertungEinheit"
+        - $ref: "#/components/parameters/AuswertungRolle"
+      responses:
+        "200":
+          description: Quoten.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuswertungQuoten"
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/admin/auswertung/jahr:
+    get:
+      operationId: auswertungJahr
+      summary: Jahresübersicht pro Einheit
+      tags:
+        - Verwaltung
+      description: |
+        Je Einheit des Bereichs (auch ohne Programme) die Summe des Jahres und zwölf Monate: begonnene Termine (`termine`), noch kommende (`kommend`) und Ja, Nein, Offen und Quote für Teilnehmende und Leitende. Die Gruppe, die `rolle` ausfiltert, ist `null`. Es gelten dieselben Regeln wie bei `GET /api/v1/admin/auswertung/quoten`.
+
+        Statuscodes: 200, 400, 401, 403, 404 (`einheitId` unbekannt oder unsichtbar), 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - name: jahr
+          in: query
+          required: true
+          description: Kalenderjahr (Schweizer Zeit), 2000 bis 2100.
+          schema:
+            type: integer
+            minimum: 2000
+            maximum: 2100
+            example: 2026
+        - $ref: "#/components/parameters/AuswertungBezirk"
+        - $ref: "#/components/parameters/AuswertungEinheit"
+        - $ref: "#/components/parameters/AuswertungRolle"
+      responses:
+        "200":
+          description: Jahresübersicht.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuswertungJahr"
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/admin/auswertung/einheiten/{einheitId}/teilnehmende/{id}:
+    get:
+      operationId: auswertungTeilnehmende
+      summary: Drilldown einer teilnehmenden Person
+      tags:
+        - Verwaltung
+      description: |
+        Zahlen und Termine (mit Antwort) einer aktiven teilnehmenden Person im Zeitraum, nach denselben Regeln wie die Quote. Eine inaktive oder fremde Person ist 404.
+
+        Statuscodes: 200, 400, 401, 403, 404 (Einheit oder Person unbekannt oder unsichtbar), 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/EinheitIdPfad"
+        - name: id
+          in: path
+          required: true
+          description: ID der teilnehmenden Person.
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/AuswertungVon"
+        - $ref: "#/components/parameters/AuswertungBis"
+      responses:
+        "200":
+          description: Person mit Zahlen und Terminen.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuswertungPerson"
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/admin/auswertung/einheiten/{einheitId}/leitende/{id}:
+    get:
+      operationId: auswertungLeitende
+      summary: Drilldown einer Person mit Rolle in der Einheit
+      tags:
+        - Verwaltung
+      description: |
+        Wie `GET /api/v1/admin/auswertung/einheiten/{einheitId}/teilnehmende/{id}` für Kommandant/in, Stellvertretungen und Leitende; `id` ist die ID des Kontos. Ein deaktiviertes Konto oder eine Person ohne Rolle in dieser Einheit ist 404.
+
+        Statuscodes: 200, 400, 401, 403, 404, 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/EinheitIdPfad"
+        - name: id
+          in: path
+          required: true
+          description: ID des Kontos der Person.
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/AuswertungVon"
+        - $ref: "#/components/parameters/AuswertungBis"
+      responses:
+        "200":
+          description: Person mit Zahlen und Terminen.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuswertungPerson"
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+components:
+  schemas:
+    Fehler:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          examples:
+            - NICHT_ANGEMELDET
+        message:
+          type: string
+          examples:
+            - Nicht angemeldet
+    AuthAnmeldungAnfrage:
+      type: object
+      description: Zugangsdaten. Weitere Felder von better-auth (`rememberMe`, `callbackURL`) verwendet die App nicht.
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+          maxLength: 64
+          pattern: ^[A-Za-z0-9._-]+$
+          description: |
+            Benutzername. Erlaubt sind Buchstaben, Ziffern, Punkt, Unterstrich und Bindestrich (3 bis 64 Zeichen);
+            Gross-/Kleinschreibung ist egal, gespeichert wird kleingeschrieben. Ein Wert ausserhalb der Regel
+            ergibt wie jeder Fehlschlag 401.
+          example: vorname.nachname
+        password:
+          type: string
+          description: Passwort oder Startpasswort. Bei offenem Startpasswort zählen Gross-/Kleinschreibung, Bindestriche und Leerzeichen nicht.
+    AuthBenutzer:
+      type: object
+      description: |
+        Person aus better-auth. Die E-Mail-Adresse ist ein Platzhalter (`…@benutzer.invalid`) und nicht für die
+        Anzeige gedacht. Weitere Felder (z. B. Bremsfelder, `createdAt`, `emailVerified`) können vorkommen;
+        die App ignoriert sie. Das vollständige Profil liefert `GET /api/v1/ich`.
+      required:
+        - id
+        - name
+      additionalProperties: true
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          description: Anzeigename.
+        username:
+          type:
+            - string
+            - "null"
+          description: Benutzername, kleingeschrieben.
+        role:
+          type:
+            - string
+            - "null"
+          description: Rolle der Person bei better-auth; `admin` für Admins.
+          example: admin
+        twoFactorEnabled:
+          type:
+            - boolean
+            - "null"
+          description: Ob der zweite Faktor eingerichtet und bestätigt ist.
+        mussPasswortAendern:
+          type: boolean
+          description: |
+            Ob der Pflichtwechsel des Passworts offen ist. Dann antwortet jede Route unter `/api/v1` ausser
+            `GET /api/v1/ich` mit 403.
+    AuthSitzung:
+      type: object
+      description: Sitzung. Das Sitzungstoken ist kein Bearer-Token und gehört nicht in die App-Logik.
+      required:
+        - id
+        - userId
+        - expiresAt
+      additionalProperties: true
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        expiresAt:
+          type: string
+          format: date-time
+          description: Ablauf der Sitzung (90 Tage ab der letzten Verlängerung).
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    AuthAnmeldungErfolg:
+      type: object
+      description: Angemeldet. Das Session-Cookie steht im `Set-Cookie`-Header.
+      required:
+        - user
+      additionalProperties: true
+      properties:
+        redirect:
+          type: boolean
+          description: Immer `false` (die App schickt keine `callbackURL`).
+        token:
+          type: string
+          description: Sitzungstoken; nicht als Bearer-Token verwendbar. Massgeblich ist das Cookie.
+        user:
+          $ref: "#/components/schemas/AuthBenutzer"
+    AuthZweiterFaktorAufforderung:
+      type: object
+      description: |
+        Zweiter Faktor verlangt. Es gibt noch keine Sitzung; das Zwischen-Cookie `two_factor` steht im `Set-Cookie`-Header.
+      required:
+        - twoFactorRedirect
+        - twoFactorMethods
+      properties:
+        twoFactorRedirect:
+          type: boolean
+          enum:
+            - true
+        twoFactorMethods:
+          type: array
+          description: Verfügbare Methoden; heute nur `totp` (Ersatzcodes gehen immer).
+          items:
+            type: string
+            enum:
+              - totp
+    AuthSitzungAntwort:
+      type: object
+      required:
+        - session
+        - user
+      properties:
+        session:
+          $ref: "#/components/schemas/AuthSitzung"
+        user:
+          $ref: "#/components/schemas/AuthBenutzer"
+    AuthAbmeldenAntwort:
+      type: object
+      required:
+        - success
+      properties:
+        success:
+          type: boolean
+          enum:
+            - true
+    AuthAlleSitzungenBeendenAntwort:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: boolean
+          enum:
+            - true
+    AuthPasswortAendernAnfrage:
+      type: object
+      required:
+        - currentPassword
+        - newPassword
+      description: |
+        Weitere Felder von better-auth (`revokeOtherSessions`) setzt der Server selbst auf `true`.
+      properties:
+        currentPassword:
+          type: string
+          maxLength: 128
+          description: Aktuelles Passwort, bei offenem Pflichtwechsel das Startpasswort (Schreibweise egal).
+        newPassword:
+          type: string
+          minLength: 12
+          maxLength: 128
+          description: Neues Passwort. Muss sich vom bisherigen unterscheiden und darf nicht aus einem bekannten Datenleck stammen.
+    AuthPasswortAendernAntwort:
+      type: object
+      required:
+        - token
+        - user
+      properties:
+        token:
+          type:
+            - string
+            - "null"
+          description: Token der neuen Sitzung; nicht als Bearer-Token verwendbar. Massgeblich ist das neue Cookie.
+        user:
+          $ref: "#/components/schemas/AuthBenutzer"
+    AuthZweiterFaktorEinrichtenAnfrage:
+      type: object
+      required:
+        - password
+      properties:
+        password:
+          type: string
+          description: Aktuelles Passwort der Person (bei offenem Startpasswort Schreibweise egal).
+        method:
+          type: string
+          enum:
+            - totp
+            - otp
+          default: totp
+          description: Nur `totp` ist verfügbar; `otp` ergibt 400 `OTP_NOT_CONFIGURED`.
+    AuthZweiterFaktorEinrichtenAntwort:
+      type: object
+      required:
+        - method
+        - totpURI
+        - backupCodes
+      properties:
+        method:
+          type: string
+          enum:
+            - totp
+        totpURI:
+          type: string
+          description: |
+            `otpauth://totp/FireResponse:<benutzername>?secret=<BASE32>&issuer=FireResponse&digits=6&period=30`.
+            Enthält das Geheimnis; als QR-Code oder Link an die Authenticator-App übergeben, nie speichern oder loggen.
+          example: otpauth://totp/FireResponse:vorname.nachname?secret=JBSWY3DPEHPK3PXP&issuer=FireResponse&digits=6&period=30
+        backupCodes:
+          type: array
+          minItems: 10
+          maxItems: 10
+          description: Zehn Ersatzcodes; nur jetzt sichtbar. Jeder gilt einmal.
+          items:
+            type: string
+            pattern: ^[a-zA-Z0-9]{5}-[a-zA-Z0-9]{5}$
+            example: abc12-xyz34
+    AuthCodeAnfrage:
+      type: object
+      required:
+        - code
+      description: Das Feld `trustDevice` von better-auth ignoriert der Server.
+      properties:
+        code:
+          type: string
+          description: |
+            Sechsstelliger TOTP-Code (`verify-totp`, z. B. «012345») oder Ersatzcode im Format `xxxxx-xxxxx`
+            (`verify-backup-code`).
+          example: "012345"
+    AuthZweiterFaktorAnmeldeAntwort:
+      type: object
+      required:
+        - token
+        - user
+      description: Das neue Session-Cookie steht im `Set-Cookie`-Header.
+      properties:
+        token:
+          type: string
+          description: Sitzungstoken; nicht als Bearer-Token verwendbar.
+        user:
+          $ref: "#/components/schemas/AuthBenutzer"
+    IchProfil:
+      type: object
+      description: Das eigene Profil. `pushAnmeldungen` fehlt bei Personen ohne Rolle in einer Einheit.
+      required:
+        - id
+        - name
+        - benutzername
+        - kantonsadmin
+        - zweiterFaktor
+        - einwilligung
+        - mussPasswortAendern
+        - telefon
+        - bildUrl
+        - pushProgramme
+        - einheiten
+        - teilnehmende
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        benutzername:
+          type: string
+          description: 3 bis 64 Zeichen aus Buchstaben, Ziffern, Punkt, Unterstrich und Bindestrich, kleingeschrieben gespeichert.
+        kantonsadmin:
+          type: boolean
+        zweiterFaktor:
+          type: boolean
+        einwilligung:
+          type: boolean
+          description: Hat die Person der aktuellen Fassung der Einwilligung zugestimmt? Sonst sperrt die API die App-Routen.
+        mussPasswortAendern:
+          type: boolean
+        telefon:
+          type:
+            - string
+            - "null"
+        bildUrl:
+          type:
+            - string
+            - "null"
+          description: Pfad zum Profilbild oder `null`.
+        pushProgramme:
+          type: boolean
+        pushAnmeldungen:
+          type: boolean
+        einheiten:
+          type: array
+          items:
+            $ref: "#/components/schemas/IchEinheit"
+        teilnehmende:
+          type: array
+          items:
+            $ref: "#/components/schemas/IchTeilnehmende"
+    IchEinstellungen:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      description: Mindestens ein Feld. Fremde Felder ergeben 400.
+      properties:
+        pushProgramme:
+          type: boolean
+        pushAnmeldungen:
+          type: boolean
+        telefon:
+          type:
+            - string
+            - "null"
+          maxLength: 30
+          description: Eigene Telefonnummer, nur für SL; leerer Text oder `null` entfernt sie.
+    TeilnahmenZahlen:
+      type: object
+      required: [ja, nein, offen]
+      properties:
+        ja:
+          type: integer
+        nein:
+          type: integer
+        offen:
+          type: integer
+    TeilnahmenUebersicht:
+      type: object
+      required: [zahlen, teilnehmende, leitende]
+      properties:
+        zahlen:
+          type: object
+          required: [teilnehmende, leitende]
+          properties:
+            teilnehmende:
+              $ref: "#/components/schemas/TeilnahmenZahlen"
+            leitende:
+              $ref: "#/components/schemas/TeilnahmenZahlen"
+        teilnehmende:
+          type: array
+          items:
+            type: object
+            required: [id, vorname, nachname, status]
+            properties:
+              id:
+                type: string
+                format: uuid
+              vorname:
+                type: string
+              nachname:
+                type: string
+              status:
+                type: string
+                enum: [ja, nein, offen]
+        leitende:
+          type: array
+          description: Rollen der Einheit mit ihrer Anmeldung; leer für Eltern und Teilnehmende.
+          items:
+            type: object
+            required: [id, name, bildUrl, rolle, status]
+            properties:
+              id:
+                type: string
+                format: uuid
+              name:
+                type: string
+              bildUrl:
+                type:
+                  - string
+                  - "null"
+              rolle:
+                type: string
+                enum: [kommandant, stellvertretung, leitung]
+              status:
+                type: string
+                enum: [ja, nein, offen]
+    PushTokenAnfrage:
+      type: object
+      additionalProperties: false
+      required:
+        - token
+        - plattform
+      properties:
+        token:
+          type: string
+          pattern: ^[\w:.-]{20,512}$
+          description: FCM-Registrierungstoken des Geräts.
+          example: cX1y2Z3a4B5c6D7e8F9g:APA91bxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        plattform:
+          type: string
+          enum:
+            - ios
+            - android
+    ProgrammListeneintrag:
+      type: object
+      description: |
+        Programm, wie es Liste und Detail liefern, mit `teilnehmende` (derselben Regel in beiden). Alle Schlüssel sind immer vorhanden. Entweder ist `ganztaegig`
+        wahr, dann sind `tagVon` und `tagBis` gesetzt und `beginn` und `ende` `null`, oder `ganztaegig` ist falsch,
+        dann sind `beginn` und `ende` gesetzt und `tagVon` und `tagBis` `null`.
+      required:
+        - id
+        - titel
+        - status
+        - ganztaegig
+        - beginn
+        - ende
+        - tagVon
+        - tagBis
+        - anmeldungAb
+        - teilnahmeOffen
+        - einheit
+        - teilnehmende
+      properties:
+        id:
+          type: string
+          format: uuid
+        titel:
+          type: string
+        status:
+          type: string
+          enum: [aktiv, abgesagt, pruefen]
+        ganztaegig:
+          type: boolean
+        beginn:
+          type:
+            - string
+            - "null"
+          format: date-time
+        ende:
+          type:
+            - string
+            - "null"
+          format: date-time
+        tagVon:
+          type:
+            - string
+            - "null"
+          format: date
+        tagBis:
+          type:
+            - string
+            - "null"
+          format: date
+        anmeldungAb:
+          type: string
+          format: date
+          description: Schweizer Kalendertag, ab dem sich anmelden lässt; die App zeigt «Anmeldung ab <Datum>», solange `teilnahmeOffen` falsch ist und der Tag in der Zukunft liegt.
+        teilnahmeOffen:
+          type: boolean
+          description: Aktiv, noch nicht begonnen und Anmeldefenster offen; nur dann lassen sich Antworten ändern.
+        einheit:
+          $ref: "#/components/schemas/ProgrammEinheit"
+        teilnehmende:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProgrammTeilnehmende"
+    ProgrammListe:
+      type: object
+      required:
+        - programme
+      properties:
+        programme:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProgrammListeneintrag"
+    ProgrammDetail:
+      description: Das Programm mit dem Stand der Anmeldung.
+      allOf:
+        - $ref: "#/components/schemas/ProgrammListeneintrag"
+        - type: object
+          required: [thema, info, aufgebot, kontakt]
+          properties:
+            thema:
+              type:
+                - string
+                - "null"
+            info:
+              type:
+                - string
+                - "null"
+            aufgebot:
+              type:
+                - string
+                - "null"
+            kontakt:
+              description: Die Kontaktperson des Termins.
+              oneOf:
+                - $ref: "#/components/schemas/Kontakt"
+                - type: "null"
+            eigeneAnmeldung:
+              type: string
+              enum: [ja, nein, offen]
+              description: Nur für Kommando und Leitende der Einheit.
+    ProgrammAntwort:
+      type: object
+      description: Antwort «ja» oder «nein» für eine Teilnahme oder eine Leitungsanmeldung.
+      required:
+        - status
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+          enum:
+            - ja
+            - nein
+    AdminKonflikt:
+      type: object
+      description: |
+        Fehler mit Statuscode 409. Gleiche Form wie `Fehler`, aber mit eigenen Codes, die der Handler setzt. Texte sind deutsch und für die Anzeige gedacht.
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          enum:
+            - KEIN_KOMMANDANT
+            - GLEICHE_PERSON
+        message:
+          type: string
+          example: Diese Person ist schon Kommandantin oder Kommandant.
+    AdminZeitregelAnlegen:
+      type: object
+      required:
+        - wochentag
+        - uhrzeit
+        - text
+        - aktiv
+      additionalProperties: false
+      properties:
+        wochentag:
+          type: integer
+          minimum: 1
+          maximum: 7
+          description: ISO, 1 Montag bis 7 Sonntag.
+        uhrzeit:
+          type: string
+          pattern: ^([01][0-9]|2[0-3]):[0-5][0-9]$
+          description: HH:mm in Schweizer Zeit (Europe/Zurich, Sommerzeit inbegriffen).
+          example: "08:00"
+        text:
+          type: string
+          minLength: 1
+          maxLength: 150
+          description: |
+            Der Push-Titel. Leerraum am Rand wird entfernt. Der Server ersetzt `{Programm}` durch den Titel und `{Datum}` durch den Tag des Programms (z. B. «Sa 31.10.»). Keine Namen: Der Text läuft über Apple und Google.
+          example: "{Programm} am {Datum}: bitte anmelden oder abmelden"
+        beschreibung:
+          type:
+            - string
+            - "null"
+          minLength: 1
+          maxLength: 300
+          description: Optionaler Text unter dem Titel, mit denselben Platzhaltern. Ohne Angabe oder `null` hat der Push keinen Text. Keine Namen.
+        aktiv:
+          type: boolean
+    AdminZeitregelAendern:
+      type: object
+      description: Alle Felder optional; ein leeres Objekt ist erlaubt (No-op).
+      additionalProperties: false
+      properties:
+        wochentag:
+          type: integer
+          minimum: 1
+          maximum: 7
+        uhrzeit:
+          type: string
+          pattern: ^([01][0-9]|2[0-3]):[0-5][0-9]$
+        text:
+          type: string
+          minLength: 1
+          maxLength: 150
+        beschreibung:
+          type:
+            - string
+            - "null"
+          minLength: 1
+          maxLength: 300
+          description: "`null` entfernt die Beschreibung."
+        aktiv:
+          type: boolean
+    AdminZeitregel:
+      type: object
+      required:
+        - id
+        - wochentag
+        - uhrzeit
+        - text
+        - beschreibung
+        - aktiv
+      properties:
+        id:
+          type: string
+          format: uuid
+        wochentag:
+          type: integer
+          minimum: 1
+          maximum: 7
+        uhrzeit:
+          type: string
+          example: "08:00"
+        text:
+          type: string
+        beschreibung:
+          type:
+            - string
+            - "null"
+        aktiv:
+          type: boolean
+    AdminZeitregelListe:
+      type: object
+      required:
+        - regeln
+      properties:
+        regeln:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminZeitregel"
+    AdminAngelegt:
+      type: object
+      required:
+        - id
+      properties:
+        id:
+          type: string
+          format: uuid
+    AdminSystem:
+      type: object
+      additionalProperties: false
+      required: [prozess, datenbank, bestand, umgebung]
+      properties:
+        prozess:
+          type: object
+          additionalProperties: false
+          required:
+            [
+              node,
+              gestartetAm,
+              laufzeitSekunden,
+              rssMb,
+              heapGenutztMb,
+              heapGesamtMb,
+              schleifeP99Ms,
+              commit,
+            ]
+          properties:
+            node:
+              type: string
+              example: v24.15.0
+            gestartetAm:
+              type: string
+              format: date-time
+            laufzeitSekunden:
+              type: integer
+            rssMb:
+              type: number
+            heapGenutztMb:
+              type: number
+            heapGesamtMb:
+              type: number
+            schleifeP99Ms:
+              type: [number, "null"]
+              description: 99. Perzentil der Verzögerung der Ereignisschleife seit dem letzten Abruf; `null` ohne Messwerte.
+            commit:
+              type: [string, "null"]
+              description: Commit-Hash des Builds, nur wenn die Umgebung ihn setzt (`COMMIT_SHA`, 7 bis 40 Hex-Zeichen).
+        datenbank:
+          type: object
+          additionalProperties: false
+          required: [erreichbar, pingMs, verbindungen, poolMaximum]
+          properties:
+            erreichbar:
+              type: boolean
+            pingMs:
+              type: [integer, "null"]
+            verbindungen:
+              type: [integer, "null"]
+              description: Offene Verbindungen zur Datenbank, aller Anwendungen (API, Jobs).
+            poolMaximum:
+              type: integer
+              description: Grösse des Pools der API.
+        bestand:
+          type: object
+          additionalProperties: false
+          required: [aktivePersonen, aktiveTeilnehmende, pushTokens]
+          properties:
+            aktivePersonen:
+              type: integer
+            aktiveTeilnehmende:
+              type: integer
+            pushTokens:
+              type: integer
+        umgebung:
+          type: object
+          additionalProperties: false
+          required: [https, produktion]
+          properties:
+            https:
+              type: boolean
+              description: "`BETTER_AUTH_URL` beginnt mit https."
+            produktion:
+              type: boolean
+    AdminSystemPunkt:
+      type: object
+      additionalProperties: false
+      required: [ab, anzahl, fehler4xx, fehler5xx]
+      properties:
+        ab:
+          type: string
+          format: date-time
+          description: Beginn des Zeitraums.
+        anzahl:
+          type: integer
+        fehler4xx:
+          type: integer
+        fehler5xx:
+          type: integer
+    AdminSystemRequests:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          seit,
+          gesamt,
+          letzteMinute,
+          letzteStunde,
+          statusklassen,
+          quote5xx,
+          quote4xx,
+          p50Ms,
+          p95Ms,
+          stunden,
+          minuten,
+          routen,
+          letzteFehler,
+        ]
+      properties:
+        seit:
+          type: string
+          format: date-time
+          description: Start der API; davor gibt es keine Zahlen.
+        gesamt:
+          type: integer
+          description: Anfragen der letzten 24 Stunden bzw. seit dem Start.
+        letzteMinute:
+          type: integer
+        letzteStunde:
+          type: integer
+        statusklassen:
+          type: object
+          additionalProperties: false
+          required: ["1xx", "2xx", "3xx", "4xx", "5xx"]
+          properties:
+            "1xx":
+              type: integer
+            "2xx":
+              type: integer
+            "3xx":
+              type: integer
+            "4xx":
+              type: integer
+            "5xx":
+              type: integer
+        quote5xx:
+          type: number
+          description: Anteil der Antworten mit 5xx an allen (0 bis 1).
+        quote4xx:
+          type: number
+        p50Ms:
+          type: [integer, "null"]
+        p95Ms:
+          type: [integer, "null"]
+        stunden:
+          type: array
+          description: 24 Stunden bis jetzt, ältester Zeitraum zuerst.
+          items:
+            $ref: "#/components/schemas/AdminSystemPunkt"
+        minuten:
+          type: array
+          description: 60 Minuten bis jetzt, älteste zuerst.
+          items:
+            $ref: "#/components/schemas/AdminSystemPunkt"
+        routen:
+          type: array
+          description: Seit dem Start, häufigste zuerst. Höchstens 200 Muster; weitere zählen unter `andere` (ohne Methode).
+          items:
+            type: object
+            additionalProperties: false
+            required:
+              [methode, route, anzahl, fehler4xx, fehler5xx, p50Ms, p95Ms]
+            properties:
+              methode:
+                type: string
+              route:
+                type: string
+                description: Muster wie `/api/v1/admin/personen/:id`, nie der konkrete Pfad.
+              anzahl:
+                type: integer
+              fehler4xx:
+                type: integer
+              fehler5xx:
+                type: integer
+              p50Ms:
+                type: [integer, "null"]
+              p95Ms:
+                type: [integer, "null"]
+        letzteFehler:
+          type: array
+          description: Die letzten höchstens 30 Antworten mit Status 400 oder höher, neueste zuerst. Nur Zeit, Methode, Routenmuster und Status.
+          items:
+            type: object
+            additionalProperties: false
+            required: [zeit, methode, route, status]
+            properties:
+              zeit:
+                type: string
+                format: date-time
+              methode:
+                type: string
+              route:
+                type: string
+              status:
+                type: integer
+    IchEinheit:
+      type: object
+      description: Eine Einheit (Jugend- oder Kinderfeuerwehr eines Bezirks), in der die Person Kommandant, Stellvertretung oder Leitung ist.
+      required: [id, name, typ, bezirk, rolle]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: JF Beispielstadt
+        typ:
+          type: string
+          enum: [jf, kf]
+        bezirk:
+          type: string
+          example: Bezirk Beispiel
+        rolle:
+          type: string
+          enum: [kommandant, stellvertretung, leitung]
+    IchTeilnehmende:
+      type: object
+      description: Eine aktive teilnehmende Person, für die das Konto antwortet.
+      required: [id, vorname, nachname, einheitId, art]
+      properties:
+        id:
+          type: string
+          format: uuid
+        vorname:
+          type: string
+        nachname:
+          type: string
+        einheitId:
+          type: string
+          format: uuid
+        art:
+          type: string
+          enum: [eltern, selbst]
+          description: "`eltern`, wenn das Konto für die Person antwortet, `selbst`, wenn es das Konto der Person ist."
+    Einwilligung:
+      type: object
+      required: [version, text, gueltig]
+      properties:
+        version:
+          type: integer
+          description: Aktuelle Fassung; eine neue Fassung heisst neu fragen.
+        text:
+          type: string
+        gueltig:
+          type: boolean
+          description: Hat die angemeldete Person dieser Fassung zugestimmt?
+    ProgrammEinheit:
+      type: object
+      required: [id, name, typ]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        typ:
+          type: string
+          enum: [jf, kf]
+    ProgrammTeilnehmende:
+      type: object
+      description: Eine eigene aktive teilnehmende Person der Einheit des Programms mit ihrer Antwort.
+      required: [id, vorname, status, abzeichen]
+      properties:
+        id:
+          type: string
+          format: uuid
+        vorname:
+          type: string
+        status:
+          type:
+            - string
+            - "null"
+          enum: [ja, nein, null]
+          description: "`null` heisst offen."
+        abzeichen:
+          oneOf:
+            - $ref: "#/components/schemas/Abzeichen"
+            - type: "null"
+    Abzeichen:
+      type: object
+      description: Das Rang-Abzeichen; mehr vom Rang erfährt die App nicht. Entweder `sterne` (0 bis 5) oder `bildUrl`, das andere Feld ist `null`. `null` statt des Objekts heisst kein Rang oder kein Abzeichen.
+      required: [sterne, bildUrl]
+      properties:
+        sterne:
+          type:
+            - integer
+            - "null"
+          minimum: 0
+          maximum: 5
+        bildUrl:
+          type:
+            - string
+            - "null"
+          description: Pfad zu `GET /api/v1/raenge/{id}/abzeichen`.
+    Kontakt:
+      type: object
+      required: [id, name, rolle, bildUrl, abzeichen, telefon]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        rolle:
+          type: string
+          enum: [kommandant, stellvertretung]
+        bildUrl:
+          type:
+            - string
+            - "null"
+          description: Pfad zu `GET /api/v1/personen/{id}/bild` oder `null` ohne Bild.
+        abzeichen:
+          oneOf:
+            - $ref: "#/components/schemas/Abzeichen"
+            - type: "null"
+        telefon:
+          type:
+            - string
+            - "null"
+          description: Nur für Eltern und Teilnehmende mit aktiver Person in der Einheit gefüllt, sonst `null`.
+    KommandoUebergabe:
+      type: object
+      required: [neuerKommandantId, bisherigeRolle]
+      additionalProperties: false
+      properties:
+        neuerKommandantId:
+          type: string
+          format: uuid
+          description: Aktives Konto, das nicht selbst Kantonsadmin ist.
+        bisherigeRolle:
+          description: Neue Rolle der bisherigen Kommandantin oder des bisherigen Kommandanten.
+          oneOf:
+            - type: object
+              required: [typ, reihenfolge]
+              additionalProperties: false
+              properties:
+                typ:
+                  const: stellvertretung
+                reihenfolge:
+                  type: integer
+                  minimum: 1
+                  maximum: 99
+            - type: object
+              required: [typ]
+              additionalProperties: false
+              properties:
+                typ:
+                  const: leitung
+            - type: object
+              required: [typ]
+              additionalProperties: false
+              properties:
+                typ:
+                  const: keine
+    AuswertungZahlen:
+      type: object
+      description: Anmeldungen als Zahlen; `quote` ist `ja` geteilt durch die Summe, drei Stellen, `null` ohne Bezug.
+      required: [ja, nein, offen, quote]
+      properties:
+        ja:
+          type: integer
+        nein:
+          type: integer
+        offen:
+          type: integer
+        quote:
+          type: [number, "null"]
+          minimum: 0
+          maximum: 1
+    AuswertungEinheitKurz:
+      type: object
+      required: [id, name, typ]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        typ:
+          type: string
+          enum: [jf, kf]
+    AuswertungFilter:
+      type: object
+      required: [umschalter, bezirke, einheiten]
+      properties:
+        umschalter:
+          type: boolean
+          description: Nur das Kantonsadmin-Konto schaltet zwischen allen Bezirken und Einheiten um.
+        bezirke:
+          type: array
+          items:
+            type: object
+            required: [id, name]
+            properties:
+              id:
+                type: string
+                format: uuid
+              name:
+                type: string
+        einheiten:
+          type: array
+          items:
+            allOf:
+              - $ref: "#/components/schemas/AuswertungEinheitKurz"
+              - type: object
+                required: [bezirkId]
+                properties:
+                  bezirkId:
+                    type: string
+                    format: uuid
+    AuswertungTerminKopf:
+      type: object
+      required:
+        [
+          id,
+          titel,
+          status,
+          ganztaegig,
+          beginn,
+          ende,
+          tagVon,
+          tagBis,
+          begonnen,
+          einheit,
+        ]
+      properties:
+        id:
+          type: string
+          format: uuid
+        titel:
+          type: string
+        status:
+          type: string
+          enum: [aktiv, abgesagt, pruefen]
+        ganztaegig:
+          type: boolean
+        beginn:
+          type: [string, "null"]
+          format: date-time
+        ende:
+          type: [string, "null"]
+          format: date-time
+        tagVon:
+          type: [string, "null"]
+          format: date
+        tagBis:
+          type: [string, "null"]
+          format: date
+        begonnen:
+          type: boolean
+        einheit:
+          $ref: "#/components/schemas/AuswertungEinheitKurz"
+    AuswertungTermine:
+      type: object
+      required: [termine]
+      properties:
+        termine:
+          type: array
+          items:
+            allOf:
+              - $ref: "#/components/schemas/AuswertungTerminKopf"
+              - type: object
+                required: [teilnehmende, leitende]
+                properties:
+                  teilnehmende:
+                    oneOf:
+                      - $ref: "#/components/schemas/AuswertungZahlen"
+                      - type: "null"
+                  leitende:
+                    oneOf:
+                      - $ref: "#/components/schemas/AuswertungZahlen"
+                      - type: "null"
+    AuswertungPraesenzliste:
+      type: object
+      required: [termin, zahlen, teilnehmende, leitende]
+      properties:
+        termin:
+          $ref: "#/components/schemas/AuswertungTerminKopf"
+        zahlen:
+          type: object
+          required: [teilnehmende, leitende]
+          properties:
+            teilnehmende:
+              $ref: "#/components/schemas/AuswertungZahlen"
+            leitende:
+              $ref: "#/components/schemas/AuswertungZahlen"
+        teilnehmende:
+          type: array
+          description: Aktive Teilnehmende, nach Nachname und Vorname.
+          items:
+            type: object
+            required: [id, vorname, nachname, status]
+            properties:
+              id:
+                type: string
+                format: uuid
+              vorname:
+                type: string
+              nachname:
+                type: string
+              status:
+                type: string
+                enum: [ja, nein, offen]
+        leitende:
+          type: array
+          description: Aktive Konten mit Rolle in der Einheit, Kommandant/in zuerst.
+          items:
+            type: object
+            required: [id, name, rolle, status]
+            properties:
+              id:
+                type: string
+                format: uuid
+              name:
+                type: string
+              rolle:
+                type: string
+                enum: [kommandant, stellvertretung, leitung]
+              status:
+                type: string
+                enum: [ja, nein, offen]
+    AuswertungQuoten:
+      type: object
+      required: [von, bis, personen]
+      properties:
+        von:
+          type: string
+          format: date
+        bis:
+          type: string
+          format: date
+        personen:
+          type: array
+          items:
+            allOf:
+              - $ref: "#/components/schemas/AuswertungZahlen"
+              - type: object
+                required: [art, id, name, rolle, einheit, termine]
+                properties:
+                  art:
+                    type: string
+                    enum: [teilnehmende, leitende]
+                  id:
+                    type: string
+                    format: uuid
+                    description: ID der teilnehmenden Person oder des Kontos.
+                  name:
+                    type: string
+                  rolle:
+                    type: [string, "null"]
+                    enum: [kommandant, stellvertretung, leitung, null]
+                  einheit:
+                    $ref: "#/components/schemas/AuswertungEinheitKurz"
+                  termine:
+                    type: integer
+                    description: Programme im Bezug; Summe aus ja, nein und offen.
+    AuswertungJahr:
+      type: object
+      required: [jahr, einheiten]
+      properties:
+        jahr:
+          type: integer
+        einheiten:
+          type: array
+          items:
+            type: object
+            required:
+              [einheit, termine, kommend, teilnehmende, leitende, monate]
+            properties:
+              einheit:
+                allOf:
+                  - $ref: "#/components/schemas/AuswertungEinheitKurz"
+                  - type: object
+                    required: [bezirk]
+                    properties:
+                      bezirk:
+                        type: object
+                        required: [id, name]
+                        properties:
+                          id:
+                            type: string
+                            format: uuid
+                          name:
+                            type: string
+              termine:
+                type: integer
+                description: Aktive, begonnene Programme des Jahres.
+              kommend:
+                type: integer
+                description: Aktive Programme des Jahres, die noch nicht begonnen haben.
+              teilnehmende:
+                oneOf:
+                  - $ref: "#/components/schemas/AuswertungZahlen"
+                  - type: "null"
+              leitende:
+                oneOf:
+                  - $ref: "#/components/schemas/AuswertungZahlen"
+                  - type: "null"
+              monate:
+                type: array
+                minItems: 12
+                maxItems: 12
+                items:
+                  type: object
+                  required: [monat, termine, teilnehmende, leitende]
+                  properties:
+                    monat:
+                      type: integer
+                      minimum: 1
+                      maximum: 12
+                    termine:
+                      type: integer
+                    teilnehmende:
+                      oneOf:
+                        - $ref: "#/components/schemas/AuswertungZahlen"
+                        - type: "null"
+                    leitende:
+                      oneOf:
+                        - $ref: "#/components/schemas/AuswertungZahlen"
+                        - type: "null"
+    AuswertungPerson:
+      type: object
+      required: [person, von, bis, zahlen, termine]
+      properties:
+        person:
+          type: object
+          required: [id, name, art, rolle, einheit]
+          properties:
+            id:
+              type: string
+              format: uuid
+            name:
+              type: string
+            art:
+              type: string
+              enum: [teilnehmende, leitende]
+            rolle:
+              type: [string, "null"]
+              enum: [kommandant, stellvertretung, leitung, null]
+            einheit:
+              $ref: "#/components/schemas/AuswertungEinheitKurz"
+        von:
+          type: string
+          format: date
+        bis:
+          type: string
+          format: date
+        zahlen:
+          allOf:
+            - $ref: "#/components/schemas/AuswertungZahlen"
+            - type: object
+              required: [termine]
+              properties:
+                termine:
+                  type: integer
+        termine:
+          type: array
+          description: Programme im Bezug, nach Beginn.
+          items:
+            type: object
+            required: [id, titel, ganztaegig, beginn, tagVon, antwort]
+            properties:
+              id:
+                type: string
+                format: uuid
+              titel:
+                type: string
+              ganztaegig:
+                type: boolean
+              beginn:
+                type: [string, "null"]
+                format: date-time
+              tagVon:
+                type: [string, "null"]
+                format: date
+              antwort:
+                type: string
+                enum: [ja, nein, offen]
+  parameters:
+    AppVersion:
+      name: X-App-Version
+      in: header
+      required: false
+      description: |
+        Version der App im Format `x.y.z` (drei Zahlen, z. B. `1.2.0`). Gilt für alle Pfade unter `/api/*`
+        (nicht für `/health`, die Seiten und `/.well-known`). Ist die Version älter als der Mindeststand des
+        Servers, antwortet er mit 426 `APP_VERALTET`. Eine Angabe in anderem Format gilt als zu alt (426).
+        Ohne den Header läuft die Anfrage weiter. Die App schickt den Header immer.
+      schema:
+        type: string
+        pattern: ^\d+\.\d+\.\d+$
+        example: 1.2.0
+    AppHerkunft:
+      name: Origin
+      in: header
+      required: false
+      description: |
+        Herkunft der App für die Schutzprüfung von better-auth. Jeder POST an `/api/auth/*`, der ein
+        `Cookie` mitschickt, braucht eine vertraute Herkunft, sonst 403 (`MISSING_OR_NULL_ORIGIN` oder
+        `INVALID_ORIGIN`). Vertraut ist das App-Schema `fireresponse://` (auch mit Host und Port, z. B.
+        `fireresponse://192.0.2.1:8081` für Entwicklungs-Builds). Statt `Origin` genügt `expo-origin` mit demselben
+        Wert: Der Server übernimmt ihn als `Origin`, wenn `Origin` fehlt. Reine Anmeldungen ohne Cookie
+        brauchen keine Herkunft.
+      schema:
+        type: string
+        example: fireresponse://
+    ProgrammIdPfad:
+      name: id
+      in: path
+      required: true
+      description: ID des Programms.
+      schema:
+        type: string
+        format: uuid
+    AdminZeitregelId:
+      name: id
+      in: path
+      required: true
+      description: ID der Erinnerungsregel (UUID).
+      schema:
+        type: string
+        format: uuid
+    ProgrammTeilnehmendeIdPfad:
+      name: teilnehmendeId
+      in: path
+      required: true
+      description: ID der teilnehmenden Person.
+      schema:
+        type: string
+        format: uuid
+    EinheitIdPfad:
+      name: einheitId
+      in: path
+      required: true
+      description: ID der Einheit (UUID), vom Umschalter der Verwaltung.
+      schema:
+        type: string
+        format: uuid
+    AuswertungVon:
+      name: von
+      in: query
+      required: true
+      description: Erster Tag des Zeitraums (Schweizer Kalendertag, inklusive). Von bis Bis höchstens 366 Tage.
+      schema:
+        type: string
+        format: date
+        example: "2026-01-01"
+    AuswertungBis:
+      name: bis
+      in: query
+      required: true
+      description: Letzter Tag des Zeitraums (inklusive), nicht vor `von`.
+      schema:
+        type: string
+        format: date
+        example: "2026-12-31"
+    AuswertungBezirk:
+      name: bezirkId
+      in: query
+      required: false
+      description: Nur Einheiten dieses Bezirks. Ein Bezirk ohne eigene Einheiten der Person ergibt eine leere Auswertung.
+      schema:
+        type: string
+        format: uuid
+    AuswertungEinheit:
+      name: einheitId
+      in: query
+      required: false
+      description: Nur diese Einheit; 404, wenn sie unbekannt oder unsichtbar ist, 403 ohne Recht darin.
+      schema:
+        type: string
+        format: uuid
+    AuswertungRolle:
+      name: rolle
+      in: query
+      required: false
+      description: Nur Teilnehmende oder nur Leitende (Kommandant/in, Stellvertretungen, Leitung).
+      schema:
+        type: string
+        enum: [teilnehmende, leitende]
+  securitySchemes:
+    sitzung:
+      type: apiKey
+      in: cookie
+      name: __Secure-better-auth.session_token
+      description: |
+        Die Sitzung hängt an einem signierten Cookie, das `POST /api/auth/sign-in/username` (oder der Abschluss des
+        zweiten Faktors) per `Set-Cookie` setzt. Es gibt weder Bearer-Token noch API-Schlüssel: Ein `Authorization`-Header
+        wird nicht ausgewertet, und das Feld `token` in Antworten ist nicht als Bearer-Token verwendbar.
+
+        **Name.** Unter HTTPS (Betrieb) heisst das Cookie `__Secure-better-auth.session_token`; ohne HTTPS
+        `better-auth.session_token`. Der Name enthält immer `session_token`.
+
+        **Speichern und senden.** Die App speichert die `name=wert`-Paare aus allen `Set-Cookie`-Headern unverändert
+        (ohne Attribute wie `Path`, `Max-Age`) im sicheren Speicher des Geräts und schickt sie bei jedem Aufruf als
+        `Cookie`-Header (mehrere Paare mit `; ` getrennt). Cookies mit `Max-Age=0` löscht sie aus dem Speicher.
+        Ersetzt eine Antwort das Cookie (Verlängerung, Passwortwechsel, Einrichtung des zweiten Faktors), gilt das neue.
+
+        **Lebensdauer.** 90 Tage, verlängert bei Nutzung durch `GET /api/auth/get-session` (einmal pro Tag höchstens).
+        Die Routen unter `/api/v1` verlängern nicht. Kein Cookie-Cache: Eine beendete Sitzung (Abmelden, «Überall
+        abmelden», Passwortwechsel auf einem anderen Gerät, Löschen oder Deaktivieren des Kontos) endet sofort mit 401.
+
+        **Herkunft.** Jeder POST mit Cookie braucht eine vertraute Herkunft (siehe Parameter `Origin`).
+    zweiterFaktorZwischenschritt:
+      type: apiKey
+      in: cookie
+      name: __Secure-better-auth.two_factor
+      description: |
+        Zwischen-Cookie, das `POST /api/auth/sign-in/username` bei eingerichtetem zweitem Faktor setzt
+        (`twoFactorRedirect: true`). Es gilt nur für `POST /api/auth/two-factor/verify-totp` und
+        `POST /api/auth/two-factor/verify-backup-code`. Gespeichert und gesendet wird es wie das Session-Cookie.
+        Unter HTTPS trägt es den Präfix `__Secure-`, ohne HTTPS heisst es `better-auth.two_factor`; der Name endet
+        immer auf `two_factor`.
+  responses:
+    UngueltigeEingabe400:
+      description: Ungültige Eingabe (code UNGUELTIGE_EINGABE), ohne Details
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Fehler"
+    NichtAngemeldet401:
+      description: Keine oder ungültige Sitzung (code NICHT_ANGEMELDET)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Fehler"
+    KeineBerechtigung403:
+      description: Keine Berechtigung (code KEINE_BERECHTIGUNG); bei ändernden Methoden auch, wenn der Origin-Header einer fremden Herkunft angehört
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Fehler"
+    NichtGefunden404:
+      description: Nicht gefunden (code NICHT_GEFUNDEN); auch für Objekte einer anderen Einheit
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Fehler"
+    AppVeraltet426:
+      description: App-Version unter dem Minimum (code APP_VERALTET)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Fehler"
+    ZuVieleAnfragen429:
+      description: Zu viele Anfragen (code ZU_VIELE_ANFRAGEN)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Fehler"

@@ -1,0 +1,21 @@
+{
+  "name": "fireresponse",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "format": "prettier --write apps"
+  },
+  "overrides": {
+    "eslint": "$eslint",
+    "@esbuild-kit/core-utils": {
+      "esbuild": ">=0.25.0"
+    }
+  },
+  "devDependencies": {
+    "eslint": "^10.13.0",
+    "prettier": "^3.9.10",
+    "typescript": "~6.0.3"
+  }
+}

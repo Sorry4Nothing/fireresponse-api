@@ -1,0 +1,14 @@
+$kind: http-request
+name: "GET /admin/hintergrund.svg"
+order: 11000
+method: GET
+url: "{{baseUrl}}/admin/hintergrund.svg"
+headers:
+  - key: "Cookie"
+    value: "{{cookie}}"
+  - key: "expo-origin"
+    value: "{{expoOrigin}}"
+  - key: "X-Forwarded-For"
+    value: "{{ip}}"
+  - key: "X-App-Version"
+    value: "{{appVersion}}"

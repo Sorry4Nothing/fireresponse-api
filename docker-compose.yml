@@ -1,0 +1,16 @@
+# Nur für die Entwicklung: PostgreSQL 18, erreichbar nur von diesem Rechner
+services:
+  db:
+    image: postgres:18
+    environment:
+      POSTGRES_DB: fireresponse
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - db:/var/lib/postgresql
+      # Legt die Rollen an, aber nur beim ersten Start mit leerem Volume
+      - ./apps/api/src/db/rollen.sql:/docker-entrypoint-initdb.d/rollen.sql:ro
+
+volumes:
+  db:

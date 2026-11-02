@@ -1,0 +1,2 @@
+# drizzle-kit schreibt diese Dateien selbst, in einer Form, die Prettier ablehnt; gemergte Migrationen ändern sich nie
+apps/api/drizzle/

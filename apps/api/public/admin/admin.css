@@ -1,0 +1,2300 @@
+/* Verwaltung: immer dunkel, Nacht-Werte der Designvorlage (tokens.json, Name im Kommentar). Textpaare erreichen mindestens 4.5:1, Ränder von Bedienelementen 3:1. Keine externen Schriften (CSP): Es gilt die Systemschrift. Keine style-Attribute: alles läuft über Klassen. */
+
+:root {
+  color-scheme: dark;
+
+  --surface: #161620; /* surface */
+  --karte: #17172a; /* surface-container-low */
+  --leiste: #1e1f38; /* surface-container */
+  --erhoben: #23244a; /* surface-container-high */
+  --text: #ededeb; /* on-surface */
+  --leise: #ababa6; /* on-surface-variant */
+  --rand: #8a8a90; /* outline: Felder und Knöpfe */
+  --rand-leise: #2c2c44; /* outline-variant: nur Karten und Trennlinien */
+
+  --rot: #c41333; /* primary */
+  --rot-text: #ff7a8a; /* primary-text */
+  --blau: #323394; /* secondary */
+  --blau-f: #23244a; /* secondary-container */
+  --auf-blau-f: #dcddf9; /* on-secondary-container */
+  --akzent: #a9abf2; /* accent */
+  --fokus: #a9abf2; /* focus */
+
+  --ok-f: #16271d; /* success-container */
+  --ok: #6fd39a; /* on-success-container */
+  --fe-f: #2e1519; /* error-container */
+  --fe: #ff8e9a; /* on-error-container */
+  --wa-f: #2a2312; /* warning-container */
+  --wa: #f2c063; /* on-warning-container */
+  --st-f: #0f2a31; /* stufe-container */
+  --st: #7fd0e3; /* on-stufe-container */
+
+  --schleier: rgba(0, 0, 0, 0.6); /* scrim */
+  --schatten: 0 8px 24px rgba(0, 0, 0, 0.5); /* elevation-float */
+
+  --schrift:
+    system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
+
+  /* Symbole für Hinweise und Kacheln: Maske, damit sie die Textfarbe tragen und auch in Text eingesetzter Inhalt eines Hinweises sie nicht verliert */
+  --ic-info: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 11v5M12 8h.01'/%3E%3C/svg%3E");
+  --ic-ok: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12.5 4.5 4.5L19 7.5'/%3E%3C/svg%3E");
+  --ic-warn: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3.5 2.5 20h19z'/%3E%3Cpath d='M12 10v4M12 17h.01'/%3E%3C/svg%3E");
+  --ic-sperre: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M5.6 5.6l12.8 12.8'/%3E%3C/svg%3E");
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 100%;
+  scrollbar-width: thin;
+  scrollbar-color: var(--rand) var(--surface);
+}
+
+body {
+  margin: 0;
+  /* Blasses Logo mittig hinter allen Flächen; bleibt beim Scrollen stehen */
+  background: var(--surface) url("hintergrund.svg") no-repeat center /
+    min(70vmin, 720px) fixed;
+  color: var(--text);
+  font-family: var(--schrift);
+  font-size: 1rem;
+  line-height: 1.4;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+h1 {
+  font-size: 2rem;
+  line-height: 2.375rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+h2 {
+  font-size: 1.375rem;
+  line-height: 1.75rem;
+  font-weight: 800;
+}
+
+h3 {
+  font-size: 1rem;
+  line-height: 1.375rem;
+  font-weight: 700;
+}
+
+a {
+  color: var(--akzent);
+}
+
+a:hover {
+  color: var(--auf-blau-f);
+}
+
+[hidden] {
+  display: none !important;
+}
+
+:focus-visible {
+  outline: 3px solid var(--fokus);
+  outline-offset: 2px;
+}
+
+/* Ziel nach einer Navigation: Der Fokus liegt darauf, der Ring stört dort nicht */
+h1:focus,
+h2:focus,
+main:focus {
+  outline: none;
+}
+
+.nur-leser {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.sprung {
+  position: absolute;
+  left: 8px;
+  top: -100px;
+  z-index: 50;
+  padding: 12px 16px;
+  background: var(--erhoben);
+  color: var(--text);
+  border-radius: 12px;
+}
+
+.sprung:focus {
+  top: 8px;
+}
+
+/* Textbausteine */
+
+.ueber {
+  color: var(--akzent);
+  font-size: 0.8125rem;
+  line-height: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.leise,
+.meta,
+.beschreibung {
+  color: var(--leise);
+}
+
+.klein {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+.mini {
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+
+.hilfe {
+  color: var(--leise);
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+}
+
+.mono,
+.code {
+  overflow-wrap: anywhere;
+  font-family: var(--mono);
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+}
+
+.fett {
+  font-weight: 700;
+}
+
+/* Hilfen für Anordnung, damit kein style-Attribut nötig ist */
+
+.spalte {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Zugeklappter Bereich für Nebensächliches (Import: Spalten ändern, weitere Rollen) */
+.mehr > summary {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--akzent);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.mehr[open] > summary {
+  margin-bottom: 8px;
+}
+
+.reihe {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.zeile {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.voll {
+  width: 100%;
+}
+
+/* Rahmen: Dock links, Inhalt rechts */
+
+.app {
+  display: flex;
+  align-items: flex-start;
+  min-height: 100vh;
+}
+
+.dock {
+  position: sticky;
+  top: 16px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 272px;
+  height: calc(100vh - 32px);
+  margin: 16px 0 16px 16px;
+  padding: 20px 12px 12px;
+  overflow-y: auto;
+  background: var(--leiste);
+  border-radius: 24px;
+}
+
+.marke {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 12px 20px;
+}
+
+.marke strong {
+  font-size: 1.375rem;
+  line-height: 1.75rem;
+  font-weight: 800;
+}
+
+.bereiche {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+a.punkt {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 0 16px;
+  border-radius: 9999px;
+  color: var(--leise);
+  font-size: 0.9375rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+a.punkt:hover {
+  background: var(--erhoben);
+  color: var(--text);
+}
+
+/* Aktiv: Blau, dazu ein kräftigerer Strich am Symbol */
+a.punkt[aria-current="page"] {
+  background: var(--blau);
+  color: #ffffff;
+}
+
+a.punkt[aria-current="page"] .i {
+  stroke-width: 2.6;
+}
+
+.konto {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: auto;
+  padding: 12px;
+  background: var(--karte);
+  border: 1px solid var(--rand-leise);
+  border-radius: 16px;
+}
+
+.konto-zeile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.konto-text {
+  min-width: 0;
+}
+
+.kontoname {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.konto .knopf {
+  width: 100%;
+}
+
+.inhalt {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 40px 48px 64px;
+}
+
+.rahmen {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.kopf {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.kopf h1 {
+  margin-top: 4px;
+}
+
+.kopf .leise {
+  margin-top: 6px;
+}
+
+.kopf-aktion {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.kopf-aktion:empty {
+  display: none;
+}
+
+/* Die Live-Region bleibt im Baum, auch wenn sie leer ist; leer nimmt sie keinen Platz */
+.rueckmeldung:empty {
+  height: 0;
+  margin-top: -24px;
+  padding: 0;
+  overflow: hidden;
+}
+
+#bereich {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Schmal: Das Dock steht oben, die Bereiche laufen in Zeilen um */
+@media (max-width: 760px) {
+  .app {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .dock {
+    position: static;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    width: auto;
+    height: auto;
+    margin: 12px 12px 0;
+    padding: 16px 12px 12px;
+    overflow: visible;
+  }
+
+  .marke {
+    flex: 1 1 100%;
+    padding-bottom: 8px;
+  }
+
+  .bereiche {
+    flex: 1 1 100%;
+    flex-flow: row wrap;
+  }
+
+  .konto {
+    flex: 1 1 100%;
+    margin-top: 8px;
+  }
+
+  .inhalt {
+    padding: 24px 16px 48px;
+  }
+
+  h1 {
+    font-size: 1.625rem;
+    line-height: 2rem;
+  }
+}
+
+/* Knöpfe: 48 px hoch, Rand 3:1; klein ist die Variante in Tabellenzeilen */
+
+.knopf {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 20px;
+  background: transparent;
+  color: var(--text);
+  border: 2px solid var(--rand);
+  border-radius: 9999px;
+  font: inherit;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  line-height: 1.25rem;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.knopf:hover {
+  background: var(--erhoben);
+  color: var(--text);
+}
+
+.knopf .i {
+  width: 20px;
+  height: 20px;
+  stroke-width: 2;
+}
+
+.knopf--haupt {
+  background: var(--rot);
+  border-color: var(--rot);
+  color: #ffffff;
+}
+
+.knopf--haupt:hover {
+  background: var(--rot);
+  color: #ffffff;
+  filter: brightness(1.12);
+}
+
+.knopf--blau {
+  background: var(--blau);
+  border-color: var(--blau);
+  color: #ffffff;
+}
+
+.knopf--blau:hover {
+  background: var(--blau);
+  color: #ffffff;
+  filter: brightness(1.25);
+}
+
+.knopf--gefahr {
+  border-color: var(--fe);
+  color: var(--fe);
+}
+
+.knopf--gefahr:hover {
+  background: var(--fe-f);
+  color: var(--fe);
+}
+
+.knopf--still {
+  border-color: transparent;
+  color: var(--akzent);
+}
+
+.knopf--klein {
+  min-height: 44px;
+  padding: 0 16px;
+  font-size: 0.875rem;
+}
+
+.knopf--rund {
+  width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border-color: transparent;
+}
+
+.knopf--gross {
+  min-height: 56px;
+}
+
+.knopf:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.knopf:disabled:hover {
+  background: transparent;
+  filter: none;
+}
+
+.knopf--haupt:disabled:hover {
+  background: var(--rot);
+}
+
+/* Zeilenmenü: Knopf «Mehr»; die Liste öffnet in der Zeile, weil der Tabellenrahmen scrollt und sie sonst abschneiden würde */
+
+.menue > summary {
+  list-style: none;
+}
+
+.menue > summary::-webkit-details-marker {
+  display: none;
+}
+
+.menue > summary::after {
+  content: "";
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 4px;
+  border: solid currentcolor;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.menue[open] > summary::after {
+  margin-top: 3px;
+  transform: rotate(-135deg);
+}
+
+.menue-liste {
+  display: flex;
+  flex-direction: column;
+  min-width: 14rem;
+  margin-top: 8px;
+  padding: 4px;
+  background: var(--erhoben);
+  border: 1px solid var(--rand-leise);
+  border-radius: 16px;
+}
+
+.menue-eintrag {
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+  padding: 0 12px;
+  background: transparent;
+  color: var(--text);
+  border: 0;
+  border-radius: 12px;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.menue-eintrag:hover {
+  background: var(--rand-leise);
+}
+
+.menue-eintrag--gefahr {
+  color: var(--fe);
+}
+
+/* Chips: Zustand immer mit Wort, ok/warn/fehler zusätzlich mit Symbol */
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 24px;
+  padding: 0 10px;
+  background: var(--blau-f);
+  color: var(--auf-blau-f);
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.chip .i {
+  width: 14px;
+  height: 14px;
+  stroke-width: 2.4;
+}
+
+.chip--ok {
+  background: var(--ok-f);
+  color: var(--ok);
+}
+
+.chip--warn {
+  background: var(--wa-f);
+  color: var(--wa);
+}
+
+.chip--fehler {
+  background: var(--fe-f);
+  color: var(--fe);
+}
+
+.chip--stufe {
+  background: var(--st-f);
+  color: var(--st);
+}
+
+.chip--allein {
+  align-self: flex-start;
+}
+
+/* Avatar mit Initialen; hell für Listen, blau fürs eigene Konto */
+
+.ava {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: var(--blau);
+  color: #ffffff;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.ava {
+  position: relative;
+  overflow: hidden;
+}
+
+.ava img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ava--hell {
+  background: var(--erhoben);
+  color: var(--text);
+}
+
+.wer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.name {
+  display: block;
+  font-size: 1rem;
+  line-height: 1.375rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+/* Zähler-Kreis (z. B. ungelesene Meldungen); als Tabellenzelle bleibt .zahl eine Zahlenspalte */
+.zahl:not(td, th) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 7px;
+  background: var(--rot);
+  color: #ffffff;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+td.zahl,
+th.zahl {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* Werkzeugleiste: Suche, Filter, Zähler; die Hauptaktion steht rechts */
+
+.werkzeuge {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.werkzeuge > .feld {
+  flex: 1 1 280px;
+  max-width: 400px;
+}
+
+.werkzeuge > .zaehler {
+  align-self: center;
+}
+
+.werkzeuge > .knopf--haupt {
+  margin-left: auto;
+}
+
+.suche {
+  position: relative;
+  flex: 1 1 280px;
+  max-width: 400px;
+}
+
+.suche .i {
+  position: absolute;
+  left: 16px;
+  top: 16px;
+  width: 20px;
+  height: 20px;
+  color: var(--leise);
+  pointer-events: none;
+}
+
+.suche .eingabe {
+  padding-left: 48px;
+}
+
+/* Filter: Umschalter mit aria-pressed */
+
+.filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px;
+  background: var(--leiste);
+  border-radius: 24px;
+}
+
+.filter button {
+  min-height: 44px;
+  padding: 0 16px;
+  background: transparent;
+  color: var(--leise);
+  border: 0;
+  border-radius: 9999px;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.filter button:hover {
+  color: var(--text);
+}
+
+.filter button[aria-pressed="true"] {
+  background: var(--karte);
+  color: var(--text);
+  box-shadow: 0 0 0 1px var(--rand-leise);
+}
+
+.filter .n {
+  color: var(--leise);
+  font-weight: 400;
+}
+
+/* Segment-Auswahl mit Radioknöpfen; gewählt zeigt ein Haken */
+
+.seg {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px;
+  background: var(--surface);
+  border-radius: 24px;
+}
+
+.seg input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  opacity: 0;
+}
+
+.seg label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 14px;
+  color: var(--leise);
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.seg label .i {
+  display: none;
+  width: 16px;
+  height: 16px;
+  stroke-width: 2.6;
+}
+
+.seg input:checked + label {
+  background: var(--blau);
+  color: #ffffff;
+}
+
+.seg input:checked + label .i {
+  display: inline;
+}
+
+.seg input:focus-visible + label {
+  outline: 3px solid var(--fokus);
+  outline-offset: 2px;
+}
+
+/* Tabellen: Rahmen ohne Schatten, scrollt waagrecht und ist dafür mit der Tastatur erreichbar */
+
+.tabellenrahmen,
+.box {
+  background: var(--karte);
+  border: 1px solid var(--rand-leise);
+  border-radius: 16px;
+  overflow-x: auto;
+}
+
+.tabellenrahmen:focus-visible {
+  outline-offset: -3px;
+}
+
+.tabelle,
+.box table {
+  width: 100%;
+  min-width: 44rem;
+  border-collapse: collapse;
+}
+
+.tabelle th,
+.box th {
+  padding: 14px 16px 12px;
+  color: var(--leise);
+  border-bottom: 1px solid var(--rand-leise);
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-align: left;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.tabelle td,
+.tabelle tbody th,
+.box td {
+  padding: 12px 16px;
+  border-top: 1px solid var(--rand-leise);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  vertical-align: middle;
+  overflow-wrap: break-word;
+}
+
+.tabelle tbody th {
+  color: var(--text);
+  font-size: 0.875rem;
+  letter-spacing: 0;
+  text-transform: none;
+  white-space: normal;
+  border-bottom: 0;
+}
+
+.tabelle tbody tr:first-child > *,
+.box tbody tr:first-child > * {
+  border-top: 0;
+}
+
+.tabelle tbody tr:hover > * {
+  background: var(--leiste);
+}
+
+.tabelle tr.gewaehlt > *,
+.box tr.gewaehlt td {
+  background: var(--blau-f);
+}
+
+.tabelle tr.inaktiv > *,
+.box tr.aus .name {
+  color: var(--leise);
+}
+
+.tabelle .rechts,
+.box .rechts {
+  width: 1%;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.tabelle .breit {
+  min-width: 13rem;
+  max-width: 30rem;
+}
+
+/* Im Seitenblatt ist es schmal: Die Tabelle bricht um, statt waagrecht zu scrollen */
+.blatt .tabelle {
+  min-width: 0;
+}
+
+.aktionen {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.tabelle .aktionen {
+  flex-wrap: nowrap;
+}
+
+.aktionen--unten {
+  justify-content: center;
+}
+
+.zeilen {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.zitat {
+  display: -webkit-box;
+  margin: 0;
+  padding: 14px 16px;
+  overflow: hidden;
+  background: var(--leiste);
+  border-radius: 12px;
+  font-size: 1rem;
+  line-height: 1.5rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+}
+
+.leer {
+  padding: 24px;
+  color: var(--leise);
+  border: 1px dashed var(--rand-leise);
+  border-radius: 16px;
+  text-align: center;
+}
+
+.leer--klein {
+  padding: 16px;
+}
+
+/* Tabs: Unterbereiche eines Bereichs */
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  border-bottom: 1px solid var(--rand-leise);
+}
+
+a.tab {
+  display: inline-flex;
+  align-items: center;
+  min-height: 48px;
+  margin-bottom: -1px;
+  padding: 0 16px;
+  color: var(--leise);
+  border-bottom: 3px solid transparent;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+a.tab:hover {
+  color: var(--text);
+}
+
+a.tab[aria-current="page"] {
+  color: var(--text);
+  border-bottom-color: var(--akzent);
+}
+
+/* Hinweise: Das Symbol kommt aus dem CSS, damit auch Text, der später gesetzt wird, es behält */
+
+.hinweis {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--blau-f);
+  color: var(--auf-blau-f);
+  border-radius: 16px;
+  font-size: 0.9375rem;
+}
+
+.hinweis::before,
+.kachel--ok::after,
+.kachel--warn::after,
+.kachel--fehler::after,
+.auswahl-eintrag[aria-selected="true"]::after {
+  content: "";
+  flex: none;
+  width: 22px;
+  height: 22px;
+  background: currentcolor;
+  -webkit-mask: var(--ic-info) center / contain no-repeat;
+  mask: var(--ic-info) center / contain no-repeat;
+}
+
+.hinweis--ok {
+  background: var(--ok-f);
+  color: var(--ok);
+}
+
+.hinweis--ok::before {
+  -webkit-mask-image: var(--ic-ok);
+  mask-image: var(--ic-ok);
+}
+
+.hinweis--warn {
+  background: var(--wa-f);
+  color: var(--wa);
+}
+
+.hinweis--fehler {
+  background: var(--fe-f);
+  color: var(--fe);
+}
+
+.hinweis--warn::before,
+.hinweis--fehler::before {
+  -webkit-mask-image: var(--ic-warn);
+  mask-image: var(--ic-warn);
+}
+
+.hinweis:focus {
+  outline: none;
+}
+
+/* Karten und Panels: nur Rand, kein Schatten */
+
+.karte,
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  padding: 20px;
+  background: var(--karte);
+  border: 1px solid var(--rand-leise);
+  border-radius: 16px;
+}
+
+.panel > h2 {
+  font-size: 1.125rem;
+  line-height: 1.5rem;
+}
+
+.panel .tabellenrahmen {
+  border-radius: 12px;
+}
+
+.panel--schmal {
+  max-width: 44rem;
+}
+
+.kacheln {
+  display: grid;
+  /* auto-fit: Leere Spalten fallen weg, die Kacheln füllen die Zeile */
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+  gap: 12px;
+}
+
+.kachel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  background: var(--karte);
+  border: 1px solid var(--rand-leise);
+  border-radius: 16px;
+}
+
+.kachel-titel {
+  padding-right: 28px;
+  color: var(--akzent);
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.kachel-wert,
+.kachel .wert {
+  font-size: 1.75rem;
+  line-height: 2.125rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.kachel-wert--text {
+  font-size: 1.125rem;
+  line-height: 1.5rem;
+}
+
+.kachel-hinweis {
+  color: var(--leise);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  overflow-wrap: anywhere;
+}
+
+.kachel-link {
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+/* Zustand oben rechts als Symbol; der Zustand steht auch im Text der Kachel */
+.kachel--ok::after,
+.kachel--warn::after,
+.kachel--fehler::after {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 20px;
+  height: 20px;
+}
+
+.kachel--ok::after {
+  color: var(--ok);
+  -webkit-mask-image: var(--ic-ok);
+  mask-image: var(--ic-ok);
+}
+
+.kachel--warn::after {
+  color: var(--wa);
+  -webkit-mask-image: var(--ic-warn);
+  mask-image: var(--ic-warn);
+}
+
+.kachel--fehler::after {
+  color: var(--fe);
+  -webkit-mask-image: var(--ic-sperre);
+  mask-image: var(--ic-sperre);
+}
+
+.raster {
+  display: grid;
+  align-items: start;
+  gap: 16px;
+}
+
+.raster--2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.raster--3 {
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+}
+
+@media (max-width: 1100px) {
+  .raster--2,
+  .raster--3 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.stand-zeile {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 16px;
+}
+
+.fehlerzeile:not(:empty) {
+  color: var(--fe);
+  font-weight: 700;
+}
+
+/* Abschnitt in einem Blatt oder Dialog; als Überschrift in der Seite ein Zwischentitel */
+.abschnitt {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px 0;
+  border-top: 1px solid var(--rand-leise);
+}
+
+.abschnitt:first-child {
+  padding-top: 4px;
+  border-top: 0;
+}
+
+h2.abschnitt {
+  display: block;
+  padding: 0;
+  border: 0;
+}
+
+.werte {
+  margin: 0;
+}
+
+.werte > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--rand-leise);
+}
+
+.werte > div:last-child {
+  border-bottom: 0;
+}
+
+.werte dt {
+  color: var(--leise);
+}
+
+.werte dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.stack {
+  margin: 0;
+  padding: 12px 14px;
+  overflow-x: auto;
+  background: var(--surface);
+  border-radius: 12px;
+  white-space: pre;
+}
+
+/* Balkendiagramm */
+
+.diagramm {
+  margin: 0;
+}
+
+.diagramm svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 11rem;
+  aspect-ratio: 720 / 160;
+}
+
+.diagramm-achse {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px 16px;
+  color: var(--leise);
+  font-size: 0.75rem;
+}
+
+.diagramm-achse--unten {
+  margin-top: 4px;
+}
+
+.legende {
+  display: flex;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.legende li::before {
+  content: "";
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: 6px;
+  vertical-align: -1px;
+  background: var(--akzent);
+  border-radius: 2px;
+}
+
+/* Die Muster entsprechen denen im Diagramm: 4xx Streifen, 5xx Punkte */
+.legende .legende--4xx::before {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--wa) 0 3px,
+    var(--karte) 3px 5px
+  );
+}
+
+.legende .legende--5xx::before {
+  background:
+    radial-gradient(circle, var(--karte) 1px, transparent 1.4px) 0 0 / 4px 4px,
+    var(--fe);
+}
+
+.bal--ok {
+  fill: var(--akzent);
+}
+
+.bal--4xx {
+  fill: var(--wa);
+}
+
+.bal--5xx {
+  fill: var(--fe);
+}
+
+.bal--flaeche {
+  fill: transparent;
+}
+
+g:hover > .bal--flaeche {
+  fill: var(--leiste);
+}
+
+.gitter {
+  stroke: var(--rand-leise);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.diagramm-tabelle {
+  margin-top: 12px;
+}
+
+.diagramm-tabelle > summary {
+  display: inline-block;
+  padding: 8px 0;
+  color: var(--akzent);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.diagramm-tabelle .tabellenrahmen {
+  max-height: 16rem;
+  margin-top: 8px;
+  overflow-y: auto;
+}
+
+/* Formulare */
+
+.formular {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.formular > .knopf--gross {
+  width: 100%;
+}
+
+.formular > .knopf--still {
+  align-self: center;
+}
+
+.feld {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.feld > label,
+legend,
+.legende {
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.eingabe,
+.feld input:not([type="checkbox"], [type="radio"], [type="hidden"]),
+.feld textarea {
+  width: 100%;
+  min-height: 52px;
+  padding: 0 16px;
+  background: var(--karte);
+  color: var(--text);
+  border: 2px solid var(--rand);
+  border-radius: 12px;
+  font: inherit;
+}
+
+.feld textarea {
+  min-height: 12rem;
+  padding: 12px 16px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.eingabe:focus-visible,
+.feld input:focus-visible,
+.feld textarea:focus-visible,
+.auswahl-knopf:focus-visible {
+  border-color: var(--fokus);
+  outline-offset: 0;
+}
+
+.feld input[aria-invalid="true"],
+.feld textarea[aria-invalid="true"] {
+  border-color: var(--fe);
+}
+
+/* Dateifeld: der Auswahlknopf sieht aus wie ein .knopf, nicht wie der Browser-Standard */
+.feld input[type="file"] {
+  min-height: 0;
+  padding: 5px; /* Platz für den Fokusring des Knopfs, sonst schneidet das Feld ihn ab */
+  background: none;
+  border: 0;
+  color: var(--leise);
+  font-size: 0.9375rem;
+  line-height: 1.25rem;
+  cursor: pointer;
+}
+
+.feld input[type="file"]:focus-visible {
+  outline: none;
+}
+
+.feld input[type="file"]:focus-visible::file-selector-button {
+  outline: 3px solid var(--fokus);
+  outline-offset: 2px;
+}
+
+.feld input[type="file"]::file-selector-button {
+  min-height: 36px;
+  margin: 0 12px 0 0;
+  padding: 0 16px;
+  background: transparent;
+  color: var(--text);
+  border: 2px solid var(--rand);
+  border-radius: 9999px;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.feld input[type="file"]:hover::file-selector-button {
+  background: var(--erhoben);
+}
+
+/* Eigene Bedienung statt der Zusatzknöpfe des Browsers (Zahlpfeile, «×» im Suchfeld, Auge im Passwortfeld) */
+input[type="number"] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button,
+input[type="search"]::-webkit-search-cancel-button,
+input[type="search"]::-webkit-search-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+  margin: 0;
+}
+
+input[type="password"]::-ms-reveal,
+input::-ms-clear {
+  display: none;
+}
+
+.feld-fehler {
+  margin: 0;
+  color: var(--fe);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.125rem;
+}
+
+fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  margin: 0;
+  padding: 8px 16px 16px;
+  border: 1px solid var(--rand-leise);
+  border-radius: 16px;
+}
+
+legend {
+  padding: 0 8px;
+}
+
+/* Auswahl je Stufe: Beschriftung links, Feld rechts */
+fieldset .feld {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+fieldset .feld > label {
+  flex: 1;
+  font-weight: 400;
+}
+
+fieldset .feld .auswahl {
+  flex: none;
+  width: 11rem;
+}
+
+.scrollfeld {
+  max-height: 15rem;
+  overflow-y: auto;
+}
+
+/* Ankreuzfeld: Haken statt nur Farbe */
+.wahl {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+}
+
+.wahl input {
+  appearance: none;
+  -webkit-appearance: none;
+  display: inline-grid;
+  flex: none;
+  place-content: center;
+  width: 24px;
+  height: 24px;
+  margin: 0;
+  background: var(--karte);
+  border: 2px solid var(--rand);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.wahl input::after {
+  content: "";
+  width: 12px;
+  height: 7px;
+  margin-top: -3px;
+  border-bottom: 2.6px solid #ffffff;
+  border-left: 2.6px solid #ffffff;
+  opacity: 0;
+  transform: rotate(-45deg);
+}
+
+.wahl input:checked {
+  background: var(--blau);
+  border-color: var(--blau);
+}
+
+.wahl input:checked::after {
+  opacity: 1;
+}
+
+.wahl input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.wahl label {
+  cursor: pointer;
+}
+
+/* Eigene Auswahl (Combobox mit Liste) */
+
+.auswahl {
+  position: relative;
+}
+
+.auswahl-knopf {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 52px;
+  padding: 0 44px 0 16px;
+  background: var(--karte);
+  color: var(--text);
+  border: 2px solid var(--rand);
+  border-radius: 12px;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.auswahl-knopf::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 18px;
+  width: 8px;
+  height: 8px;
+  margin-top: -6px;
+  border: solid currentcolor;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.auswahl-knopf[aria-expanded="true"]::after {
+  margin-top: -2px;
+  transform: rotate(-135deg);
+}
+
+.auswahl-liste {
+  /* Popover im Top-Layer: Lage und Breite setzt dom.js, damit die Liste nicht im Dialog gefangen ist */
+  position: fixed;
+  inset: auto;
+  max-height: 15rem;
+  margin: 0;
+  padding: 4px;
+  overflow-y: auto;
+  background: var(--karte);
+  border: 2px solid var(--rand);
+  border-radius: 12px;
+  box-shadow: var(--schatten);
+  list-style: none;
+}
+
+.seitenwahl {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.auswahl-wert {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.auswahl-bild {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+}
+
+.auswahl-eintrag {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 12px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.auswahl-eintrag:hover {
+  background: var(--erhoben);
+}
+
+.auswahl-eintrag.ist-aktiv {
+  background: var(--erhoben);
+  outline: 2px solid var(--fokus);
+  outline-offset: -2px;
+}
+
+.auswahl-eintrag[aria-selected="true"] {
+  font-weight: 700;
+}
+
+.auswahl-eintrag[aria-selected="true"]::after {
+  width: 18px;
+  height: 18px;
+  -webkit-mask-image: var(--ic-ok);
+  mask-image: var(--ic-ok);
+}
+
+/* Code-Feld: sechs Zellen, darüber die unsichtbare echte Eingabe */
+
+.code-feld {
+  position: relative;
+  width: max-content;
+  max-width: 100%;
+  border-radius: 16px;
+}
+
+.code-feld input {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+  opacity: 0;
+  border: 0;
+  cursor: text;
+}
+
+.code-zellen {
+  display: flex;
+  gap: 8px;
+}
+
+.code-zelle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 56px;
+  background: var(--surface);
+  color: var(--text);
+  border: 2px solid var(--rand);
+  border-radius: 12px;
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.code-zelle--aktiv {
+  border-color: var(--fokus);
+  box-shadow: 0 0 0 1px var(--fokus);
+}
+
+/* Nach der dritten Zelle eine Lücke, wie bei der Anzeige in der App */
+.code-zelle:nth-child(3) {
+  margin-right: 8px;
+}
+
+.code-feld:has(input[aria-invalid="true"]) .code-zelle {
+  background: var(--fe-f);
+  border-color: var(--fe);
+}
+
+@media (max-width: 400px) {
+  .code-zellen {
+    gap: 4px;
+  }
+
+  .code-zelle {
+    width: 40px;
+  }
+}
+
+/* Anmelden, zweiter Faktor, Sperre */
+
+.mitte {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  padding: 48px 24px;
+}
+
+.anmeldung {
+  width: min(448px, 100%);
+  gap: 20px;
+  padding: 32px;
+  border-radius: 24px;
+}
+
+.anmeldung-kopf {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.anmeldung h1 {
+  font-size: 1.75rem;
+  line-height: 2.125rem;
+}
+
+.kreis {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 6px;
+  background: var(--blau-f);
+  color: var(--auf-blau-f);
+  border-radius: 9999px;
+}
+
+/* Dialoge und Seitenblatt (natives dialog mit showModal) */
+
+.i {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+dialog,
+.dialog,
+.blatt {
+  padding: 24px;
+  background: var(--erhoben);
+  color: var(--text);
+  border: 0;
+  border-radius: 24px;
+  box-shadow: var(--schatten);
+}
+
+dialog {
+  width: min(32rem, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+}
+
+dialog[open],
+.dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+dialog::backdrop,
+.schleier {
+  background: var(--schleier);
+}
+
+.schleier {
+  position: fixed;
+  inset: 0;
+}
+
+dialog h2 {
+  font-size: 1.375rem;
+}
+
+dialog .eingabe,
+dialog .feld input:not([type="checkbox"], [type="radio"], [type="hidden"]),
+dialog .feld textarea,
+.blatt .eingabe {
+  background: var(--surface);
+}
+
+dialog .feld input[type="file"] {
+  background: none;
+}
+
+dialog .wahl input {
+  background: var(--surface);
+}
+
+dialog .wahl input:checked {
+  background: var(--blau);
+}
+
+dialog .auswahl-knopf {
+  background: var(--surface);
+}
+
+.dialog-knoepfe {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.geheimnis {
+  padding: 16px;
+  background: var(--surface);
+  border: 2px solid var(--rand);
+  border-radius: 12px;
+  font-family: var(--mono);
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-align: center;
+  user-select: all;
+  overflow-wrap: anywhere;
+}
+
+/* Seitenblatt von rechts */
+
+dialog.blatt {
+  width: min(600px, 100%);
+  max-width: 100%;
+  height: 100vh;
+  max-height: 100vh;
+  margin: 0 0 0 auto;
+  padding: 0;
+  overflow: hidden;
+  border-radius: 24px 0 0 24px;
+}
+
+dialog.blatt[open] {
+  gap: 0;
+}
+
+.blatt-kopf {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 24px 24px 12px;
+}
+
+.blatt-titel {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.blatt-inhalt {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 12px 24px 24px;
+  overflow-y: auto;
+}
+
+.blatt-fuss {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 16px 24px;
+  border-top: 1px solid var(--rand-leise);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  dialog.blatt[open] {
+    animation: blatt-ein 0.2s ease-out;
+  }
+}
+
+@keyframes blatt-ein {
+  from {
+    opacity: 0;
+    transform: translateX(32px);
+  }
+}
+
+@media (max-width: 480px) {
+  .dialog-knoepfe .knopf {
+    flex: 1 1 100%;
+  }
+
+  fieldset .feld {
+    flex-wrap: wrap;
+  }
+
+  fieldset .feld .auswahl {
+    flex: 1 1 100%;
+    width: auto;
+  }
+}
+
+/* Scrollleisten: dünn, Daumen in der Randfarbe (3:1) */
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--rand) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--rand);
+  background-clip: padding-box;
+  border: 3px solid transparent;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--leise);
+}
+
+@media (forced-colors: active) {
+  .knopf,
+  .chip,
+  .hinweis,
+  .ava {
+    border: 1px solid CanvasText;
+  }
+}
+
+/* Übersicht, Meldungen, Abteilung */
+
+.leer .i {
+  vertical-align: -6px;
+}
+
+/* Stufen und Kinder */
+
+.stufenliste {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.stufe-karte {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 16px;
+}
+
+.stufe-kopf {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+
+.stufe-aktionen {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.stufe-text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.eltern-zeile {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+
+/* Personen */
+
+.rolle {
+  display: flex;
+  flex-flow: row wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.rolle legend {
+  float: left;
+  padding: 0;
+}
+
+.suche--voll {
+  flex: none;
+  max-width: none;
+}
+
+.kinderliste {
+  max-height: 15rem;
+  padding: 4px 16px;
+  overflow-y: auto;
+  background: var(--surface);
+  border-radius: 12px;
+}
+
+.kinderliste .wahl label {
+  flex: 1;
+}
+
+.blatt-status {
+  margin-bottom: 8px;
+}
+
+.personen-aktion {
+  flex: 1 1 16rem;
+}
+
+.personen-benutzername {
+  min-height: 28px;
+  overflow-wrap: anywhere;
+}
+
+/* Zustandsseiten */
+
+.zustand {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 20px;
+  max-width: 600px;
+  padding: 48px 0;
+}
+
+.zustand-kreis {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 72px;
+  background: var(--blau-f);
+  color: var(--auf-blau-f);
+  border-radius: 9999px;
+}
+
+.zustand-kreis--warn {
+  background: var(--wa-f);
+  color: var(--wa);
+}
+
+.zustand-kreis--fehler {
+  background: var(--fe-f);
+  color: var(--fe);
+}
+
+.zustand-text {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.zustand-text h1,
+.zustand-text h2 {
+  font-size: 2.5rem;
+  line-height: 2.75rem;
+}
+
+.zustand-text .leise {
+  font-size: 1.125rem;
+  line-height: 1.6875rem;
+}
+
+.zustand .aktionen {
+  justify-content: flex-start;
+}
+
+@media (max-width: 760px) {
+  .zustand {
+    padding: 24px 0;
+  }
+
+  .zustand-text h1,
+  .zustand-text h2 {
+    font-size: 1.75rem;
+    line-height: 2.125rem;
+  }
+}
+
+@media (forced-colors: active) {
+  .zustand-kreis {
+    border: 1px solid CanvasText;
+  }
+}
+
+/* System */
+
+.system-tafel {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* Reiter innerhalb der Seite sind Knöpfe, keine Links */
+button.tab {
+  display: inline-flex;
+  align-items: center;
+  min-height: 48px;
+  margin-bottom: -1px;
+  padding: 0 16px;
+  background: transparent;
+  color: var(--leise);
+  border: 0;
+  border-bottom: 3px solid transparent;
+  font: inherit;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+button.tab:hover {
+  color: var(--text);
+}
+
+button.tab[aria-selected="true"] {
+  color: var(--text);
+  border-bottom-color: var(--akzent);
+}
+
+/* Kachel mit Zustandswort: Das Wort steht im Chip, das Symbol der Kachel entfällt */
+.kachel--chip::after {
+  display: none;
+}
+
+.kachel-kopf {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.kachel-kopf .kachel-titel {
+  padding-right: 0;
+}
+
+/* Aufgeklappte Zeile einer Tabelle */
+.tabelle tr.offen > td {
+  background: var(--leiste);
+  border-top: 0;
+}
+
+.route-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 4px 0 8px;
+}
+
+/* Muster der Diagrammbalken (4xx Streifen, 5xx Punkte) in der Farbe der Kartenfläche */
+.muster-linie {
+  stroke: var(--karte);
+}
+
+.muster-punkt {
+  fill: var(--karte);
+}
+
+.bal--muster {
+  pointer-events: none;
+}
+
+/* Reihenfolge der Stufenleitung */
+
+.stufe-sl h3 {
+  margin: 0 0 4px;
+  font-size: 0.875rem;
+}
+
+.sl-liste,
+.sl-reihenfolge {
+  margin: 0;
+  padding-left: 1.5rem;
+}
+
+.sl-reihenfolge {
+  display: grid;
+  gap: 8px;
+}
+
+.sl-reihenfolge li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.sl-reihenfolge .name {
+  flex: 1 1 10rem;
+}

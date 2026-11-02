@@ -1,0 +1,40 @@
+name: Image
+
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+  # Ein Tag, den release.yml mit GITHUB_TOKEN setzt, löst den Push-Auslöser nicht aus; release.yml ruft dieses Image darum selbst auf
+  workflow_call:
+    inputs:
+      tag:
+        description: Release-Tag vX.Y.Z
+        required: true
+        type: string
+
+# Der einzige Workflow mit packages: write
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  api:
+    name: API-Image
+    # shortcut: nur arm64 (Oracle Always Free ist Ampere ARM), auf einem amd64-Server startet das Image nicht; dann auf ubuntu-latest zurück
+    runs-on: ubuntu-24.04-arm
+    env:
+      # Beim Aufruf aus release.yml ist github.ref_name der Branch main, darum kommt der Tag dann aus der Eingabe
+      TAG: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: refs/tags/${{ inputs.tag || github.ref_name }}
+          persist-credentials: false
+      # Ein Tag, der nicht vX.Y.Z heisst, baut kein Image
+      - run: |
+          echo "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'
+      - run: echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Der Tag kommt aus der Umgebung, nicht als Ausdruck ins Skript: So kann kein Name Shell-Code einschleusen
+      - run: docker build -f apps/api/Dockerfile -t "ghcr.io/sorry4nothing/fireresponse-api:$TAG" .
+      - run: docker push "ghcr.io/sorry4nothing/fireresponse-api:$TAG"

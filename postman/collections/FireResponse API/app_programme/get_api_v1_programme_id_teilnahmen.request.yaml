@@ -1,0 +1,14 @@
+$kind: http-request
+name: "GET /api/v1/programme/:id/teilnahmen"
+order: 30000
+method: GET
+url: "{{baseUrl}}/api/v1/programme/{{programmId}}/teilnahmen"
+headers:
+  - key: "Cookie"
+    value: "{{cookie}}"
+  - key: "expo-origin"
+    value: "{{expoOrigin}}"
+  - key: "X-Forwarded-For"
+    value: "{{ip}}"
+  - key: "X-App-Version"
+    value: "{{appVersion}}"
