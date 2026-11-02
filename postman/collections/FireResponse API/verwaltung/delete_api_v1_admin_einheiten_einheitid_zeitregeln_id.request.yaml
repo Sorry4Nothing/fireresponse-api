@@ -1,8 +1,8 @@
 $kind: http-request
 name: "DELETE /api/v1/admin/einheiten/:einheitId/zeitregeln/:id"
-order: 88000
+order: 87000
 method: DELETE
-url: "{{baseUrl}}/api/v1/admin/einheiten/{{einheit_jfA}}/zeitregeln/{{ziel_89}}"
+url: "{{baseUrl}}/api/v1/admin/einheiten/{{einheit_jfA}}/zeitregeln/{{ziel_88}}"
 headers:
   - key: "Cookie"
     value: "{{cookie}}"

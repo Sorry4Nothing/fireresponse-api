@@ -230,7 +230,12 @@ export const rang = pgTable(
     abzeichenBildTyp: text("abzeichen_bild_typ"),
   },
   (t) => [
-    unique("rang_reihenfolge_pro_einheit").on(t.einheitId, t.reihenfolge),
+    // Jeder Typ hat seine eigene Hierarchie: die Reihenfolge gilt je Einheit und Typ
+    unique("rang_reihenfolge_pro_einheit").on(
+      t.einheitId,
+      t.typ,
+      t.reihenfolge,
+    ),
     // Ziel des zusammengesetzten Fremdschlüssels: Ein Rang gehört genau einer Einheit
     unique("rang_id_einheit").on(t.id, t.einheitId),
     check("rang_reihenfolge_check", sql`${t.reihenfolge} between 1 and 999`),

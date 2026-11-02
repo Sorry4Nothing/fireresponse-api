@@ -443,6 +443,31 @@ describe("PUT /api/v1/programme/:id/leitung", () => {
     expect(await lesen("elternJfA")).not.toHaveProperty("eigeneAnmeldung");
     expect(await lesen("kantonsadmin")).not.toHaveProperty("eigeneAnmeldung");
   });
+
+  test("die Liste trägt eigeneAnmeldung mit derselben Regel und folgt der Antwort", async () => {
+    const jahr = new Date().getFullYear();
+    const konten = new Map<Persona, PersonaKonto>();
+    const liste = async (persona: Persona) => {
+      if (!konten.has(persona)) konten.set(persona, await person(persona));
+      const antwort = await lies(
+        konten.get(persona)!,
+        `/api/v1/programme?von=${jahr}-01-01&bis=${jahr + 1}-12-31`,
+      );
+      return antwort.programme.find((p: { id: string }) => p.id === jfA);
+    };
+    expect(await liste("leitendeJfA")).toHaveProperty("eigeneAnmeldung");
+    expect(await liste("kommandoJfA")).toHaveProperty("eigeneAnmeldung");
+    expect(await liste("elternJfA")).not.toHaveProperty("eigeneAnmeldung");
+    expect(await liste("teilnehmendeSelbstJfA")).not.toHaveProperty(
+      "eigeneAnmeldung",
+    );
+    expect(await liste("kantonsadmin")).not.toHaveProperty("eigeneAnmeldung");
+    await liste("leitendeJfA");
+    await meldeLeitung(konten.get("leitendeJfA")!, jfA, "ja");
+    expect((await liste("leitendeJfA")).eigeneAnmeldung).toBe("ja");
+    // Nur die eigene Anmeldung zählt
+    expect((await liste("kommandoJfA")).eigeneAnmeldung).toBe("offen");
+  });
 });
 
 describe("Termine einer Art ohne Anmeldung", () => {
@@ -499,6 +524,13 @@ describe("Termine einer Art ohne Anmeldung", () => {
       teilnahmeOffen: false,
       teilnehmende: [],
     });
+    const listeLeitung = await lies(
+      await person("leitendeJfA"),
+      `/api/v1/programme?von=${jahr}-01-01&bis=${jahr + 1}-12-31`,
+    );
+    expect(
+      listeLeitung.programme.find((p: { id: string }) => p.id === id),
+    ).not.toHaveProperty("eigeneAnmeldung");
     const anmeldbar = liste.programme.find((p: { id: string }) => p.id === jfA);
     expect(anmeldbar).toMatchObject({ anmeldbar: true, teilnahmeOffen: true });
     expect(anmeldbar.teilnehmende).not.toHaveLength(0);

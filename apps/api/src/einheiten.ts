@@ -1,6 +1,7 @@
 import { and, desc, eq, gte, sql } from "drizzle-orm";
 import type { Db } from "./db/client.js";
 import { auditLog, einheit, einheitRolle, rang } from "./db/schema.js";
+import { MILIZ_ABZEICHEN } from "./milizAbzeichen.js";
 
 type Tx = Pick<Db, "select" | "insert" | "update" | "delete">;
 
@@ -10,6 +11,32 @@ export const STANDARD_RAENGE = [null, 0, 1, 2].map((sterne, n) => ({
   kuerzel: `R${n}`,
   reihenfolge: (n + 1) * 10,
   abzeichenSterne: sterne,
+}));
+
+// Dienstgrade der Feuerwehr in der Schweiz in der Reihenfolge und Schreibweise der Quelle (Wikipedia, «Dienstgrade der Feuerwehr in der Schweiz»). Jede Einheit hat sie als Ränge vom Typ miliz, denn Leitende tragen sie; die Reihenfolge zählt je Typ, die Miliz-Ränge beginnen also bei 10. Die Migration 0008 legt sie für bestehende Einheiten an; ändert sich die Liste, ändert sich die Migration nicht mit
+export const MILIZ_RAENGE = [
+  ["Oberst", "Oberst"],
+  ["Oberstleutnant", "Oberstlt"],
+  ["Major", "Maj"],
+  ["Hauptmann", "Hptm"],
+  ["Oberleutnant", "Oblt"],
+  ["Leutnant", "Lt"],
+  ["Adjutant Unteroffizier", "Adj Uof"],
+  ["Feldweibel", "Fw"],
+  ["Fourier", "Four"],
+  ["Wachtmeister", "Wm"],
+  ["Korporal", "Kpl"],
+  ["Gefreiter", "Gfr"],
+  ["Soldat", "Sdt"],
+  ["Rekrut", "Rekr"],
+].map(([name, kuerzel], n) => ({
+  name,
+  kuerzel,
+  typ: "miliz" as const,
+  reihenfolge: (n + 1) * 10,
+  abzeichenSterne: null,
+  abzeichenBild: new TextEncoder().encode(MILIZ_ABZEICHEN[name]),
+  abzeichenBildTyp: "svg" as const,
 }));
 
 // Adresse des Logos oder null; ?v= ändert sich mit dem Bild, damit die App ihren Speicher danach richten kann
@@ -45,7 +72,11 @@ export async function legeEinheitAn(
     .returning({ id: einheit.id });
   await tx
     .insert(rang)
-    .values(STANDARD_RAENGE.map((r) => ({ ...r, typ, einheitId: neu.id })));
+    .values(
+      [...STANDARD_RAENGE.map((r) => ({ ...r, typ })), ...MILIZ_RAENGE].map(
+        (r) => ({ ...r, einheitId: neu.id }),
+      ),
+    );
   await tx
     .insert(einheitRolle)
     .values({ userId: kommandantId, einheitId: neu.id, typ: "kommandant" });

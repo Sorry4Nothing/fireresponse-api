@@ -1241,7 +1241,7 @@ paths:
         - Programme
       description: |
         Liefert die Felder des Listeneintrags (mit `teilnehmende` samt Rang-Abzeichen) und zusätzlich `thema`, `info`, `aufgebot`,
-        die Kontaktperson des Termins (`kontakt`) und (nur für Kommando und Leitende der Einheit) `eigeneAnmeldung`.
+        die Kontaktperson des Termins (`kontakt`) und (nur für Kommando und Leitende der Einheit) `eigeneAnmeldung`, das auch der Listeneintrag trägt.
         Die Kontaktperson ist die Kommandantin oder der Kommandant, solange sie oder er nicht «nein» gesagt hat; sonst die erste
         Stellvertretung ohne «nein»; haben alle «nein» gesagt, wieder die Kommandantin oder der Kommandant. «Offen» ist keine Absage.
         Die Telefonnummer des Kontakts sehen nur Eltern und Teilnehmende mit aktiver Person in der Einheit, sonst ist `telefon` `null`.
@@ -3198,45 +3198,6 @@ paths:
           $ref: "#/components/responses/AppVeraltet426"
         "429":
           $ref: "#/components/responses/ZuVieleAnfragen429"
-    post:
-      operationId: legeAdminRangAn
-      summary: Rang anlegen
-      tags:
-        - Verwaltung
-      description: |
-        Kommando, Stellvertretungen und Kantonsadmin (mit zweitem Faktor). Der Typ (`kf`, `jf`, `miliz`) ist frei wählbar, auch abweichend vom Typ der Einheit. Die Reihenfolge ist je Einheit eindeutig (409 `RANG_REIHENFOLGE_BELEGT`); eine Einheit hat höchstens 99 Ränge (409 `RAENGE_VOLL`). Ein Bild lädt `PUT .../abzeichen` hoch.
-
-        Statuscodes: 201, 400, 401, 403, 404, 409, 426, 429.
-      parameters:
-        - $ref: "#/components/parameters/AppVersion"
-        - $ref: "#/components/parameters/EinheitIdPfad"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/AdminRangAnlegen"
-      responses:
-        "201":
-          description: Rang angelegt.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AdminRangAngelegt"
-        "400":
-          $ref: "#/components/responses/UngueltigeEingabe400"
-        "401":
-          $ref: "#/components/responses/NichtAngemeldet401"
-        "403":
-          $ref: "#/components/responses/KeineBerechtigung403"
-        "404":
-          $ref: "#/components/responses/NichtGefunden404"
-        "409":
-          $ref: "#/components/responses/AdminKonflikt409"
-        "426":
-          $ref: "#/components/responses/AppVeraltet426"
-        "429":
-          $ref: "#/components/responses/ZuVieleAnfragen429"
   /api/v1/admin/einheiten/{einheitId}/raenge/reihenfolge:
     put:
       operationId: ordneAdminRaenge
@@ -3244,7 +3205,7 @@ paths:
       tags:
         - Verwaltung
       description: |
-        Kommando, Stellvertretungen und Kantonsadmin (mit zweitem Faktor). `ids` nennt genau die Ränge der Einheit in der neuen Reihenfolge (sonst 400); sie bekommen danach die Reihenfolge 10, 20, 30, … Die Pfeile der Verwaltung tauschen so zwei Nachbarn.
+        Kommando, Stellvertretungen und Kantonsadmin (mit zweitem Faktor). `ids` nennt genau die Ränge eines Typs der Einheit in der neuen Reihenfolge (sonst 400); sie bekommen danach die Reihenfolge 10, 20, 30, … Die Pfeile der Verwaltung tauschen so zwei Nachbarn.
 
         Statuscodes: 204, 400, 401, 403, 404, 426, 429.
       parameters:
@@ -4105,7 +4066,7 @@ components:
     ProgrammListeneintrag:
       type: object
       description: |
-        Programm, wie es Liste und Detail liefern, mit `teilnehmende` (derselben Regel in beiden). Alle Schlüssel sind immer vorhanden. Entweder ist `ganztaegig`
+        Programm, wie es Liste und Detail liefern, mit `teilnehmende` und `eigeneAnmeldung` (derselben Regel in beiden). Alle Schlüssel ausser `eigeneAnmeldung` sind immer vorhanden. Entweder ist `ganztaegig`
         wahr, dann sind `tagVon` und `tagBis` gesetzt und `beginn` und `ende` `null`, oder `ganztaegig` ist falsch,
         dann sind `beginn` und `ende` gesetzt und `tagVon` und `tagBis` `null`.
       required:
@@ -4175,6 +4136,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ProgrammTeilnehmende"
+        eigeneAnmeldung:
+          type: string
+          enum: [ja, nein, offen]
+          description: "Die eigene Anmeldung als Leitung. Der Schlüssel fehlt, ausser für Kommando, Stellvertretung und Leitung der Einheit des Termins; er fehlt auch bei `anmeldbar: false`. In Liste und Detail dieselbe Regel."
     ProgrammListe:
       type: object
       required:
@@ -4208,10 +4173,6 @@ components:
               oneOf:
                 - $ref: "#/components/schemas/Kontakt"
                 - type: "null"
-            eigeneAnmeldung:
-              type: string
-              enum: [ja, nein, offen]
-              description: Nur für Kommando und Leitende der Einheit.
     ProgrammAntwort:
       type: object
       description: Antwort «ja» oder «nein» für eine Teilnahme oder eine Leitungsanmeldung.
@@ -4542,38 +4503,7 @@ components:
     RangTyp:
       type: string
       enum: [kf, jf, miliz]
-      description: Kinderfeuerwehr, Jugendfeuerwehr oder Miliz-Feuerwehr (Schweizer Dienstgrade). Der Typ ordnet den Rang nur ein; die Verwaltung bietet bei `miliz` die Dienstgrade zur Übernahme an, der Server prüft den Namen nicht dagegen. Die Apps erfahren ihn nicht.
-    AdminRangAnlegen:
-      type: object
-      required: [name, kuerzel, reihenfolge]
-      additionalProperties: false
-      properties:
-        name:
-          type: string
-          minLength: 1
-          maxLength: 100
-        kuerzel:
-          type: string
-          minLength: 1
-          maxLength: 20
-        typ:
-          $ref: "#/components/schemas/RangTyp"
-          description: Fehlt er, gilt der Typ der Einheit (`kf` oder `jf`).
-        reihenfolge:
-          type: integer
-          minimum: 1
-          maximum: 999
-        abzeichenSterne:
-          type: [integer, "null"]
-          minimum: 0
-          maximum: 5
-    AdminRangAngelegt:
-      type: object
-      required: [id]
-      properties:
-        id:
-          type: string
-          format: uuid
+      description: Kinderfeuerwehr, Jugendfeuerwehr oder Miliz-Feuerwehr (Schweizer Dienstgrade). Der Typ ordnet den Rang ein; die Miliz-Dienstgrade legt das Backend als Standard-Ränge an. Die Apps erfahren ihn nicht.
     AdminRangAendern:
       type: object
       description: Mindestens ein Feld.
