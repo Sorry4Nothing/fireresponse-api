@@ -285,7 +285,7 @@ describe("Sync einer Einheit", () => {
       .insert(schema.leitungAnmeldung)
       .values({ programmId: id, userId: kommando, status: "ja" });
 
-    // Das Datum im Push ist das neue
+    // Der Push nennt weder Datum noch Inhalt
     await w.lauf(
       kalender([{ ...ZUKUNFT, start: "20261115T180000Z", aufgebot: "17:30" }]),
     );
@@ -299,8 +299,9 @@ describe("Sync einer Einheit", () => {
     // Eltern beider Elternteile und das Kommando, nicht wer nichts geantwortet hat, nicht wer Pushes ausgeschaltet hat
     expect(empfaenger()).toEqual(["kommando", "mutter", "vater"]);
     expect(nachrichten[0]).toMatchObject({
-      notification: { title: "Übung geändert", body: "So 15.11." },
+      notification: { title: "Termin geändert", body: "In Fire-Response" },
       data: { typ: "programm", id },
+      android: { notification: { channelId: "termine" } },
     });
     // Weder Titel noch Thema noch Name im Push
     expect(JSON.stringify(nachrichten[0])).not.toMatch(
@@ -363,8 +364,9 @@ describe("Sync einer Einheit", () => {
     ).toHaveLength(1);
     expect(empfaenger()).toEqual(["kommando", "mutter", "ohne-antwort"]);
     expect(nachrichten[0]).toMatchObject({
-      notification: { title: "Übung abgesagt", body: "Sa 14.11." },
+      notification: { title: "Termin abgesagt", body: "In Fire-Response" },
       data: { typ: "programm", id },
+      android: { notification: { channelId: "termine" } },
     });
     // Ein dritter Lauf sagt nicht noch einmal ab
     nachrichten = [];

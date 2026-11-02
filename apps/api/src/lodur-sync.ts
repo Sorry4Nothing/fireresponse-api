@@ -1,17 +1,8 @@
 import { createHash } from "node:crypto";
-import { and, eq, inArray, isNotNull, isNull, sql as roh } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, sql as roh } from "drizzle-orm";
 import { verbindeDatenbank } from "./datenbank.js";
 import { erstelleDb, type Db } from "./db/client.js";
-import {
-  einheit,
-  einheitRolle,
-  leitungAnmeldung,
-  programm,
-  teilnahme,
-  teilnehmende,
-  teilnehmendeKonto,
-  user,
-} from "./db/schema.js";
+import { einheit, programm } from "./db/schema.js";
 import { IcsFehler, leseIcs, type IcsErgebnis, type IcsTermin } from "./ics.js";
 import {
   holeKalender,
@@ -23,10 +14,10 @@ import {
   type Aufloesen,
 } from "./lodur-url.js";
 import { fehlerCode, log } from "./log.js";
-import { type Fcm, sendePush } from "./push.js";
-import { aktivesKonto, programmBeginn } from "./rechte.js";
+import type { Fcm } from "./push.js";
+import { programmBeginn } from "./rechte.js";
 import { entschluessele } from "./startpasswort.js";
-import { kurzDatum } from "./zeitregeln/ausloesezeit.js";
+import { sendeAbsagePush, sendeAenderungsPush } from "./termin-push.js";
 
 // Eigener Schlüssel für die Sperre; 740027 und 740028 bleiben für spätere Hintergrundläufe frei
 export const SPERRE_LODUR = 740_030;
@@ -70,88 +61,6 @@ const felder = (t: IcsTermin) => ({
   aufgebot: t.aufgebot,
   inhaltHash: inhaltHash(t),
 });
-
-// Konten, die für diesen Termin schon geantwortet haben: Eltern und Teilnehmende mit Antwort sowie Kommando und Leitende mit Anmeldung
-async function mitAntwort(db: Db, programmId: string) {
-  const [personen, leitende] = await Promise.all([
-    db
-      .selectDistinct({ id: user.id })
-      .from(teilnahme)
-      .innerJoin(
-        teilnehmende,
-        and(
-          eq(teilnehmende.id, teilnahme.teilnehmendeId),
-          isNull(teilnehmende.inaktivSeit),
-        ),
-      )
-      .innerJoin(
-        teilnehmendeKonto,
-        eq(teilnehmendeKonto.teilnehmendeId, teilnehmende.id),
-      )
-      .innerJoin(
-        user,
-        and(
-          eq(user.id, teilnehmendeKonto.userId),
-          aktivesKonto(),
-          eq(user.pushProgramme, true),
-        ),
-      )
-      .where(eq(teilnahme.programmId, programmId)),
-    db
-      .selectDistinct({ id: user.id })
-      .from(leitungAnmeldung)
-      .innerJoin(
-        user,
-        and(
-          eq(user.id, leitungAnmeldung.userId),
-          aktivesKonto(),
-          eq(user.pushProgramme, true),
-        ),
-      )
-      .where(eq(leitungAnmeldung.programmId, programmId)),
-  ]);
-  return [...new Set([...personen, ...leitende].map((p) => p.id))];
-}
-
-// Alle Konten der Einheit: Eltern und Teilnehmende aktiver Personen, dazu Kommando und Leitende
-async function ganzeEinheit(db: Db, einheitId: string) {
-  const [personen, rollen] = await Promise.all([
-    db
-      .selectDistinct({ id: user.id })
-      .from(teilnehmende)
-      .innerJoin(
-        teilnehmendeKonto,
-        eq(teilnehmendeKonto.teilnehmendeId, teilnehmende.id),
-      )
-      .innerJoin(
-        user,
-        and(
-          eq(user.id, teilnehmendeKonto.userId),
-          aktivesKonto(),
-          eq(user.pushProgramme, true),
-        ),
-      )
-      .where(
-        and(
-          eq(teilnehmende.einheitId, einheitId),
-          isNull(teilnehmende.inaktivSeit),
-        ),
-      ),
-    db
-      .selectDistinct({ id: user.id })
-      .from(einheitRolle)
-      .innerJoin(
-        user,
-        and(
-          eq(user.id, einheitRolle.userId),
-          aktivesKonto(),
-          eq(user.pushProgramme, true),
-        ),
-      )
-      .where(eq(einheitRolle.einheitId, einheitId)),
-  ]);
-  return [...new Set([...personen, ...rollen].map((p) => p.id))];
-}
 
 type Vorhanden = {
   id: string;
@@ -232,36 +141,10 @@ export async function uebernimm(
   });
 
   if (!fcm) return;
-  // Nach dem Speichern, und ohne Inhalt: Der Push steht je nach Handy auf dem gesperrten Bildschirm. Stürzt der Prozess dazwischen ab, fällt dieser Push aus
-  const sende = async (
-    id: string,
-    beginn: Date,
-    empfaenger: string[],
-    titel: string,
-  ) => {
-    if (empfaenger.length === 0) return;
-    await sendePush({ db, fcm }, empfaenger, {
-      typ: "programm",
-      id,
-      titel,
-      text: kurzDatum(beginn),
-    });
-  };
-  for (const { v, t } of geaendert) {
-    // Das neue Datum; ganztägig um 12:00 UTC, damit die Schweizer Zeit denselben Tag ergibt. Ohne Antworten bleibt es still
-    await sende(
-      v.id,
-      t.beginn ?? new Date(`${t.tagVon}T12:00:00Z`),
-      await mitAntwort(db, v.id),
-      "Übung geändert",
-    );
-  }
-  if (abgesagt.length > 0) {
-    const alle = await ganzeEinheit(db, einheitId);
-    for (const v of abgesagt) {
-      await sende(v.id, new Date(Number(v.beginnMs)), alle, "Übung abgesagt");
-    }
-  }
+  // Nach dem Speichern, und ohne Inhalt (siehe termin-push.ts). Stürzt der Prozess dazwischen ab, fällt dieser Push aus. Ohne Antworten bleibt die Änderung still
+  for (const { v } of geaendert)
+    await sendeAenderungsPush({ db, fcm, jetzt }, v.id);
+  for (const v of abgesagt) await sendeAbsagePush({ db, fcm, jetzt }, v.id);
 }
 
 // Ein Abruf: entschlüsseln, prüfen, holen, lesen, übernehmen. Wirft LodurFehler mit dem einen Code

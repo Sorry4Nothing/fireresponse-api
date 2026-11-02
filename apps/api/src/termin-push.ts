@@ -14,7 +14,8 @@ import { log } from "./log.js";
 import { type Fcm, sendePush } from "./push.js";
 import { aktivesKonto, programmBeginn } from "./rechte.js";
 
-type Umgebung = { db: Db; fcm?: Fcm; c?: Context };
+// jetzt gibt der Sync vor, dessen Lauf eine feste Zeit hat; sonst gilt die Uhr der Datenbank
+type Umgebung = { db: Db; fcm?: Fcm; c?: Context; jetzt?: Date };
 
 // Der Text nennt weder Termin noch Person: Der Push steht je nach Handy auf dem gesperrten Bildschirm, und er läuft über Apple und Google
 const TEXT = "In Fire-Response";
@@ -95,7 +96,7 @@ async function empfaenger(
 
 // Wirft nie: Der Aufrufer (Lodur-Sync) hat die Änderung schon gespeichert, ein Fehler hier darf sie nicht wiederholen lassen
 async function pushAnTermin(
-  { db, fcm, c }: Umgebung,
+  { db, fcm, c, jetzt }: Umgebung,
   programmId: string,
   titel: string,
   nurAntworten: boolean,
@@ -105,7 +106,14 @@ async function pushAnTermin(
     const [zeile] = await db
       .select({ einheitId: programm.einheitId })
       .from(programm)
-      .where(and(eq(programm.id, programmId), roh`${programmBeginn} > now()`));
+      .where(
+        and(
+          eq(programm.id, programmId),
+          jetzt
+            ? roh`${programmBeginn} > ${jetzt.toISOString()}::timestamptz`
+            : roh`${programmBeginn} > now()`,
+        ),
+      );
     if (!zeile) return;
     const konten = await empfaenger(
       db,
