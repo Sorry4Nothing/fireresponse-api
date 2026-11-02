@@ -23,6 +23,7 @@ import {
   UebergabeFehler,
 } from "../../einheiten.js";
 import { eingabe } from "../../eingabe.js";
+import { ladeAdminRaenge } from "../../rang-anzeige.js";
 import { logoAntwort } from "../logo.js";
 import { eindeutigkeitsVerstoss, Konflikt } from "../../konflikt.js";
 import {
@@ -87,6 +88,7 @@ export function erstelleEinheitenRouten({ db }: { db: Db }) {
             logoUrl: adminLogoUrl,
             kommandantId: user.id,
             kommandantName: user.name,
+            kommandantRangId: einheitRolle.rangId,
             lodur: einheit.lodurUrlVerschluesselt,
             syncOkAm: einheit.syncOkAm,
             syncFehler: einheit.syncFehler,
@@ -105,11 +107,26 @@ export function erstelleEinheitenRouten({ db }: { db: Db }) {
           .where(inArray(einheit.id, ids))
           .orderBy(asc(bezirk.name), asc(einheit.typ));
         // Nie der Link selbst: nur ob einer hinterlegt ist, und der Stand des Syncs
+        const raenge = await ladeAdminRaenge(
+          db,
+          zeilen.map((z) => z.kommandantRangId),
+        );
         const einheiten = zeilen.map(
-          ({ lodur, kommandantId, kommandantName, ...z }) => ({
+          ({
+            lodur,
+            kommandantId,
+            kommandantName,
+            kommandantRangId,
+            ...z
+          }) => ({
             ...z,
             kommandant: kommandantId
-              ? { id: kommandantId, name: kommandantName }
+              ? {
+                  id: kommandantId,
+                  name: kommandantName,
+                  rang:
+                    (kommandantRangId && raenge.get(kommandantRangId)) || null,
+                }
               : null,
             lodurHinterlegt: lodur !== null,
             // Die Rolle der Person in dieser Einheit; das Konto des Kantonsadmins hat keine

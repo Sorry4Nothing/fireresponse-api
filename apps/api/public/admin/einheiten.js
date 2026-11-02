@@ -19,6 +19,7 @@ import {
   zeit,
 } from "./dom.js";
 import { BENUTZERNAME_HILFE, mehrzahl } from "./konten.js";
+import { abzeichen } from "./raenge.js";
 import { istKantonsadmin, kontext, ROLLENNAME, TYPNAME } from "./kontext.js";
 
 // Einheiten (Jugend- und Kinderfeuerwehr eines Bezirks): Der Kantonsadmin legt sie mit ihrer Kommandantin oder ihrem Kommandanten an und übergibt das Kommando; Kommando und Stellvertretungen sehen ihre Einheiten.
@@ -682,7 +683,18 @@ function details(e, ctx, neu) {
         { class: "abschnitt" },
         el("h3", {}, "Kommando"),
         e.kommandant
-          ? el("p", {}, e.kommandant.name)
+          ? el(
+              "p",
+              {},
+              e.kommandant.rang
+                ? el(
+                    "span",
+                    { class: "rang-zelle" },
+                    abzeichen(e.kommandant.rang, "k"),
+                    e.kommandant.name,
+                  )
+                : e.kommandant.name,
+            )
           : el("p", { class: "leise" }, "Kein Kommando eingetragen."),
         istKantonsadmin() &&
           knopf("Kommando übergeben", {
@@ -844,7 +856,12 @@ function zeichne(bereich, ctx, daten, neu) {
             "td",
             {},
             e.kommandant
-              ? e.kommandant.name
+              ? el(
+                  "span",
+                  { class: "rang-zelle" },
+                  abzeichen(e.kommandant.rang, "k"),
+                  e.kommandant.name,
+                )
               : el("span", { class: "leise" }, "–"),
           ),
           el("td", { class: "zahl" }, String(e.teilnehmende)),

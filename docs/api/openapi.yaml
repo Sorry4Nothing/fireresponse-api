@@ -2940,7 +2940,7 @@ paths:
         - Verwaltung
       description: |
         Kommando, Stellvertretungen und Kantonsadmin (mit zweitem Faktor), nur in der Einheit im Pfad. Konten, die auch zu einer anderen Einheit gehören, ändert nur der Kantonsadmin (409 `KONTO_GEMEINSAM`). Das Kommando ändert nur der Kantonsadmin, eine Stellvertretung nur das Kommando oder der Kantonsadmin (sonst 403). Am eigenen Konto: 409 `EIGENES_KONTO`. Die Aktion steht im Audit-Log ohne Passwort und ohne Namen.
-        Der Rang ist die einzige Änderung, die jede Person der Verwaltung an jedem Konto der Einheit darf (auch am eigenen und am Kommando); er hängt an der Rolle, Eltern haben keinen. Eine Nummer speichern nur Kommando und Stellvertretungen, entfernen geht immer (`""`). Der Name einer Person mit eigenem Konto ändert sich bei den Teilnehmenden (sonst 400).
+        Der Rang ist die einzige Änderung, die jede Person der Verwaltung an jedem Konto der Einheit darf (auch am eigenen und am Kommando); er hängt an der Rolle, Eltern haben keinen, und es gehen nur Miliz-Ränge der Einheit (sonst 400): Leitende, Kommando und Stellvertretungen tragen Miliz-Ränge. Eine Nummer speichern nur Kommando und Stellvertretungen, entfernen geht immer (`""`). Der Name einer Person mit eigenem Konto ändert sich bei den Teilnehmenden (sonst 400).
 
         Statuscodes: 204, 400, 401, 403, 404, 409, 426, 429.
       parameters:
@@ -3208,7 +3208,7 @@ paths:
       tags:
         - Verwaltung
       description: |
-        Kommando, Stellvertretungen und Kantonsadmin (mit zweitem Faktor). Die Ränge der Einheit nach Reihenfolge, je mit Abzeichen (Sterne oder eigenes Bild mit Adresse) und der Zahl der Personen, die ihn tragen.
+        Kommando, Stellvertretungen und Kantonsadmin (mit zweitem Faktor). Die Ränge der Einheit nach Reihenfolge, je mit Abzeichen (Sterne oder eigenes Bild mit Adresse) und der Zahl der Personen, die ihn tragen. Die Ränge sind fest: Die Verwaltung ändert, ordnet und löscht sie nicht.
 
         Statuscodes: 200, 401, 403, 404, 426, 429.
       parameters:
@@ -3227,114 +3227,6 @@ paths:
           $ref: "#/components/responses/KeineBerechtigung403"
         "404":
           $ref: "#/components/responses/NichtGefunden404"
-        "426":
-          $ref: "#/components/responses/AppVeraltet426"
-        "429":
-          $ref: "#/components/responses/ZuVieleAnfragen429"
-  /api/v1/admin/einheiten/{einheitId}/raenge/reihenfolge:
-    put:
-      operationId: ordneAdminRaenge
-      summary: Ränge ordnen
-      tags:
-        - Verwaltung
-      description: |
-        Kommando, Stellvertretungen und Kantonsadmin (mit zweitem Faktor). `ids` nennt genau die Ränge eines Typs der Einheit in der neuen Reihenfolge (sonst 400); sie bekommen danach die Reihenfolge 10, 20, 30, … Die Pfeile der Verwaltung tauschen so zwei Nachbarn.
-
-        Statuscodes: 204, 400, 401, 403, 404, 426, 429.
-      parameters:
-        - $ref: "#/components/parameters/AppVersion"
-        - $ref: "#/components/parameters/EinheitIdPfad"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/AdminRaengeOrdnen"
-      responses:
-        "204":
-          description: Geordnet.
-        "400":
-          $ref: "#/components/responses/UngueltigeEingabe400"
-        "401":
-          $ref: "#/components/responses/NichtAngemeldet401"
-        "403":
-          $ref: "#/components/responses/KeineBerechtigung403"
-        "404":
-          $ref: "#/components/responses/NichtGefunden404"
-        "426":
-          $ref: "#/components/responses/AppVeraltet426"
-        "429":
-          $ref: "#/components/responses/ZuVieleAnfragen429"
-  /api/v1/admin/einheiten/{einheitId}/raenge/{rangId}:
-    patch:
-      operationId: aendereAdminRang
-      summary: Rang ändern
-      tags:
-        - Verwaltung
-      description: |
-        Kommando, Stellvertretungen und Kantonsadmin (mit zweitem Faktor). Mindestens ein Feld. `abzeichenSterne` (0 bis 5) ersetzt ein eigenes Bild; `null` lässt das Bild stehen.
-
-        Statuscodes: 204, 400, 401, 403, 404, 409, 426, 429.
-      parameters:
-        - $ref: "#/components/parameters/AppVersion"
-        - $ref: "#/components/parameters/EinheitIdPfad"
-        - $ref: "#/components/parameters/AdminRangIdPfad"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/AdminRangAendern"
-      responses:
-        "204":
-          description: Geändert.
-        "400":
-          $ref: "#/components/responses/UngueltigeEingabe400"
-        "401":
-          $ref: "#/components/responses/NichtAngemeldet401"
-        "403":
-          $ref: "#/components/responses/KeineBerechtigung403"
-        "404":
-          $ref: "#/components/responses/NichtGefunden404"
-        "409":
-          $ref: "#/components/responses/AdminKonflikt409"
-        "426":
-          $ref: "#/components/responses/AppVeraltet426"
-        "429":
-          $ref: "#/components/responses/ZuVieleAnfragen429"
-    delete:
-      operationId: loescheAdminRang
-      summary: Rang löschen
-      tags:
-        - Verwaltung
-      description: |
-        Kommando, Stellvertretungen und Kantonsadmin (mit zweitem Faktor). Solange Personen den Rang tragen (Teilnehmende, Kommando, Stellvertretungen, Leitende), antwortet die Route 409 `RANG_IN_VERWENDUNG`. Mit `verschiebenNach` (ein anderer Rang der Einheit, sonst 400) wechseln sie in einem Schritt dorthin.
-
-        Statuscodes: 204, 400, 401, 403, 404, 409, 426, 429.
-      parameters:
-        - $ref: "#/components/parameters/AppVersion"
-        - $ref: "#/components/parameters/EinheitIdPfad"
-        - $ref: "#/components/parameters/AdminRangIdPfad"
-        - name: verschiebenNach
-          in: query
-          required: false
-          description: Rang der Einheit, in den die Personen wechseln.
-          schema:
-            type: string
-            format: uuid
-      responses:
-        "204":
-          description: Gelöscht.
-        "400":
-          $ref: "#/components/responses/UngueltigeEingabe400"
-        "401":
-          $ref: "#/components/responses/NichtAngemeldet401"
-        "403":
-          $ref: "#/components/responses/KeineBerechtigung403"
-        "404":
-          $ref: "#/components/responses/NichtGefunden404"
-        "409":
-          $ref: "#/components/responses/AdminKonflikt409"
         "426":
           $ref: "#/components/responses/AppVeraltet426"
         "429":
@@ -3365,85 +3257,6 @@ paths:
               schema:
                 type: string
                 format: binary
-        "401":
-          $ref: "#/components/responses/NichtAngemeldet401"
-        "403":
-          $ref: "#/components/responses/KeineBerechtigung403"
-        "404":
-          $ref: "#/components/responses/NichtGefunden404"
-        "426":
-          $ref: "#/components/responses/AppVeraltet426"
-        "429":
-          $ref: "#/components/responses/ZuVieleAnfragen429"
-    put:
-      operationId: setzeAdminRangAbzeichen
-      summary: Eigenes Abzeichen hochladen
-      tags:
-        - Verwaltung
-      description: |
-        Kommando, Stellvertretungen und Kantonsadmin (mit zweitem Faktor). Der Body ist das Bild selbst, SVG oder PNG, höchstens 500 KB (sonst 413); der Typ ergibt sich aus den Bytes, nie aus dem Header. Hochformat im Verhältnis 100:130, bei PNG mindestens 200 × 260 und höchstens 4000 × 5200 Pixel.
-
-        Der Server prüft und bereinigt (SR-23): Ein SVG bleibt als Baum aus erlaubten Elementen und Attributen erhalten; Skripte, Ereignis-Attribute, `style`, Bilder, `foreignObject`, Verweise nach aussen, DOCTYPE und Entitäten fallen weg oder machen die Datei ungültig. Ein PNG behält nur die Blöcke, die zum Bild gehören (keine Texte, kein EXIF). Gespeichert wird das Ergebnis, nie die Eingabe; es ersetzt Sterne und ein früheres Bild. Ein ungültiges Bild ist 415 `ABZEICHEN_UNGUELTIG` mit einer deutschen Meldung.
-
-        Statuscodes: 204, 400, 401, 403, 404, 413, 415, 426, 429.
-      parameters:
-        - $ref: "#/components/parameters/AppVersion"
-        - $ref: "#/components/parameters/EinheitIdPfad"
-        - $ref: "#/components/parameters/AdminRangIdPfad"
-      requestBody:
-        required: true
-        content:
-          image/svg+xml:
-            schema:
-              type: string
-              format: binary
-          image/png:
-            schema:
-              type: string
-              format: binary
-      responses:
-        "204":
-          description: Gespeichert.
-        "400":
-          $ref: "#/components/responses/UngueltigeEingabe400"
-        "401":
-          $ref: "#/components/responses/NichtAngemeldet401"
-        "403":
-          $ref: "#/components/responses/KeineBerechtigung403"
-        "404":
-          $ref: "#/components/responses/NichtGefunden404"
-        "413":
-          description: Die Datei ist grösser als 500 KB (code ZU_GROSS).
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Fehler"
-        "415":
-          description: Die Datei ist kein gültiges SVG oder PNG (code ABZEICHEN_UNGUELTIG).
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Fehler"
-        "426":
-          $ref: "#/components/responses/AppVeraltet426"
-        "429":
-          $ref: "#/components/responses/ZuVieleAnfragen429"
-    delete:
-      operationId: entferneAdminRangAbzeichen
-      summary: Abzeichen entfernen
-      tags:
-        - Verwaltung
-      description: |
-        Kommando, Stellvertretungen und Kantonsadmin (mit zweitem Faktor). Entfernt Sterne und eigenes Bild: Der Rang hat danach kein Abzeichen.
-
-        Statuscodes: 204, 401, 403, 404, 426, 429.
-      parameters:
-        - $ref: "#/components/parameters/AppVersion"
-        - $ref: "#/components/parameters/EinheitIdPfad"
-        - $ref: "#/components/parameters/AdminRangIdPfad"
-      responses:
-        "204":
-          description: Entfernt.
         "401":
           $ref: "#/components/responses/NichtAngemeldet401"
         "403":
@@ -4252,9 +4065,6 @@ components:
             - KONTO_GEMEINSAM
             - KEIN_ZWEITER_FAKTOR
             - KEIN_STARTPASSWORT
-            - RANG_REIHENFOLGE_BELEGT
-            - RAENGE_VOLL
-            - RANG_IN_VERWENDUNG
         message:
           type: string
           example: Diese Person ist schon Kommandantin oder Kommandant.
@@ -4522,7 +4332,7 @@ components:
                       sterne:
                         type: integer
                         minimum: 0
-                        maximum: 5
+                        maximum: 2
                   - type: object
                     required: [art, typ, url]
                     properties:
@@ -4545,42 +4355,6 @@ components:
       type: string
       enum: [kf, jf, miliz]
       description: Kinderfeuerwehr, Jugendfeuerwehr oder Miliz-Feuerwehr (Schweizer Dienstgrade). Der Typ ordnet den Rang ein; die Miliz-Dienstgrade legt das Backend als Standard-Ränge an. Die Apps erfahren ihn nicht.
-    AdminRangAendern:
-      type: object
-      description: Mindestens ein Feld.
-      additionalProperties: false
-      properties:
-        name:
-          type: string
-          minLength: 1
-          maxLength: 100
-        kuerzel:
-          type: string
-          minLength: 1
-          maxLength: 20
-        typ:
-          $ref: "#/components/schemas/RangTyp"
-        reihenfolge:
-          type: integer
-          minimum: 1
-          maximum: 999
-        abzeichenSterne:
-          type: [integer, "null"]
-          minimum: 0
-          maximum: 5
-    AdminRaengeOrdnen:
-      type: object
-      required: [ids]
-      additionalProperties: false
-      properties:
-        ids:
-          type: array
-          minItems: 1
-          maxItems: 99
-          uniqueItems: true
-          items:
-            type: string
-            format: uuid
     AdminAenderungen:
       type: object
       required: [eintraege, weiter]
@@ -5181,7 +4955,7 @@ components:
       type: object
       description: |
         Das Rang-Abzeichen; mehr vom Rang erfährt die App nicht. Das Objekt kommt für jede Person mit Rang. `kuerzel` ist immer da; dazu
-        entweder `sterne` (0 bis 5) oder `bildUrl`, das andere Feld ist `null`. Hat der Rang weder Sterne noch Bild, sind beide `null`
+        entweder `sterne` (0 bis 2) oder `bildUrl`, das andere Feld ist `null`. Hat der Rang weder Sterne noch Bild, sind beide `null`
         und die App zeigt nur das Kürzel. `null` statt des Objekts heisst nur noch: kein Rang.
       required: [kuerzel, sterne, bildUrl]
       properties:
@@ -5196,7 +4970,7 @@ components:
             - integer
             - "null"
           minimum: 0
-          maximum: 5
+          maximum: 2
         bildUrl:
           type:
             - string
@@ -5262,6 +5036,44 @@ components:
               properties:
                 typ:
                   const: keine
+    AdminRangAnzeige:
+      type: object
+      description: Rang einer Person mit Abzeichen, für Listen der Verwaltung.
+      required: [id, name, kuerzel, abzeichen]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        kuerzel:
+          type: string
+        abzeichen:
+          description: Sterne, eigenes Bild oder keines.
+          oneOf:
+            - type: "null"
+            - type: object
+              required: [art, sterne]
+              properties:
+                art:
+                  type: string
+                  enum: [sterne]
+                sterne:
+                  type: integer
+                  minimum: 0
+                  maximum: 2
+            - type: object
+              required: [art, typ, url]
+              properties:
+                art:
+                  type: string
+                  enum: [bild]
+                typ:
+                  type: string
+                  enum: [svg, png]
+                url:
+                  type: string
+                  description: Pfad zum Bild (`GET .../abzeichen`), mit `?v=` als Stand des Bildes.
     AuswertungZahlen:
       type: object
       description: Anmeldungen als Zahlen; `quote` ist `ja` geteilt durch die Summe, drei Stellen, `null` ohne Bezug.
@@ -5445,7 +5257,7 @@ components:
             allOf:
               - $ref: "#/components/schemas/AuswertungZahlen"
               - type: object
-                required: [art, id, name, rolle, einheit, termine]
+                required: [art, id, name, rolle, rang, einheit, termine]
                 properties:
                   art:
                     type: string
@@ -5459,6 +5271,11 @@ components:
                   rolle:
                     type: [string, "null"]
                     enum: [kommandant, stellvertretung, leitung, null]
+                  rang:
+                    description: Rang der Person; `null` ohne Rang.
+                    oneOf:
+                      - type: "null"
+                      - $ref: "#/components/schemas/AdminRangAnzeige"
                   einheit:
                     $ref: "#/components/schemas/AuswertungEinheitKurz"
                   termine:
@@ -5656,13 +5473,18 @@ components:
                 oneOf:
                   - type: "null"
                   - type: object
-                    required: [id, name]
+                    required: [id, name, rang]
                     properties:
                       id:
                         type: string
                         format: uuid
                       name:
                         type: string
+                      rang:
+                        description: Rang der Person in der Einheit; `null` ohne Rang.
+                        oneOf:
+                          - type: "null"
+                          - $ref: "#/components/schemas/AdminRangAnzeige"
               teilnehmende:
                 type: integer
                 description: Zahl der aktiven teilnehmenden Personen.

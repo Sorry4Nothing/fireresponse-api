@@ -5,6 +5,7 @@ import { HTTPException } from "hono/http-exception";
 import { z } from "zod";
 import type { Db } from "../../db/client.js";
 import {
+  einheit,
   rang,
   teilnehmende,
   teilnehmendeKonto,
@@ -180,6 +181,10 @@ async function legeSelbstKontoAn(
   };
 }
 
+// Teilnehmende tragen die R�nge des Typs ihrer Einheit (jf oder kf)
+const einheitTyp = (einheitId: string) =>
+  sql`(select ${einheit.typ} from ${einheit} where ${einheit.id} = ${einheitId})`;
+
 export function erstelleTeilnehmendeRouten({ db }: { db: Db }) {
   return (
     new Hono<{ Variables: { person: Person } }>()
@@ -276,18 +281,17 @@ export function erstelleTeilnehmendeRouten({ db }: { db: Db }) {
             if (aenderung.rangId) {
               // Ein Rang einer anderen Einheit ist eine ungültige Eingabe, kein 404 der URL
               const [eigener] = await tx
-                .select({ id: rang.id, typ: rang.typ })
+                .select({ id: rang.id })
                 .from(rang)
                 .where(
                   and(
                     eq(rang.id, aenderung.rangId),
                     eq(rang.einheitId, einheitId),
+                    eq(rang.typ, einheitTyp(einheitId)),
                   ),
                 );
-              // Miliz-Ränge gehören den Leitenden
-              if (!eigener || eigener.typ === "miliz") {
-                throw new HTTPException(400);
-              }
+              // Teilnehmende tragen die Ränge ihrer Einheit, Miliz-Ränge gehören den Leitenden
+              if (!eigener) throw new HTTPException(400);
             }
             const felder: PgUpdateSetSource<typeof teilnehmende> = {};
             if (aenderung.vorname !== undefined) {
@@ -358,13 +362,17 @@ export function erstelleTeilnehmendeRouten({ db }: { db: Db }) {
             if (rangId) {
               // Ein Rang einer anderen Einheit ist eine ungültige Eingabe, kein 404 der URL
               const [eigener] = await tx
-                .select({ id: rang.id, typ: rang.typ })
+                .select({ id: rang.id })
                 .from(rang)
-                .where(and(eq(rang.id, rangId), eq(rang.einheitId, einheitId)));
-              // Miliz-Ränge gehören den Leitenden
-              if (!eigener || eigener.typ === "miliz") {
-                throw new HTTPException(400);
-              }
+                .where(
+                  and(
+                    eq(rang.id, rangId),
+                    eq(rang.einheitId, einheitId),
+                    eq(rang.typ, einheitTyp(einheitId)),
+                  ),
+                );
+              // Teilnehmende tragen die Ränge ihrer Einheit, Miliz-Ränge gehören den Leitenden
+              if (!eigener) throw new HTTPException(400);
             }
             const [neu] = await tx
               .insert(teilnehmende)

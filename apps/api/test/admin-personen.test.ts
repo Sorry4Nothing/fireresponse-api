@@ -406,14 +406,28 @@ describe("PATCH /personen/:userId", () => {
     expect(
       (await senden(kdt, "PATCH", konto(stv1.id!), { telefon: "" })).status,
     ).toBe(204);
-    // Rang: der der Einheit ja, der einer anderen nein; null entfernt ihn
+    // Rang: nur ein Miliz-Rang der Einheit; ein anderer Rang und der einer anderen Einheit nein; null entfernt ihn
     expect(
       (await senden(kdt, "PATCH", konto(leitung.id!), { rangId: welt.rangId }))
+        .status,
+    ).toBe(400);
+    const [miliz] = await db
+      .insert(schema.rang)
+      .values({
+        einheitId: welt.einheit.jfA,
+        name: "Oberst",
+        kuerzel: "Oberst",
+        reihenfolge: 90,
+        typ: "miliz",
+      })
+      .returning({ id: schema.rang.id });
+    expect(
+      (await senden(kdt, "PATCH", konto(leitung.id!), { rangId: miliz.id }))
         .status,
     ).toBe(204);
     const eintrag = (await liste(kdt)).find((p) => p.id === leitung.id)!;
     expect(eintrag.name).toBe("Neuer Name");
-    expect(eintrag.rang).toEqual({ id: welt.rangId, name: "Rang Eins" });
+    expect(eintrag.rang).toEqual({ id: miliz.id, name: "Oberst" });
     const [fremd] = await db
       .insert(schema.rang)
       .values({
@@ -421,6 +435,7 @@ describe("PATCH /personen/:userId", () => {
         name: "Fremd",
         kuerzel: "F",
         reihenfolge: 1,
+        typ: "miliz",
       })
       .returning({ id: schema.rang.id });
     expect(
@@ -435,7 +450,7 @@ describe("PATCH /personen/:userId", () => {
       (await senden(stv1, "PATCH", konto(kdt.id!), { name: "Chef" })).status,
     ).toBe(403);
     expect(
-      (await senden(stv1, "PATCH", konto(kdt.id!), { rangId: welt.rangId }))
+      (await senden(stv1, "PATCH", konto(kdt.id!), { rangId: miliz.id }))
         .status,
     ).toBe(204);
     // Das Protokoll nennt die Felder, nie die Werte

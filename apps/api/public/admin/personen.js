@@ -25,7 +25,7 @@ import {
   mehrzahl,
   zustandsChips,
 } from "./konten.js";
-import { raengeAuswahl } from "./raenge.js";
+import { raengeAuswahl, raengeVomTyp, rangZelle } from "./raenge.js";
 
 // Suche und Filter überleben das Neuladen nach einer Aktion; fokus: Person, deren Zeile danach den Fokus bekommt
 const zustand = { frage: "", filter: "alle", fokus: null };
@@ -149,7 +149,11 @@ function bearbeiten(person, einheit, daten, ctx, neu) {
             "Eltern und Teilnehmende sehen die Nummer in der App. Leer lassen, um sie zu entfernen.",
         })
       : null;
-  const rang = raengeAuswahl(daten.raenge, person.rang?.id ?? "", "Rang");
+  const rang = raengeAuswahl(
+    raengeVomTyp(daten.raenge, "miliz"),
+    person.rang?.id ?? "",
+    "Rang",
+  );
   const blatt = seitenblatt({
     titel: person.name,
     untertitel: `${ROLLENNAME[person.rolle]} · ${person.benutzername}`,
@@ -465,7 +469,11 @@ function zeichne(bereich, ctx, einheit, daten, neu) {
           el(
             "td",
             {},
-            p.rang ? p.rang.name : el("span", { class: "leise" }, "–"),
+            p.rang
+              ? rangZelle(
+                  daten.raenge.find((r) => r.id === p.rang.id) ?? p.rang,
+                )
+              : el("span", { class: "leise" }, "–"),
           ),
           el(
             "td",

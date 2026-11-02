@@ -55,19 +55,6 @@ export const KONFLIKT = {
     code: "KEIN_STARTPASSWORT",
     message: "Es ist kein Startpasswort mehr offen.",
   },
-  RANG_REIHENFOLGE_BELEGT: {
-    code: "RANG_REIHENFOLGE_BELEGT",
-    message: "Diese Reihenfolge hat in der Einheit schon ein anderer Rang.",
-  },
-  RAENGE_VOLL: {
-    code: "RAENGE_VOLL",
-    message: "Eine Einheit hat höchstens 99 Ränge.",
-  },
-  RANG_IN_VERWENDUNG: {
-    code: "RANG_IN_VERWENDUNG",
-    message:
-      "Dieser Rang ist noch zugeteilt. Wähle einen Rang, in den die Personen wechseln.",
-  },
 } as const;
 
 // Trägt einen Konflikt aus einer Transaktion heraus: Sie rollt zurück, app.ts antwortet 409
