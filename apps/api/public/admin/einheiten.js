@@ -2,6 +2,7 @@ import { anfrage, fehlertext } from "./api.js";
 import {
   aktionenZelle,
   auswahl,
+  bestaetigen,
   chip,
   dialogFormular,
   el,
@@ -80,6 +81,83 @@ function bezirkAnlegen(ctx, neu) {
     danach: () => {
       neu();
       ctx.melde("Der Bezirk ist angelegt.");
+    },
+  });
+}
+
+// Bezirke umbenennen oder löschen; löschen geht nur ohne Einheiten, sonst nennt die API den Grund
+function bezirkeVerwalten(daten, ctx, neu) {
+  const blatt = seitenblatt({
+    titel: "Bezirke",
+    untertitel:
+      "Umbenennen geht immer. Löschen geht nur, solange der Bezirk keine Einheit hat.",
+    inhalt:
+      daten.bezirke.length === 0
+        ? el("p", { class: "leer" }, "Es gibt noch keinen Bezirk.")
+        : tabelle({
+            beschriftung: "Bezirke",
+            spalten: ["Bezirk", "Aktionen"],
+            zeilen: daten.bezirke.map((b) =>
+              el(
+                "tr",
+                {},
+                el("th", { scope: "row" }, b.name),
+                aktionenZelle(
+                  knopf("Umbenennen", {
+                    klein: true,
+                    symbol: "bearbeiten",
+                    kontext: b.name,
+                    onclick: () => bezirkUmbenennen(b, ctx, neu, blatt),
+                  }),
+                  knopf("Löschen", {
+                    klein: true,
+                    art: "gefahr",
+                    symbol: "papierkorb",
+                    kontext: b.name,
+                    onclick: () => bezirkLoeschen(b, ctx, neu, blatt),
+                  }),
+                ),
+              ),
+            ),
+          }).wurzel,
+    fusszeile: [knopf("Schliessen", { onclick: () => blatt.close() })],
+  });
+}
+
+function bezirkUmbenennen(bezirk, ctx, neu, blatt) {
+  const name = feld({
+    label: "Name des Bezirks",
+    maxlength: 100,
+    required: true,
+    wert: bezirk.name,
+  });
+  dialogFormular({
+    titel: `Bezirk «${bezirk.name}» umbenennen`,
+    felder: [name.wurzel],
+    ok: "Speichern",
+    senden: () =>
+      anfrage("PATCH", `/api/v1/admin/bezirke/${bezirk.id}`, {
+        name: name.eingabe.value.trim(),
+      }),
+    danach: () => {
+      blatt.close();
+      neu();
+      ctx.melde("Der Bezirk ist umbenannt.");
+    },
+  });
+}
+
+function bezirkLoeschen(bezirk, ctx, neu, blatt) {
+  bestaetigen({
+    titel: `Bezirk «${bezirk.name}» löschen?`,
+    beschreibung:
+      "Der Bezirk wird gelöscht. Das geht nur, wenn er keine Einheit hat.",
+    ok: "Löschen",
+    aktion: () => anfrage("DELETE", `/api/v1/admin/bezirke/${bezirk.id}`),
+    danach: () => {
+      blatt.close();
+      neu();
+      ctx.melde("Der Bezirk ist gelöscht.");
     },
   });
 }
@@ -451,6 +529,10 @@ function zeichne(bereich, ctx, daten, neu) {
           knopf("Bezirk anlegen", {
             symbol: "plus",
             onclick: () => bezirkAnlegen(ctx, neu),
+          }),
+          knopf("Bezirke verwalten", {
+            symbol: "bearbeiten",
+            onclick: () => bezirkeVerwalten(daten, ctx, neu),
           }),
           knopf("Einheit anlegen", {
             art: "haupt",

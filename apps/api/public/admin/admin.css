@@ -2439,14 +2439,6 @@ button.tab[aria-selected="true"] {
   height: 130px;
 }
 
-.rb--leer {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--leise);
-  border: 2px dashed var(--rand-leise);
-}
-
 .rang-liste,
 .konten-liste {
   display: grid;

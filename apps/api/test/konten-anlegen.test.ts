@@ -70,7 +70,7 @@ const konto = (p: Persona) => standard[p]!;
 
 const sende = (
   wer: PersonaKonto,
-  methode: "GET" | "POST" | "PUT" | "DELETE",
+  methode: "GET" | "POST" | "PUT" | "PATCH" | "DELETE",
   pfad: string,
   body?: unknown,
 ) =>
@@ -148,6 +148,90 @@ describe("Bezirk und Einheit mit Kommando", () => {
         einheitId: null,
       },
     ]);
+  });
+
+  test("der Kantonsadmin benennt einen Bezirk um; ein vorhandener Name ist 409, ein unbekannter 404", async () => {
+    const bezirkId = await neuerBezirk();
+    const anderer = name("Bezirk Anderer");
+    await db.insert(schema.bezirk).values({ name: anderer });
+    const neu = name("Bezirk Richtig");
+    const url = `/api/v1/admin/bezirke/${bezirkId}`;
+    const antwort = await sende(konto("kantonsadmin"), "PATCH", url, {
+      name: neu,
+    });
+    expect(antwort.status).toBe(204);
+    const [zeile] = await db
+      .select()
+      .from(schema.bezirk)
+      .where(eq(schema.bezirk.id, bezirkId));
+    expect(zeile.name).toBe(neu);
+    const doppelt = await sende(konto("kantonsadmin"), "PATCH", url, {
+      name: anderer.toUpperCase(),
+    });
+    expect(doppelt.status).toBe(409);
+    expect(await doppelt.json()).toMatchObject({ code: "BEZIRK_VORHANDEN" });
+    // Nur die Schreibweise des eigenen Namens zu ändern ist erlaubt
+    const gross = await sende(konto("kantonsadmin"), "PATCH", url, {
+      name: neu.toUpperCase(),
+    });
+    expect(gross.status).toBe(204);
+    const unbekannt = await sende(
+      konto("kantonsadmin"),
+      "PATCH",
+      `/api/v1/admin/bezirke/${randomUUID()}`,
+      { name: name("Bezirk Nie") },
+    );
+    expect(unbekannt.status).toBe(404);
+    const protokoll = await db
+      .select()
+      .from(schema.auditLog)
+      .where(eq(schema.auditLog.zielId, bezirkId));
+    expect(protokoll[0]).toMatchObject({
+      akteurId: konto("kantonsadmin").id,
+      aktion: "bezirk_umbenannt",
+      einheitId: null,
+      details: { nach: neu },
+    });
+  });
+
+  test("der Kantonsadmin löscht einen leeren Bezirk; mit Einheit ist es 409 BEZIRK_BELEGT, unbekannt 404", async () => {
+    const leer = await neuerBezirk();
+    const belegt = await neuerBezirk();
+    await db
+      .insert(schema.einheit)
+      .values({ bezirkId: belegt, typ: "jf", name: "Belegt" });
+    const weg = await sende(
+      konto("kantonsadmin"),
+      "DELETE",
+      `/api/v1/admin/bezirke/${leer}`,
+    );
+    expect(weg.status).toBe(204);
+    expect(
+      await db.select().from(schema.bezirk).where(eq(schema.bezirk.id, leer)),
+    ).toEqual([]);
+    const protokoll = await db
+      .select()
+      .from(schema.auditLog)
+      .where(eq(schema.auditLog.zielId, leer));
+    expect(protokoll).toMatchObject([
+      { aktion: "bezirk_geloescht", einheitId: null },
+    ]);
+    const abgelehnt = await sende(
+      konto("kantonsadmin"),
+      "DELETE",
+      `/api/v1/admin/bezirke/${belegt}`,
+    );
+    expect(abgelehnt.status).toBe(409);
+    expect(await abgelehnt.json()).toMatchObject({ code: "BEZIRK_BELEGT" });
+    expect(
+      await db.select().from(schema.bezirk).where(eq(schema.bezirk.id, belegt)),
+    ).toHaveLength(1);
+    const unbekannt = await sende(
+      konto("kantonsadmin"),
+      "DELETE",
+      `/api/v1/admin/bezirke/${randomUUID()}`,
+    );
+    expect(unbekannt.status).toBe(404);
   });
 
   async function neuerBezirk() {
