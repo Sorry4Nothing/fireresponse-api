@@ -167,6 +167,7 @@ const MATRIX: Record<string, Zeile> = {
   "GET /health": { erwartet: alle(200) },
   // Statische Seiten und .well-known: offen für alle, auch deaktiviert und ohne Login
   "GET /datenschutz": { erwartet: alle(200) },
+  "GET /nutzungsbedingungen": { erwartet: alle(200) },
   "GET /konto-loeschen": { erwartet: alle(200) },
   "GET /support": { erwartet: alle(200) },
   // Verwaltung im Browser: statische Dateien, die Daten kommen erst über die abgesicherten Admin-Routen
@@ -181,6 +182,7 @@ const MATRIX: Record<string, Zeile> = {
   "GET /admin/favicon.svg": { erwartet: alle(200) },
   "GET /admin/hintergrund.svg": { erwartet: alle(200) },
   "GET /admin/konten.js": { erwartet: alle(200) },
+  "GET /admin/konto-loeschen.js": { erwartet: alle(200) },
   "GET /admin/kontext.js": { erwartet: alle(200) },
   "GET /admin/personen.js": { erwartet: alle(200) },
   "GET /admin/qrcode.js": { erwartet: alle(200) },
@@ -659,6 +661,17 @@ const MATRIX: Record<string, Zeile> = {
     url: () => `/api/v1/personen/${bildZielId}/bild`,
     erwartet: { ...SEHEN_JF_A, ...SPERREN },
   },
+  // Konto löschen (test/konto-loeschen.test.ts): Ziel ist eine Leitung von JF A. Wer die Einheit nicht sieht, bekommt 404; Leitende, Eltern und Teilnehmende der Einheit sehen das Konto, dürfen es aber nicht löschen (403)
+  "GET /api/v1/admin/konten": {
+    url: () => `/api/v1/admin/konten?benutzername=${kontoZiel}`,
+    erwartet: VERWALTEN_JF_A(200),
+  },
+  "DELETE /api/v1/admin/konten/:userId": {
+    // Jede Anfrage verbraucht ihr Konto: eines pro Persona
+    urlJeAnfrage: async () =>
+      `/api/v1/admin/konten/${(await wegwerfKonto()).id}`,
+    erwartet: VERWALTEN_JF_A(204),
+  },
   "PUT /api/v1/push-token": {
     // Eigenes Token pro Persona: Die Zeile schreibt nur auf die eigene Sitzung, darum keine frischen Personas
     body: (konto) => ({
@@ -718,6 +731,7 @@ let bildZielId: string;
 let leererBezirkId: string;
 let naechstePosition = 30;
 let testBild: Buffer;
+let kontoZiel: string;
 
 // Eine Stellvertretung ohne Passwort, direkt eingefügt: das Ziel einer Löschung
 async function wegwerfStellvertretungId() {
@@ -771,12 +785,13 @@ async function wegwerfKonto({
   zweiterFaktor = false,
   startpasswort,
 }: { zweiterFaktor?: boolean; startpasswort?: string } = {}) {
+  const benutzername = `wegwerf.konto.${randomUUID().slice(0, 8)}`;
   const [zeile] = await welt.db
     .insert(schema.user)
     .values({
       name: "Wegwerf Konto",
       email: `${randomUUID()}@example.org`,
-      username: `wegwerf.konto.${randomUUID().slice(0, 8)}`,
+      username: benutzername,
       mussPasswortAendern: false,
       twoFactorEnabled: zweiterFaktor,
       ...(startpasswort && startpasswortFelder(new Date(), startpasswort)),
@@ -801,7 +816,7 @@ async function wegwerfKonto({
     einheitId: welt.einheit.jfA,
     typ: "leitung",
   });
-  return zeile;
+  return { id: zeile.id, benutzername };
 }
 
 // Ein Rang pro Aufruf, eigene Reihenfolge: das Ziel einer Löschung
@@ -871,6 +886,7 @@ beforeAll(async () => {
   patchRegelId = await wegwerfRegelId();
   leitungZielId = (await wegwerfKonto()).id;
   offenesKontoId = (await wegwerfKonto({ startpasswort: "ABCD-EFGH-JKMN" })).id;
+  kontoZiel = (await wegwerfKonto()).benutzername;
   // Rang mit Bild: Ziel von Lesen, Ändern und Entfernen des Abzeichens
   [{ id: bildRangId }] = await db
     .insert(schema.rang)

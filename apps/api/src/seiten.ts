@@ -1,4 +1,6 @@
 import { readdirSync, readFileSync } from "node:fs";
+import { KATEGORIEN } from "./datenkategorien.js";
+import { EINWILLIGUNG_VERSION } from "./einwilligung.js";
 
 // Wer die Seiten verantwortet und wie man sie erreicht; kommt aus der Umgebung des Servers, nie aus dem Repo
 export type Kontakt = { stelle?: string; email?: string };
@@ -12,9 +14,28 @@ const MASKE: Record<string, string> = {
 };
 const maskiere = (text: string) => text.replace(/[&<>"']/g, (z) => MASKE[z]!);
 
+// Die Datenkategorien der Datenschutzerklärung kommen aus datenkategorien.ts, damit Seite, Schema und Store-Angaben dieselbe Quelle haben
+export function kategorienHtml() {
+  return Object.values(KATEGORIEN)
+    .map(
+      (k) => `<section class="kategorie">
+        <h3>${maskiere(k.titel)}</h3>
+        <dl>
+          <dt>Wozu</dt>
+          <dd>${maskiere(k.zweck)}</dd>
+          <dt>Wie lange</dt>
+          <dd>${maskiere(k.frist)}</dd>
+        </dl>
+      </section>`,
+    )
+    .join("\n      ");
+}
+
 // Ohne Angabe bleibt die Seite lesbar, nennt aber keine erfundene Stelle oder Adresse
 export function setzeKontakt(html: string, { stelle, email }: Kontakt) {
   return html
+    .replaceAll("{{KATEGORIEN}}", kategorienHtml())
+    .replaceAll("{{FASSUNG}}", String(EINWILLIGUNG_VERSION))
     .replaceAll("{{STELLE}}", stelle ? maskiere(stelle) : "die Einheit")
     .replaceAll(
       "{{KONTAKT}}",
@@ -45,6 +66,7 @@ export function ladeSeiten(kontakt: Kontakt = {}) {
     admin,
     datenschutz: seite("datenschutz.html"),
     kontoLoeschen: seite("konto-loeschen.html"),
+    nutzungsbedingungen: seite("nutzungsbedingungen.html"),
     support: seite("support.html"),
   };
 }

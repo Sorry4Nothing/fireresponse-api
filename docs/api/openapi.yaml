@@ -48,8 +48,9 @@ paths:
       description: |
         Öffentliche Seite für die App-Stores, ohne Anmeldung und ausserhalb der Versionsprüfung.
         Alle Personen (auch deaktivierte und nicht angemeldete) erhalten 200.
-        Die Seite nennt die Datenkategorien, Empfänger, Fristen und Rechte; die verantwortliche Stelle
+        Die Seite nennt die Datenkategorien (erzeugt aus `datenkategorien.ts`), Empfänger, Fristen und Rechte; die verantwortliche Stelle
         und ihre E-Mail-Adresse setzt der Server aus `VERANTWORTLICHE_STELLE` und `KONTAKT_EMAIL` ein.
+        Sie trägt die Fassung der Einwilligung (`EINWILLIGUNG_VERSION`) und ist ein Entwurf, bis der Verantwortliche sie freigibt.
       responses:
         "200":
           description: HTML-Seite (`text/html; charset=UTF-8`).
@@ -66,9 +67,10 @@ paths:
       security: []
       description: |
         Öffentliche Seite für die App-Stores, ohne Anmeldung und ausserhalb der Versionsprüfung.
-        Die Person löscht ihr Konto nicht selbst; die App bietet keine Löschung an und die API hat keine Route dafür.
-        Die Seite nennt den Weg über die Leitung: Auf Anfrage löscht die Leitung Daten, die Anfrage geht an die
-        Kontaktadresse (`KONTAKT_EMAIL`). Die Verwaltung löscht das Konto.
+        Die Person löscht ihr Konto nicht selbst; die App bietet keine Löschung an und `/api/v1` hat keine Route dafür.
+        Die Seite nennt den Weg über das Kommando: Auf Anfrage löscht die Leitung Daten, die Anfrage geht an das Kommando
+        oder an die Kontaktadresse (`KONTAKT_EMAIL`). Die Verwaltung löscht das Konto (`DELETE /api/v1/admin/konten/{userId}`)
+        und die Seite sagt, was gelöscht wird und was bleibt.
       responses:
         "200":
           description: HTML-Seite (`text/html; charset=UTF-8`).
@@ -85,7 +87,7 @@ paths:
       security: []
       description: |
         Öffentliche Seite für die App-Stores, ohne Anmeldung und ausserhalb der Versionsprüfung.
-        Nennt die Kontaktadresse (`KONTAKT_EMAIL`) und wer bei was hilft.
+        Nennt die Kontaktadresse (`KONTAKT_EMAIL`) und wer bei was hilft: Fragen zu Terminen und Konto zuerst das Kommando, technische Probleme die Kontaktadresse.
       responses:
         "200":
           description: HTML-Seite (`text/html; charset=UTF-8`).
@@ -3313,6 +3315,131 @@ paths:
           $ref: "#/components/responses/AppVeraltet426"
         "429":
           $ref: "#/components/responses/ZuVieleAnfragen429"
+  /nutzungsbedingungen:
+    get:
+      operationId: getNutzungsbedingungenSeite
+      summary: Nutzungsbedingungen mit Auftragsbearbeitung als HTML-Seite
+      tags:
+        - Allgemein
+      security: []
+      description: |
+        Öffentliche Seite, ohne Anmeldung und ausserhalb der Versionsprüfung. Alle Personen erhalten 200.
+        Die Bezirke stimmen den Bedingungen und der Auftragsbearbeitung durch die Nutzung zu; die Seite sagt es und nennt, dass der
+        Kantonsadmin die Daten aller Bezirke sieht. Betreiber und Adresse setzt der Server wie bei `GET /datenschutz` ein.
+        Die Fassung ist dieselbe wie die der Einwilligung; die Seite ist ein Entwurf, bis der Verantwortliche sie freigibt.
+      responses:
+        "200":
+          description: HTML-Seite (`text/html; charset=UTF-8`).
+          content:
+            text/html:
+              schema:
+                type: string
+  /api/v1/admin/konten:
+    get:
+      operationId: sucheAdminKonto
+      summary: Ein Konto nach Benutzername suchen
+      tags:
+        - Verwaltung
+      description: |
+        Für die Rückfrage vor dem Löschen: Name, Benutzername und die Einheiten, in denen das Konto vorkommt, mit seiner Rolle dort
+        (Kommandant, Stellvertretung, Leitung, Eltern oder Teilnehmende mit eigenem Konto). Kommando und Stellvertretungen sehen nur
+        die Einheiten, die sie selbst sehen; der Kantonsadmin sieht alle. Der Benutzername gilt ohne Rücksicht auf Gross- und Kleinschreibung.
+
+        Reihenfolge der Prüfung: Query (400); Konto unbekannt oder in keiner Einheit sichtbar (404); sichtbar, aber in keiner Einheit
+        verwaltet (403). Ein Konto ohne jede Einheit sieht nur der Kantonsadmin.
+        Ohne zweiten Faktor sperrt die Verwaltung jedes Konto mit Verwaltungsrolle (403 `ZWEITER_FAKTOR_FEHLT`).
+
+        Statuscodes: 200, 400, 401, 403, 404, 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - name: benutzername
+          in: query
+          required: true
+          description: Benutzername des gesuchten Kontos, 1 bis 64 Zeichen.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 64
+      responses:
+        "200":
+          description: Das Konto.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KontoSuche"
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/admin/konten/{userId}:
+    delete:
+      operationId: loescheAdminKonto
+      summary: Ein Konto endgültig löschen
+      tags:
+        - Verwaltung
+      description: |
+        Die Person löscht ihr Konto nicht selbst; die App bietet es nicht an. Es löscht die Verwaltung: der Kantonsadmin jedes Konto,
+        Kommandantin oder Kommandant und Stellvertretungen ein Konto, dessen Einheiten sie alle verwalten (Stellvertretungen entfernt nur
+        das Kommando). Kommt das Konto auch in einer Einheit vor, die sie nicht verwalten, löscht es nur der Kantonsadmin.
+
+        Das Löschen entfernt in einer Transaktion Konto, Anmeldung, Sitzungen, zweiten Faktor, Push-Tokens, Profilbild, Rollen in Einheiten,
+        Verknüpfungen zu teilnehmenden Personen und Anmeldungen der Leitung. Teilnehmende Personen, Programme und ihre Anmeldungen bleiben;
+        der Verweis auf die löschende Person (`geaendertVon`) wird leer. Im Audit-Log bleibt ein Eintrag `konto_geloescht` mit der ID des
+        Kontos und der des Akteurs, ohne Namen. Die Sitzungen enden sofort mit 401. Backups behalten das Konto bis zum Ablauf ihrer Aufbewahrung.
+
+        Reihenfolge der Prüfung: Pfad (400); Konto unbekannt oder in keiner Einheit sichtbar (404); fehlendes Recht, ein Admin-Konto
+        für Nicht-Admins oder eine Einheit ausserhalb der verwalteten (403); das eigene Konto (409 `EIGENES_KONTO`); Kommandantin oder
+        Kommandant einer Einheit (409 `KOMMANDANT`, zuerst das Kommando übergeben).
+        Ohne zweiten Faktor sperrt die Verwaltung jedes Konto mit Verwaltungsrolle (403 `ZWEITER_FAKTOR_FEHLT`).
+
+        Statuscodes: 204, 400, 401, 403, 404, 409, 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/KontoIdPfad"
+      responses:
+        "204":
+          description: Gelöscht. Kein Body.
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "409":
+          description: Das eigene Konto oder ein Kommando (`EIGENES_KONTO`, `KOMMANDANT`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminKonflikt"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /admin/konto-loeschen.js:
+    get:
+      operationId: getAdminKontoLoeschenSkript
+      summary: Skript der Verwaltung – Bereich Konto löschen
+      tags:
+        - Allgemein
+      security: []
+      description: Statische Datei der Verwaltung (siehe `GET /admin`), ohne Anmeldung.
+      responses:
+        "200":
+          description: Datei (`text/javascript; charset=UTF-8`).
+          content:
+            text/javascript:
+              schema:
+                type: string
 components:
   schemas:
     Fehler:
@@ -5525,6 +5652,45 @@ components:
                 type: string
               startpasswort:
                 type: string
+    KontoSuche:
+      type: object
+      description: Ein Konto für die Rückfrage vor dem Löschen.
+      required:
+        - id
+        - name
+        - benutzername
+        - einheiten
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        benutzername:
+          type: string
+        einheiten:
+          type: array
+          description: Die für das suchende Konto sichtbaren Einheiten, in denen das Konto vorkommt.
+          items:
+            type: object
+            required:
+              - einheitId
+              - einheitName
+              - rolle
+            properties:
+              einheitId:
+                type: string
+                format: uuid
+              einheitName:
+                type: string
+              rolle:
+                type: string
+                enum:
+                  - kommandant
+                  - stellvertretung
+                  - leitung
+                  - eltern
+                  - selbst
   parameters:
     AppVersion:
       name: X-App-Version
@@ -5651,6 +5817,14 @@ components:
       schema:
         type: string
         enum: [teilnehmende, leitende]
+    KontoIdPfad:
+      name: userId
+      in: path
+      required: true
+      description: ID des Kontos (UUID).
+      schema:
+        type: string
+        format: uuid
   securitySchemes:
     sitzung:
       type: apiKey
