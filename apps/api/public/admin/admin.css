@@ -1708,6 +1708,155 @@ fieldset .feld .auswahl {
   mask-image: var(--ic-ok);
 }
 
+/* Datumsfeld: Textfeld mit Knopf, der den Monat in einem Popover im Top-Layer zeigt (Lage setzt datumfeld.js). Keine Animation. */
+
+.datum {
+  position: relative;
+}
+
+.feld input.datum-eingabe {
+  padding-right: 60px;
+}
+
+.datum-eingabe::placeholder {
+  color: var(--leise);
+  opacity: 1;
+}
+
+.datum-knopf {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+}
+
+.datum-popover {
+  position: fixed;
+  inset: auto;
+  width: min(21.5rem, calc(100vw - 16px));
+  max-height: calc(100vh - 16px);
+  margin: 0;
+  padding: 12px;
+  overflow-y: auto;
+  background: var(--karte);
+  color: var(--text);
+  border: 2px solid var(--rand);
+  border-radius: 16px;
+  box-shadow: var(--schatten);
+}
+
+.datum-popover:popover-open {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.datum-kopf {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2px;
+}
+
+.datum-kopf .knopf--rund {
+  flex: none;
+  border-radius: 12px;
+}
+
+.datum-kopf .knopf[aria-disabled="true"] {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.datum-kopf .knopf[aria-disabled="true"]:hover {
+  background: transparent;
+}
+
+.datum-titel {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.datum-raster {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 2px;
+}
+
+.datum-raster th {
+  height: 32px;
+  color: var(--leise);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.datum-raster td {
+  padding: 0;
+  text-align: center;
+}
+
+.datum-tag {
+  width: 100%;
+  min-height: 44px;
+  padding: 0;
+  background: transparent;
+  color: var(--text);
+  border: 2px solid transparent;
+  border-radius: 9999px;
+  font: inherit;
+  font-size: 0.9375rem;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.datum-tag:hover:not(:disabled) {
+  background: var(--erhoben);
+}
+
+/* Heute trägt einen Ring, nicht nur eine Farbe; aria-current="date" sagt es Screenreadern */
+.datum-tag--heute {
+  border-color: var(--rand);
+  font-weight: 700;
+}
+
+.datum-tag--fremd {
+  color: var(--leise);
+}
+
+/* Gewählt: gefüllt und fett; Farbe allein trägt es nicht */
+.datum-raster [aria-selected="true"] .datum-tag {
+  background: var(--blau);
+  border-color: var(--blau);
+  color: #fff;
+  font-weight: 800;
+}
+
+.datum-tag:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.datum-tag:focus-visible {
+  outline-offset: -2px;
+}
+
+.datum-fuss {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+@media (forced-colors: active) {
+  .datum-raster [aria-selected="true"] .datum-tag {
+    background: Highlight;
+    color: HighlightText;
+  }
+}
+
 /* Code-Feld: sechs Zellen, darüber die unsichtbare echte Eingabe */
 
 .code-feld {

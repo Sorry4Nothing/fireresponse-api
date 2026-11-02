@@ -552,13 +552,14 @@ const MATRIX: Record<string, Zeile> = {
     body: () => ({
       name: "Matrix",
       kuerzel: "MX",
+      typ: "miliz",
       reihenfolge: naechsteReihenfolge++,
     }),
     erwartet: VERWALTEN_JF_A(201),
   },
   "PATCH /api/v1/admin/einheiten/:einheitId/raenge/:rangId": {
     url: (w) => `/api/v1/admin/einheiten/${w.einheit.jfA}/raenge/${bildRangId}`,
-    body: () => ({ name: "Rang mit Bild" }),
+    body: () => ({ name: "Rang mit Bild", typ: "jf" }),
     erwartet: VERWALTEN_JF_A(204),
   },
   // Jede Anfrage verbraucht ihren Rang: einer pro Persona
@@ -669,6 +670,16 @@ const MATRIX: Record<string, Zeile> = {
     url: (w) => `/api/v1/admin/einheiten/${w.einheit.jfA}/lodur`,
     erwartet: VERWALTEN_JF_A(204),
   },
+  // Arten mit Anmeldung: dieselben Rechte wie der Lodur-Link; Auswahl und Fehlerfälle prüft test/admin-anmelde-arten.test.ts
+  "GET /api/v1/admin/einheiten/:einheitId/anmelde-arten": {
+    url: (w) => `/api/v1/admin/einheiten/${w.einheit.jfA}/anmelde-arten`,
+    erwartet: VERWALTEN_JF_A(200),
+  },
+  "PUT /api/v1/admin/einheiten/:einheitId/anmelde-arten": {
+    url: (w) => `/api/v1/admin/einheiten/${w.einheit.jfA}/anmelde-arten`,
+    body: () => ({ arten: ["Übung"] }),
+    erwartet: VERWALTEN_JF_A(200),
+  },
   // Profilbild (#173): Jede Person mit Sitzung lädt ihr eigenes hoch und löscht es; nur die Person selbst, nie eine andere. Typ, Grösse und Rate-Limit prüft test/profilbild.test.ts
   "PUT /api/v1/ich/bild": {
     bild: true,
@@ -733,6 +744,9 @@ const MATRIX: Record<string, Zeile> = {
   },
   // Statische Datei der Verwaltung (Auswertung)
   "GET /admin/auswertung.js": { erwartet: alle(200) },
+  // Statische Dateien der Verwaltung (Datepicker)
+  "GET /admin/datum.js": { erwartet: alle(200) },
+  "GET /admin/datumfeld.js": { erwartet: alle(200) },
 };
 
 const abzeichenSvg = new TextEncoder().encode(

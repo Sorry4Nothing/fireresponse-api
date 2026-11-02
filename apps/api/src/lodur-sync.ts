@@ -4,8 +4,10 @@ import { verbindeDatenbank } from "./datenbank.js";
 import { erstelleDb, type Db } from "./db/client.js";
 import { einheit, programm } from "./db/schema.js";
 import { IcsFehler, leseIcs, type IcsErgebnis, type IcsTermin } from "./ics.js";
+import { leseLodurSeite, SeitenFehler } from "./lodur-html.js";
 import {
   holeKalender,
+  jahresLink,
   LodurFehler,
   pruefeAdresse,
   pruefeLodurUrl,
@@ -18,6 +20,7 @@ import type { Fcm } from "./push.js";
 import { programmBeginn } from "./rechte.js";
 import { entschluessele } from "./startpasswort.js";
 import { sendeAbsagePush, sendeAenderungsPush } from "./termin-push.js";
+import { wanduhr } from "./zeitregeln/ausloesezeit.js";
 
 // Eigener Schlüssel für die Sperre; 740027 und 740028 bleiben für spätere Hintergrundläufe frei
 export const SPERRE_LODUR = 740_030;
@@ -45,6 +48,7 @@ export const inhaltHash = (t: IcsTermin) =>
         t.thema,
         t.info,
         t.aufgebot,
+        t.art,
       ]),
     )
     .digest("hex");
@@ -59,6 +63,7 @@ const felder = (t: IcsTermin) => ({
   thema: t.thema,
   info: t.info,
   aufgebot: t.aufgebot,
+  art: t.art,
   inhaltHash: inhaltHash(t),
 });
 
@@ -71,12 +76,22 @@ type Vorhanden = {
   beginnMs: string;
 };
 
-// Gleicht die Termine einer Einheit mit dem Kalender ab und schickt danach die Pushes. Künftig heisst: Beginn nach jetzt; was begonnen hat, fasst der Sync nie an
+const zuercherJahr = (ms: number) => wanduhr(new Date(ms)).getUTCFullYear();
+
+// Die Jahre, die ein Abruf holt: das laufende Jahr (Zürcher Zeit), ab Oktober auch das nächste, weil Lodur das Programm früh einträgt
+export function abrufJahre(jetzt: Date): number[] {
+  const w = wanduhr(jetzt);
+  const jahr = w.getUTCFullYear();
+  return w.getUTCMonth() >= 9 ? [jahr, jahr + 1] : [jahr];
+}
+
+// Gleicht die Termine einer Einheit mit dem Kalender ab und schickt danach die Pushes. Künftig heisst: Beginn nach jetzt; was begonnen hat, fasst der Sync nie an. Mit `jahre` gilt nur ein Termin dieser Jahre als gestrichen, wenn er im Kalender fehlt: Ein Jahr, das der Abruf nicht geholt hat, sagt nichts über seine Termine
 export async function uebernimm(
   { db, fcm }: { db: Db; fcm?: Fcm },
   einheitId: string,
   kalender: IcsErgebnis,
   jetzt: Date,
+  jahre?: ReadonlySet<number>,
 ) {
   const vorhanden: Vorhanden[] = await db
     .select({
@@ -92,7 +107,11 @@ export async function uebernimm(
   const kuenftig = (v: Vorhanden) => Number(v.beginnMs) > jetzt.getTime();
 
   const abgesagt = vorhanden.filter(
-    (v) => kuenftig(v) && v.status === "aktiv" && !kalender.uids.has(v.uid),
+    (v) =>
+      kuenftig(v) &&
+      v.status === "aktiv" &&
+      !kalender.uids.has(v.uid) &&
+      (!jahre || jahre.has(zuercherJahr(Number(v.beginnMs)))),
   );
   // Ein leerer Kalender neben künftigen Terminen ist eher ein Fehler in Lodur als eine Absage aller Termine
   if (kalender.uids.size === 0 && abgesagt.length > 0) {
@@ -157,17 +176,45 @@ export async function synchronisiereEinheit(
   const link = entschluessele(verschluesselt, ZWECK_LODUR_LINK);
   if (link === null) throw new LodurFehler("entschluesselung");
   // Die Allowlist gilt bei jedem Abruf, nicht nur beim Speichern: Sie kann sich seither geändert haben
-  const url = pruefeLodurUrl(link, erlaubteHosts);
-  await pruefeAdresse(url.hostname, aufloesen);
-  let kalender: IcsErgebnis;
-  try {
-    kalender = leseIcs(await holeKalender(url, abruf));
-  } catch (fehler) {
-    throw fehler instanceof IcsFehler
-      ? new LodurFehler("kein-kalender")
-      : fehler;
+  pruefeLodurUrl(link, erlaubteHosts);
+
+  // Jeder Jahres-Link läuft durch dieselben Prüfungen (SR-26) wie der gespeicherte
+  async function hole(jahr?: number): Promise<IcsErgebnis> {
+    const url = pruefeLodurUrl(
+      jahr === undefined ? link! : jahresLink(link!, jahr),
+      erlaubteHosts,
+    );
+    await pruefeAdresse(url.hostname, aufloesen);
+    const text = await holeKalender(url, abruf);
+    try {
+      return /^\uFEFF?\s*BEGIN:VCALENDAR/i.test(text)
+        ? leseIcs(text)
+        : leseLodurSeite(text);
+    } catch (fehler) {
+      throw fehler instanceof IcsFehler || fehler instanceof SeitenFehler
+        ? new LodurFehler("kein-kalender")
+        : fehler;
+    }
   }
-  await uebernimm({ db, fcm }, einheitId, kalender, jetzt);
+
+  // Ohne Parameter year (ICS-Link) gibt es nur einen Abruf
+  if (!new URL(link).searchParams.has("year")) {
+    return uebernimm({ db, fcm }, einheitId, await hole(), jetzt);
+  }
+  const [erstes, ...weitere] = abrufJahre(jetzt);
+  const kalender = await hole(erstes);
+  const jahre = new Set([erstes!]);
+  for (const jahr of weitere) {
+    try {
+      const mehr = await hole(jahr);
+      kalender.termine.push(...mehr.termine);
+      mehr.uids.forEach((u) => kalender.uids.add(u));
+      jahre.add(jahr);
+    } catch {
+      // Das Folgejahr ist noch nicht eingetragen oder nicht erreichbar: Das laufende Jahr zählt trotzdem
+    }
+  }
+  await uebernimm({ db, fcm }, einheitId, kalender, jetzt, jahre);
 }
 
 // Ein Lauf über alle Einheiten mit Link; eine Einheit, die scheitert, hält die nächste nicht auf. «gesperrt» heisst: ein anderer Lauf arbeitet gerade. einheitIds begrenzt den Lauf (Tests teilen sich die Datenbank)

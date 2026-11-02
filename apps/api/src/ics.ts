@@ -12,8 +12,11 @@ export type IcsTermin = {
   thema: string | null;
   info: string | null;
   aufgebot: string | null;
+  // Spalte «Art» der HTML-Terminliste; der ICS-Kalender hat sie nicht
+  art: string | null;
 };
 
+// Auch das Ergebnis der HTML-Terminliste (lodur-html.ts) hat diese Form
 export type IcsErgebnis = {
   termine: IcsTermin[];
   // Jede UID im Kalender, auch die eines Termins, den wir nicht lesen konnten: Er gilt nicht als gestrichen
@@ -120,6 +123,7 @@ function termin(eigenschaften: Zeile[]): IcsTermin | null {
   const bis = finde("DTEND");
   const basis = {
     uid,
+    art: null,
     titel: titelBereinigen(finde("SUMMARY")?.wert ?? ""),
     ...beschreibung(finde("DESCRIPTION")?.wert ?? ""),
   };

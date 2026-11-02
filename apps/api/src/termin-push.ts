@@ -10,6 +10,7 @@ import {
   teilnehmendeKonto,
   user,
 } from "./db/schema.js";
+import { anmeldbar } from "./anmeldefenster.js";
 import { log } from "./log.js";
 import { type Fcm, sendePush } from "./push.js";
 import { aktivesKonto, programmBeginn } from "./rechte.js";
@@ -102,13 +103,14 @@ async function pushAnTermin(
   nurAntworten: boolean,
 ) {
   try {
-    // Nur künftige Programme: Für ein begonnenes ist jede Meldung zu spät
+    // Nur künftige Programme: Für ein begonnenes ist jede Meldung zu spät. Und nur mit Anmeldung: Wer sich nicht anmelden kann, braucht keine Meldung über eine Sitzung oder einen Anlass
     const [zeile] = await db
       .select({ einheitId: programm.einheitId })
       .from(programm)
       .where(
         and(
           eq(programm.id, programmId),
+          anmeldbar,
           jetzt
             ? roh`${programmBeginn} > ${jetzt.toISOString()}::timestamptz`
             : roh`${programmBeginn} > now()`,

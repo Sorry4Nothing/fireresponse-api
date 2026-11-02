@@ -59,7 +59,11 @@ export function ausloesezeit(
   );
   if (wand > beginnWand.getTime()) wand -= TAG_MS;
   while (isoWochentag(new Date(wand)) !== wochentag) wand -= TAG_MS;
-  // Von der Wanduhr zurück zum Zeitpunkt: erst mit dem Versatz an der Wanduhr geraten, dann mit dem Versatz am Ergebnis nachgerechnet
+  return vonWanduhr(wand);
+}
+
+// Von der Zürcher Wanduhr (als UTC-Millisekunden verpackt) zurück zum Zeitpunkt: erst mit dem Versatz an der Wanduhr geraten, dann mit dem Versatz am Ergebnis nachgerechnet
+export function vonWanduhr(wand: number) {
   const geraten = wand - versatz(wand);
   return new Date(wand - versatz(geraten));
 }

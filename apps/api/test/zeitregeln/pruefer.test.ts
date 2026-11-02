@@ -409,6 +409,26 @@ describe("Erinnerungen", () => {
     expect(w.empfaenger()).toEqual(["offen"]);
   });
 
+  test("Termine einer Art ohne Anmeldung bekommen keine Erinnerung", async () => {
+    const w = await neueWelt();
+    const eltern = await w.konto("offen");
+    await w.personVon([eltern]);
+    await w.programm({ art: "Sitzung", anmeldbar: false });
+    await w.programm({ art: null });
+    await w.regel();
+
+    await lauf(AUSLOESUNG);
+    expect(nachrichten).toHaveLength(0);
+
+    // Mit der Freigabe der Art erinnert der nächste Lauf
+    await db
+      .update(schema.einheit)
+      .set({ anmeldeArten: ["Sitzung"] })
+      .where(eq(schema.einheit.id, w.einheit.id));
+    await lauf(AUSLOESUNG);
+    expect(w.empfaenger()).toEqual(["offen"]);
+  });
+
   test("ein weites Fenster hält die Erinnerung nicht zurück", async () => {
     const w = await neueWelt();
     const eltern = await w.konto("offen");

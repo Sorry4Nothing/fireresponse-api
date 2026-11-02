@@ -21,9 +21,12 @@ const name = z.string().trim().min(1).max(100);
 const kuerzel = z.string().trim().min(1).max(20);
 const reihenfolge = z.int().min(1).max(999);
 const sterne = z.int().min(0).max(5);
+const typ = z.enum(["kf", "jf", "miliz"]);
 const anlegenSchema = z.strictObject({
   name,
   kuerzel,
+  // Fehlt der Typ, gilt der Typ der Einheit (wie bisher ohne Typ)
+  typ: typ.optional(),
   reihenfolge,
   abzeichenSterne: sterne.nullable().optional(),
 });
@@ -31,6 +34,7 @@ const aendernSchema = z
   .strictObject({
     name,
     kuerzel,
+    typ,
     reihenfolge,
     abzeichenSterne: sterne.nullable(),
   })
@@ -88,6 +92,7 @@ export function erstelleRangRouten({ db }: { db: Db }) {
             id: rang.id,
             name: rang.name,
             kuerzel: rang.kuerzel,
+            typ: rang.typ,
             reihenfolge: rang.reihenfolge,
             sterne: rang.abzeichenSterne,
             bildTyp: rang.abzeichenBildTyp,
@@ -104,6 +109,7 @@ export function erstelleRangRouten({ db }: { db: Db }) {
             id: r.id,
             name: r.name,
             kuerzel: r.kuerzel,
+            typ: r.typ,
             reihenfolge: r.reihenfolge,
             abzeichen:
               r.bildTyp !== null
@@ -132,8 +138,8 @@ export function erstelleRangRouten({ db }: { db: Db }) {
           const id = await mitReihenfolgeKonflikt(() =>
             db.transaction(async (tx) => {
               // Zeilensperre auf der Einheit: Die Grenze gilt auch bei gleichzeitigen Anfragen
-              await tx
-                .select({ id: einheit.id })
+              const [{ einheitTyp }] = await tx
+                .select({ einheitTyp: einheit.typ })
                 .from(einheit)
                 .where(eq(einheit.id, einheitId))
                 .for("no key update");
@@ -148,6 +154,7 @@ export function erstelleRangRouten({ db }: { db: Db }) {
                   einheitId,
                   name: felder.name,
                   kuerzel: felder.kuerzel,
+                  typ: felder.typ ?? einheitTyp,
                   reihenfolge: felder.reihenfolge,
                   abzeichenSterne: felder.abzeichenSterne ?? null,
                 })

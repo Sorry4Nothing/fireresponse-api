@@ -3,7 +3,6 @@ import {
   auswahl,
   chip,
   el,
-  feld,
   filterGruppe,
   icon,
   knopf,
@@ -12,6 +11,7 @@ import {
   seitenwahl,
   tabelle,
 } from "./dom.js";
+import { datumfeld } from "./datumfeld.js";
 
 // Auswertung auf Basis der Anmeldungen (Ja, Nein, offen), nie der Anwesenheit; kein Export. Eigenes Modul mit dem Einstieg zeige(bereich, ctx) wie die übrigen Bereiche: Zum Einhängen genügt ein Eintrag in BEREICHE von admin.js. Die Zahlen kommen fertig von /api/v1/admin/auswertung/*; hier wird nur angezeigt.
 
@@ -296,8 +296,8 @@ function zeichne(bereich, ctx, optionen) {
     },
   });
 
-  const von = feld({ label: "Von", typ: "date", wert: zustand.von });
-  const bis = feld({ label: "Bis", typ: "date", wert: zustand.bis });
+  const von = datumfeld({ label: "Von", wert: zustand.von });
+  const bis = datumfeld({ label: "Bis", wert: zustand.bis });
   const jahre = Array.from({ length: 8 }, (_, i) => String(jetzt + 1 - i));
   const jahrWahl = auswahl({
     label: "Jahr",
