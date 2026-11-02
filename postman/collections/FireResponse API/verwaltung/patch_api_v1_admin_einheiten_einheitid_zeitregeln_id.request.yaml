@@ -1,6 +1,6 @@
 $kind: http-request
 name: "PATCH /api/v1/admin/einheiten/:einheitId/zeitregeln/:id"
-order: 87000
+order: 86000
 method: PATCH
 url: "{{baseUrl}}/api/v1/admin/einheiten/{{einheit_jfA}}/zeitregeln/{{patchRegelId}}"
 headers:

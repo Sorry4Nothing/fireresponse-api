@@ -22,14 +22,6 @@ const kuerzel = z.string().trim().min(1).max(20);
 const reihenfolge = z.int().min(1).max(999);
 const sterne = z.int().min(0).max(5);
 const typ = z.enum(["kf", "jf", "miliz"]);
-const anlegenSchema = z.strictObject({
-  name,
-  kuerzel,
-  // Fehlt der Typ, gilt der Typ der Einheit (wie bisher ohne Typ)
-  typ: typ.optional(),
-  reihenfolge,
-  abzeichenSterne: sterne.nullable().optional(),
-});
 const aendernSchema = z
   .strictObject({
     name,
@@ -49,12 +41,9 @@ const ordnenSchema = z.strictObject({
 });
 const loeschenSchema = z.strictObject({ verschiebenNach: z.uuid().optional() });
 
-// Bis hierhin reichen die Zehnerschritte der Reihenfolge (10 bis 990) und der Platz für die Zwischenwerte beim Umordnen
-const MAX_RAENGE = 99;
-
 const ABZEICHEN_UNGUELTIG = "ABZEICHEN_UNGUELTIG";
 
-// Ränge gehören einer Einheit; legen, ändern und löschen dürfen Kommando, Stellvertretungen und der Kantonsadmin. Die Abzeichen liegen als bereinigte Bytes in der Datenbank
+// Ränge gehören einer Einheit; die Standard-Ränge legt nur das Backend an (Einheit anlegen, Migration), ändern, ordnen und löschen dürfen Kommando, Stellvertretungen und der Kantonsadmin. Die Abzeichen liegen als bereinigte Bytes in der Datenbank
 export function erstelleRangRouten({ db }: { db: Db }) {
   async function zeigeRang(einheitId: string, rangId: string) {
     const [zeile] = await db
@@ -126,53 +115,7 @@ export function erstelleRangRouten({ db }: { db: Db }) {
           })),
         });
       })
-      .post(
-        "/",
-        eingabe("param", einheitPfad),
-        eingabe("json", anlegenSchema),
-        async (c) => {
-          const person = c.get("person");
-          const { einheitId } = c.req.valid("param");
-          const felder = c.req.valid("json");
-          await pruefeEinheit(db, person, einheitId, "verwalten");
-          const id = await mitReihenfolgeKonflikt(() =>
-            db.transaction(async (tx) => {
-              // Zeilensperre auf der Einheit: Die Grenze gilt auch bei gleichzeitigen Anfragen
-              const [{ einheitTyp }] = await tx
-                .select({ einheitTyp: einheit.typ })
-                .from(einheit)
-                .where(eq(einheit.id, einheitId))
-                .for("no key update");
-              const [{ anzahl }] = await tx
-                .select({ anzahl: count() })
-                .from(rang)
-                .where(eq(rang.einheitId, einheitId));
-              if (anzahl >= MAX_RAENGE) throw new Konflikt("RAENGE_VOLL");
-              const [neu] = await tx
-                .insert(rang)
-                .values({
-                  einheitId,
-                  name: felder.name,
-                  kuerzel: felder.kuerzel,
-                  typ: felder.typ ?? einheitTyp,
-                  reihenfolge: felder.reihenfolge,
-                  abzeichenSterne: felder.abzeichenSterne ?? null,
-                })
-                .returning({ id: rang.id });
-              await protokolliere(tx, {
-                einheitId,
-                akteurId: person.id,
-                aktion: "rang_angelegt",
-                zielTyp: "rang",
-                zielId: neu.id,
-              });
-              return neu.id;
-            }),
-          );
-          return c.json({ id }, 201);
-        },
-      )
-      // Zuerst die neue Reihenfolge aller Ränge in einem Schritt: Die Pfeile der Verwaltung tauschen so zwei Nachbarn, ohne dass die Einzelwerte kollidieren
+      // Zuerst die neue Reihenfolge aller Ränge eines Typs in einem Schritt (jeder Typ hat seine eigene Hierarchie): Die Pfeile der Verwaltung tauschen so zwei Nachbarn, ohne dass die Einzelwerte kollidieren
       .put(
         "/reihenfolge",
         eingabe("param", einheitPfad),
@@ -188,11 +131,18 @@ export function erstelleRangRouten({ db }: { db: Db }) {
               .from(einheit)
               .where(eq(einheit.id, einheitId))
               .for("no key update");
-            const vorhanden = await tx
-              .select({ id: rang.id, reihenfolge: rang.reihenfolge })
+            const alle = await tx
+              .select({
+                id: rang.id,
+                typ: rang.typ,
+                reihenfolge: rang.reihenfolge,
+              })
               .from(rang)
               .where(eq(rang.einheitId, einheitId));
-            // Genau die Ränge der Einheit, keiner fehlt und keiner ist fremd
+            const vorhanden = alle.filter(
+              (r) => r.typ === alle.find((a) => a.id === ids[0])?.typ,
+            );
+            // Genau die Ränge dieses Typs in der Einheit, keiner fehlt und keiner ist fremd
             if (
               vorhanden.length !== ids.length ||
               !vorhanden.every((r) => ids.includes(r.id))

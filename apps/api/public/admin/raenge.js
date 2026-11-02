@@ -21,24 +21,6 @@ export const RANGTYP = {
   miliz: "Miliz-Feuerwehr",
 };
 
-// Dienstgrade der Feuerwehr in der Schweiz in der Reihenfolge und Schreibweise der Quelle (Offiziers-, Unteroffiziers-, Mannschaftsgrade). Sie sind nur eine Auswahlhilfe: Name und Kürzel bleiben danach frei änderbar
-// Quelle: Wikipedia, «Dienstgrade der Feuerwehr in der Schweiz»
-export const MILIZ_GRADE = [
-  ["Oberst", "Oberst"],
-  ["Oberstleutnant", "Oberstlt"],
-  ["Major", "Maj"],
-  ["Hauptmann", "Hptm"],
-  ["Oberleutnant", "Oblt"],
-  ["Leutnant", "Lt"],
-  ["Adjutant Unteroffizier", "Adj Uof"],
-  ["Feldweibel", "Fw"],
-  ["Fourier", "Four"],
-  ["Wachtmeister", "Wm"],
-  ["Korporal", "Kpl"],
-  ["Gefreiter", "Gfr"],
-  ["Soldat", "Sdt"],
-  ["Rekrut / Aspirant", "Rekr / Asp"],
-].map(([name, kuerzel]) => ({ name, kuerzel }));
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 const svg = (tag, eigenschaften = {}, ...kinder) => {
@@ -66,76 +48,80 @@ function stern(x, radius) {
   });
 }
 
-// Blauer Grund mit Rand: ganz allein das Abzeichen des Rangs ohne Sterne und Text
+// Schwarzer Grund im Verhältnis 7:13 wie bei den Miliz-Abzeichen (60,5 × 112,4 von 100 × 130, senkrecht zentriert): ganz allein das Abzeichen des Rangs ohne Sterne und Text
 function abzeichenGrund() {
   return svg("rect", {
-    x: 1,
-    y: 1,
-    width: 98,
-    height: 128,
-    rx: 3,
-    fill: "#0A1230",
-    stroke: "#1B2A5C",
-    "stroke-width": 2,
+    x: 19.75,
+    y: 8.8,
+    width: 60.5,
+    height: 112.4,
+    fill: "#000",
   });
 }
 
-// Das Abzeichen der Vorlage mit n Sternen (Hochformat 100:130); Zierde, der Text steht daneben
+// Das Abzeichen der Vorlage mit n Sternen (Hochformat 100:130, schmal wie die Miliz-Abzeichen); Zierde, der Text steht daneben
 function sterneAbzeichen(n) {
-  const radius = n === 5 ? 7 : 8;
-  const abstand = n === 5 ? 20 : n === 4 ? 24 : n === 3 ? 30 : 34;
+  const radius = n >= 4 ? 4.5 : 5.5;
+  const abstand = n === 5 ? 10 : n === 4 ? 12 : n === 3 ? 14 : 16;
   const mitte = 50 - ((n - 1) * abstand) / 2;
+  // Inhalt um die Mitte (50,65) auf 95 % verkleinert, damit er in die kürzere schwarze Fläche passt
   return [
     abzeichenGrund(),
     svg(
       "g",
-      {
-        "font-family": "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
-        "font-weight": 700,
-        fill: "#E8B22E",
-        "text-anchor": "middle",
-        "font-size": 17,
-      },
+      { transform: "translate(2.5,3.25) scale(0.95)" },
       svg(
-        "text",
+        "g",
         {
-          x: 50,
-          y: 25,
-          textLength: 78,
-          lengthAdjust: "spacingAndGlyphs",
+          "font-family": "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
+          "font-weight": 700,
+          fill: "#E8B22E",
+          "text-anchor": "middle",
+          "font-size": 11,
         },
-        "JUGEND",
+        svg(
+          "text",
+          {
+            x: 50,
+            y: 22,
+            textLength: 50,
+            lengthAdjust: "spacingAndGlyphs",
+          },
+          "JUGEND",
+        ),
+        svg(
+          "text",
+          {
+            x: 50,
+            y: 37,
+            textLength: 50,
+            lengthAdjust: "spacingAndGlyphs",
+          },
+          "FEUERWEHR",
+        ),
       ),
       svg(
-        "text",
-        {
-          x: 50,
-          y: 44,
-          textLength: 78,
-          lengthAdjust: "spacingAndGlyphs",
-        },
-        "FEUERWEHR",
+        "g",
+        { transform: "translate(29.8,48) scale(0.17)" },
+        svg("path", {
+          d: "m 1,1 4.325489,181.67978 c 3.089633,129.77118 226.161731,129.77118 229.251371,0 L 238.90236,1 Z",
+          fill: "#FFFFFF",
+        }),
+        svg("path", {
+          d: "m 1,0.98764 4.3125,181.6875 C 7.9334996,292.76272 168.85432,309.46046 219.5,232.76889 Z",
+          fill: "#2764C7",
+        }),
+        svg("path", {
+          d: "m 1,1 4.325489,181.67978 c 3.089633,129.77118 226.161731,129.77118 229.251371,0 L 238.90236,1 Z",
+          fill: "none",
+          stroke: "#DDE9FA",
+          "stroke-width": 6,
+        }),
+      ),
+      ...Array.from({ length: n }, (_, i) =>
+        stern(mitte + i * abstand, radius),
       ),
     ),
-    svg(
-      "g",
-      { transform: "translate(26,50) scale(0.2,0.1925)" },
-      svg("path", {
-        d: "m 1,1 4.325489,181.67978 c 3.089633,129.77118 226.161731,129.77118 229.251371,0 L 238.90236,1 Z",
-        fill: "#FFFFFF",
-      }),
-      svg("path", {
-        d: "m 1,0.98764 4.3125,181.6875 C 7.9334996,292.76272 168.85432,309.46046 219.5,232.76889 Z",
-        fill: "#2764C7",
-      }),
-      svg("path", {
-        d: "m 1,1 4.325489,181.67978 c 3.089633,129.77118 226.161731,129.77118 229.251371,0 L 238.90236,1 Z",
-        fill: "none",
-        stroke: "#DDE9FA",
-        "stroke-width": 6,
-      }),
-    ),
-    ...Array.from({ length: n }, (_, i) => stern(mitte + i * abstand, radius)),
   ];
 }
 
@@ -194,9 +180,8 @@ export function zeige(bereich, ctx) {
   );
 }
 
-// Anlegen und Bearbeiten im selben Seitenblatt; rang ist leer beim Anlegen
+// Ränge werden nur im Backend angelegt; das Seitenblatt bearbeitet einen bestehenden Rang
 function blatt(rang, einheit, raenge, ctx, neu) {
-  const neuAnlegen = !rang;
   const name = feld({
     label: "Name",
     wert: rang?.name ?? "",
@@ -209,25 +194,7 @@ function blatt(rang, einheit, raenge, ctx, neu) {
     maxlength: 20,
     required: true,
   });
-  // Typ des Rangs; beim Anlegen der Typ der Einheit. Bei Miliz hilft eine Auswahl der Schweizer Dienstgrade, Name und Kürzel auszufüllen
-  const rangTyp = { wert: rang?.typ ?? einheit.typ };
-  const gradIndex = MILIZ_GRADE.findIndex(
-    (g) => g.name === rang?.name && g.kuerzel === rang?.kuerzel,
-  );
-  const grad = auswahl({
-    label: "Dienstgrad übernehmen",
-    optionen: [
-      ["", "Freie Eingabe"],
-      ...MILIZ_GRADE.map((g, i) => [String(i), `${g.name} (${g.kuerzel})`]),
-    ],
-    wert: String(gradIndex < 0 ? "" : gradIndex),
-  });
-  grad.eingabe.addEventListener("change", () => {
-    const g = MILIZ_GRADE[Number(grad.eingabe.value)];
-    if (!g) return;
-    name.eingabe.value = g.name;
-    kuerzel.eingabe.value = g.kuerzel;
-  });
+  const rangTyp = { wert: rang.typ };
   const typGruppe = neueId("rang-typ");
   const typOptionen = Object.entries(RANGTYP).flatMap(([wert, text]) => {
     const id = neueId("rang-typ-option");
@@ -240,18 +207,15 @@ function blatt(rang, einheit, raenge, ctx, neu) {
         checked: wert === rangTyp.wert,
         onchange: () => {
           rangTyp.wert = wert;
-          grad.wurzel.hidden = wert !== "miliz";
         },
       }),
       el("label", { for: id }, icon("haken"), text),
     ];
   });
-  grad.wurzel.hidden = rangTyp.wert !== "miliz";
-  const hoechste = raenge.reduce((m, r) => Math.max(m, r.reihenfolge), 0);
   const reihenfolge = feld({
     label: "Reihenfolge",
     typ: "number",
-    wert: String(rang?.reihenfolge ?? Math.min(999, hoechste + 10)),
+    wert: String(rang.reihenfolge),
     min: 1,
     max: 999,
     inputmode: "numeric",
@@ -370,7 +334,6 @@ function blatt(rang, einheit, raenge, ctx, neu) {
       { class: "seg", role: "radiogroup", "aria-label": "Typ des Rangs" },
       typOptionen,
     ),
-    grad.wurzel,
     name.wurzel,
     el("div", { class: "zweispaltig" }, kuerzel.wurzel, reihenfolge.wurzel),
     el("h3", {}, "Abzeichen"),
@@ -424,7 +387,7 @@ function blatt(rang, einheit, raenge, ctx, neu) {
             {},
             andere.length > 0
               ? `${mehrzahl(verwendet, "Person hat", "Personen haben")} diesen Rang. Sie wechseln beim Löschen in den gewählten Rang.`
-              : `${mehrzahl(verwendet, "Person hat", "Personen haben")} diesen Rang. Lege zuerst einen anderen Rang an, damit sie dorthin wechseln können.`,
+              : `${mehrzahl(verwendet, "Person hat", "Personen haben")} diesen Rang. Sie können erst wechseln, wenn die Einheit einen weiteren Rang hat.`,
           ),
         ),
       ziel?.wurzel,
@@ -454,17 +417,15 @@ function blatt(rang, einheit, raenge, ctx, neu) {
   }
 
   const dialog = seitenblatt({
-    titel: neuAnlegen ? "Rang anlegen" : rang.name,
-    untertitel: neuAnlegen
-      ? "Die Ränge gelten nur für diese Einheit."
-      : mehrzahl(verwendet, "Person", "Personen") + " mit diesem Rang",
+    titel: rang.name,
+    untertitel: mehrzahl(verwendet, "Person", "Personen") + " mit diesem Rang",
     inhalt: [formular, loeschen],
     fusszeile: [
       knopf("Abbrechen", { onclick: () => dialog.close() }),
       el(
         "button",
         { type: "submit", form: formularId, class: "knopf knopf--haupt" },
-        neuAnlegen ? "Anlegen" : "Speichern",
+        "Speichern",
       ),
     ],
   });
@@ -507,13 +468,9 @@ function blatt(rang, einheit, raenge, ctx, neu) {
       felder.abzeichenSterne = Number(sterne.eingabe.value);
     }
     const bild = art.wert === "bild" ? datei.files?.[0] : undefined;
-    let id = rang?.id;
+    const id = rang.id;
     try {
-      if (neuAnlegen) {
-        ({ id } = await anfrage("POST", url(einheit), felder));
-      } else {
-        await anfrage("PATCH", url(einheit, `/${rang.id}`), felder);
-      }
+      await anfrage("PATCH", url(einheit, `/${id}`), felder);
     } catch (f) {
       fehler.textContent = fehlertext(f);
       fehler.hidden = false;
@@ -526,7 +483,7 @@ function blatt(rang, einheit, raenge, ctx, neu) {
       } catch (f) {
         // Der Rang steht schon: Das Blatt bleibt offen, und die Meldung nennt den Grund
         neu();
-        fehler.textContent = `${neuAnlegen ? "Der Rang ist angelegt, aber das" : "Die Angaben sind gespeichert, aber das"} Bild wurde abgelehnt: ${fehlertext(f)}`;
+        fehler.textContent = `Die Angaben sind gespeichert, aber das Bild wurde abgelehnt: ${fehlertext(f)}`;
         fehler.hidden = false;
         fehler.focus();
         return;
@@ -535,30 +492,19 @@ function blatt(rang, einheit, raenge, ctx, neu) {
     zustand.fokus = id;
     dialog.close();
     neu();
-    ctx.melde(neuAnlegen ? "Rang ist angelegt." : "Gespeichert.");
+    ctx.melde("Gespeichert.");
   });
 }
 
 function zeichne(bereich, ctx, einheit, raenge, neu) {
-  ctx.kopfAktion(
-    knopf("Rang anlegen", {
-      art: "haupt",
-      symbol: "plus",
-      onclick: () => blatt(null, einheit, raenge, ctx, neu),
-    }),
-  );
   if (raenge.length === 0) {
     bereich.append(
-      el(
-        "p",
-        { class: "leer" },
-        "Diese Einheit hat noch keine Ränge. Lege einen an, dann lassen sich Personen einem Rang zuteilen.",
-      ),
+      el("p", { class: "leer" }, "Diese Einheit hat noch keine Ränge."),
     );
     return;
   }
   const verschiebe = async (rang, richtung) => {
-    const ids = raenge.map((r) => r.id);
+    const ids = raenge.filter((r) => r.typ === rang.typ).map((r) => r.id);
     const i = ids.indexOf(rang.id);
     ids.splice(i, 1);
     ids.splice(i + richtung, 0, rang.id);
@@ -572,77 +518,86 @@ function zeichne(bereich, ctx, einheit, raenge, neu) {
     neu();
     ctx.melde(`«${rang.name}» steht jetzt an Position ${i + richtung + 1}.`);
   };
-  const liste = el(
-    "ul",
-    { class: "rang-liste", "aria-label": "Ränge" },
-    raenge.map((r, i) => {
-      const n = r.teilnehmende + r.rollen;
-      return el(
-        "li",
-        { class: "karte rang-karte", "data-fokus": r.id },
-        abzeichen(r, "g") ??
-          svg(
-            "svg",
-            {
-              class: "rb rb--g",
-              viewBox: "0 0 100 130",
-              "aria-hidden": "true",
-            },
-            abzeichenGrund(),
-          ),
-        el(
-          "div",
-          { class: "rang-text" },
-          el("h3", {}, r.name),
-          el(
-            "ul",
-            { class: "chips" },
-            chip(RANGTYP[r.typ], "stufe"),
-            chip(`Kürzel ${r.kuerzel}`),
-            chip(`Nr. ${r.reihenfolge}`),
-            chip(mehrzahl(n, "Person", "Personen")),
-            r.abzeichen?.art === "sterne" &&
-              chip(SCHRIFT_ABZEICHEN.sterne(r.abzeichen.sterne)),
-            r.abzeichen?.art === "bild" && chip("Eigenes Bild"),
-            !r.abzeichen && chip("Kein Abzeichen"),
-          ),
+  const karte = (r, gruppe, i) => {
+    const n = r.teilnehmende + r.rollen;
+    return el(
+      "li",
+      { class: "karte rang-karte", "data-fokus": r.id },
+      abzeichen(r, "g") ??
+        svg(
+          "svg",
+          {
+            class: "rb rb--g",
+            viewBox: "0 0 100 130",
+            "aria-hidden": "true",
+          },
+          abzeichenGrund(),
         ),
+      el(
+        "div",
+        { class: "rang-text" },
+        el("h3", {}, r.name),
         el(
-          "div",
-          { class: "aktionen" },
-          knopf("", {
-            art: "rund",
-            symbol: "hoch",
-            "aria-label": `${r.name} nach oben`,
-            disabled: i === 0,
-            "data-fokus": `${r.id}:hoch`,
-            onclick: () => verschiebe(r, -1),
-          }),
-          knopf("", {
-            art: "rund",
-            symbol: "runter",
-            "aria-label": `${r.name} nach unten`,
-            disabled: i === raenge.length - 1,
-            "data-fokus": `${r.id}:runter`,
-            onclick: () => verschiebe(r, 1),
-          }),
-          knopf("Bearbeiten", {
-            klein: true,
-            symbol: "bearbeiten",
-            kontext: r.name,
-            onclick: () => blatt(r, einheit, raenge, ctx, neu),
-          }),
+          "ul",
+          { class: "chips" },
+          chip(RANGTYP[r.typ], "stufe"),
+          chip(`Kürzel ${r.kuerzel}`),
+          chip(`Nr. ${r.reihenfolge}`),
+          chip(mehrzahl(n, "Person", "Personen")),
+          r.abzeichen?.art === "sterne" &&
+            chip(SCHRIFT_ABZEICHEN.sterne(r.abzeichen.sterne)),
+          r.abzeichen?.art === "bild" && chip("Eigenes Bild"),
+          !r.abzeichen && chip("Kein Abzeichen"),
         ),
-      );
-    }),
-  );
+      ),
+      el(
+        "div",
+        { class: "aktionen" },
+        knopf("", {
+          art: "rund",
+          symbol: "hoch",
+          "aria-label": `${r.name} nach oben`,
+          disabled: i === 0,
+          "data-fokus": `${r.id}:hoch`,
+          onclick: () => verschiebe(r, -1),
+        }),
+        knopf("", {
+          art: "rund",
+          symbol: "runter",
+          "aria-label": `${r.name} nach unten`,
+          disabled: i === gruppe.length - 1,
+          "data-fokus": `${r.id}:runter`,
+          onclick: () => verschiebe(r, 1),
+        }),
+        knopf("Bearbeiten", {
+          klein: true,
+          symbol: "bearbeiten",
+          kontext: r.name,
+          onclick: () => blatt(r, einheit, raenge, ctx, neu),
+        }),
+      ),
+    );
+  };
+  // Jeder Typ hat seine eigene Hierarchie: eine Liste je Typ
+  const listen = Object.entries(RANGTYP).flatMap(([typ, text]) => {
+    const gruppe = raenge.filter((r) => r.typ === typ);
+    if (gruppe.length === 0) return [];
+    return [
+      el("h2", { class: "abschnitt" }, text),
+      el(
+        "ul",
+        { class: "rang-liste", "aria-label": `Ränge ${text}` },
+        gruppe.map((r, i) => karte(r, gruppe, i)),
+      ),
+    ];
+  });
   bereich.append(
     el(
       "p",
       { class: "klein leise", role: "status" },
-      `${mehrzahl(raenge.length, "Rang", "Ränge")} · die Reihenfolge von oben nach unten gilt in Verwaltung und App`,
+      `${mehrzahl(raenge.length, "Rang", "Ränge")} · jeder Typ hat seine eigene Reihenfolge, von oben nach unten`,
     ),
-    liste,
+    ...listen,
   );
   if (zustand.fokus) {
     const [id, richtung] = zustand.fokus.split(":");

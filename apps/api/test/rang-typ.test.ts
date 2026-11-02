@@ -39,41 +39,11 @@ test("0007 gibt bestehenden Rängen den Typ ihrer Einheit und sperrt andere Type
   }
 });
 
-// Die Verwaltung bietet die Schweizer Dienstgrade in der Reihenfolge der Quelle an (Wikipedia: Dienstgrade der Feuerwehr in der Schweiz)
-test("die Dienstgrade der Miliz-Feuerwehr sind vollständig, eindeutig und passen in Name und Kürzel", async () => {
+test("die Verwaltung kennt die drei Rangtypen", async () => {
   // dom.js hängt beim Laden einen Klick-Handler an die Seite; hier genügt eine Attrappe
   vi.stubGlobal("document", { addEventListener: () => {} });
-  const { MILIZ_GRADE, RANGTYP } = await import(
+  const { RANGTYP } = await import(
     new URL("../public/admin/raenge.js", import.meta.url).href
   );
   expect(Object.keys(RANGTYP)).toEqual(["kf", "jf", "miliz"]);
-  expect(MILIZ_GRADE.map((g: { kuerzel: string }) => g.kuerzel)).toEqual([
-    "Oberst",
-    "Oberstlt",
-    "Maj",
-    "Hptm",
-    "Oblt",
-    "Lt",
-    "Adj Uof",
-    "Fw",
-    "Four",
-    "Wm",
-    "Kpl",
-    "Gfr",
-    "Sdt",
-    "Rekr / Asp",
-  ]);
-  expect(MILIZ_GRADE[0]).toEqual({ name: "Oberst", kuerzel: "Oberst" });
-  expect(MILIZ_GRADE[6]).toEqual({
-    name: "Adjutant Unteroffizier",
-    kuerzel: "Adj Uof",
-  });
-  expect(new Set(MILIZ_GRADE.map((g: { name: string }) => g.name)).size).toBe(
-    MILIZ_GRADE.length,
-  );
-  // Die Route erlaubt höchstens 100 Zeichen im Namen und 20 im Kürzel
-  for (const g of MILIZ_GRADE as { name: string; kuerzel: string }[]) {
-    expect(g.name.length).toBeLessThanOrEqual(100);
-    expect(g.kuerzel.length).toBeLessThanOrEqual(20);
-  }
 });

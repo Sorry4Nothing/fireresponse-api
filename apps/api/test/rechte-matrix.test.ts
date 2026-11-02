@@ -536,7 +536,7 @@ const MATRIX: Record<string, Zeile> = {
     body: () => ({ rangId: welt.rangId }),
     erwartet: VERWALTEN_JF_A(204),
   },
-  // Ränge: Inhalt, Reihenfolge, Abzeichen-Prüfung und Löschen in test/admin-raenge.test.ts. Die Reihenfolge steht vor dem Anlegen, weil sie genau die Ränge der Einheit verlangt
+  // Ränge: Inhalt, Reihenfolge, Abzeichen-Prüfung und Löschen in test/admin-raenge.test.ts.
   "GET /api/v1/admin/einheiten/:einheitId/raenge": {
     url: (w) => `/api/v1/admin/einheiten/${w.einheit.jfA}/raenge`,
     erwartet: VERWALTEN_JF_A(200),
@@ -545,17 +545,6 @@ const MATRIX: Record<string, Zeile> = {
     url: (w) => `/api/v1/admin/einheiten/${w.einheit.jfA}/raenge/reihenfolge`,
     body: () => ({ ids: alleRangIds }),
     erwartet: VERWALTEN_JF_A(204),
-  },
-  // Eine eigene Reihenfolge pro Aufruf: Die Reihenfolge ist je Einheit eindeutig
-  "POST /api/v1/admin/einheiten/:einheitId/raenge": {
-    url: (w) => `/api/v1/admin/einheiten/${w.einheit.jfA}/raenge`,
-    body: () => ({
-      name: "Matrix",
-      kuerzel: "MX",
-      typ: "miliz",
-      reihenfolge: naechsteReihenfolge++,
-    }),
-    erwartet: VERWALTEN_JF_A(201),
   },
   "PATCH /api/v1/admin/einheiten/:einheitId/raenge/:rangId": {
     url: (w) => `/api/v1/admin/einheiten/${w.einheit.jfA}/raenge/${bildRangId}`,
@@ -761,7 +750,6 @@ let leitungZielId: string;
 let offenesKontoId: string;
 let bildRangId: string;
 let alleRangIds: string[] = [];
-let naechsteReihenfolge = 500;
 let naechsterWegwerfRang = 700;
 let programmId: string;
 let offenProgrammId: string;

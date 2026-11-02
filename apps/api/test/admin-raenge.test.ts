@@ -92,15 +92,22 @@ function senden(
 const kommando = () => konten.kommandoKfA;
 
 let zaehler = 0;
-async function legeRangAn(extra: Record<string, unknown> = {}) {
-  const antwort = await senden(kommando(), "POST", basis(), {
-    name: `Rang ${++zaehler}`,
-    kuerzel: `R${zaehler}`,
-    reihenfolge: 100 + zaehler,
-    ...extra,
-  });
-  expect(antwort.status).toBe(201);
-  return ((await antwort.json()) as { id: string }).id;
+// Ränge legt nur das Backend an; die Tests schreiben sie direkt in die Datenbank (KF A: Typ kf)
+async function legeRangAn(
+  extra: Partial<typeof schema.rang.$inferInsert> = {},
+) {
+  const [zeile] = await db
+    .insert(schema.rang)
+    .values({
+      einheitId: welt.einheit.kfA,
+      name: `Rang ${++zaehler}`,
+      kuerzel: `R${zaehler}`,
+      typ: "kf",
+      reihenfolge: 100 + zaehler,
+      ...extra,
+    })
+    .returning({ id: schema.rang.id });
+  return zeile.id;
 }
 
 const liste = async (k = kommando()) =>
@@ -136,12 +143,13 @@ describe("Rechte", () => {
     const jfA = `/api/v1/admin/einheiten/${welt.einheit.jfA}/raenge`;
     expect((await senden(konten.leitendeJfA, "GET", jfA)).status).toBe(403);
     expect((await senden(konten.stv, "GET", jfA)).status).toBe(200);
-    const neu = await senden(konten.leitendeJfA, "POST", jfA, {
-      name: "X",
-      kuerzel: "X",
-      reihenfolge: 50,
-    });
-    expect(neu.status).toBe(403);
+  });
+
+  test("Ränge lassen sich über die API nicht anlegen", async () => {
+    const body = { name: "X", kuerzel: "X", reihenfolge: 50 };
+    for (const k of [konten.kommandoKfA, konten.kantonsadmin]) {
+      expect((await senden(k, "POST", basis(), body)).status).toBe(404);
+    }
   });
 
   test("ein Rang einer anderen Einheit ist 404, auch mit gültiger ID", async () => {
@@ -157,8 +165,8 @@ describe("Rechte", () => {
   });
 });
 
-describe("Anlegen, Ändern, Ordnen", () => {
-  test("anlegen mit Sternen, ändern, die Reihenfolge ist je Einheit eindeutig", async () => {
+describe("Ändern, Ordnen", () => {
+  test("ändern mit Sternen, die Reihenfolge ist je Einheit eindeutig", async () => {
     const id = await legeRangAn({ abzeichenSterne: 2 });
     let rang = (await liste()).find((r) => r.id === id)!;
     expect(rang.abzeichen).toEqual({ art: "sterne", sterne: 2 });
@@ -189,8 +197,22 @@ describe("Anlegen, Ändern, Ordnen", () => {
     });
   });
 
-  test("der Typ gilt je Rang: ohne Angabe der Typ der Einheit, wählbar und änderbar, nur kf, jf oder miliz", async () => {
-    // KF A: ein Rang ohne Typ ist Kinderfeuerwehr
+  test("die Reihenfolge gilt je Typ: gleiche Zahl bei anderem Typ ist erlaubt, beim gleichen Typ nicht", async () => {
+    const nr = 777;
+    await legeRangAn({ typ: "miliz", reihenfolge: nr });
+    const jf = await legeRangAn({ typ: "jf", reihenfolge: nr });
+    const miliz = await legeRangAn({ typ: "miliz" });
+    const doppelt = await senden(kommando(), "PATCH", `${basis()}/${miliz}`, {
+      reihenfolge: nr,
+    });
+    expect(doppelt.status).toBe(409);
+    expect(
+      (await senden(kommando(), "PATCH", `${basis()}/${jf}`, { typ: "miliz" }))
+        .status,
+    ).toBe(409);
+  });
+
+  test("der Typ gilt je Rang: änderbar, nur kf, jf oder miliz", async () => {
     const ohne = await legeRangAn();
     const mitMiliz = await legeRangAn({ typ: "miliz", name: "Hauptmann" });
     const alle = await liste();
@@ -209,45 +231,23 @@ describe("Anlegen, Ändern, Ordnen", () => {
         (await senden(kommando(), "PATCH", `${basis()}/${ohne}`, { typ }))
           .status,
       ).toBe(400);
-      expect(
-        (
-          await senden(kommando(), "POST", basis(), {
-            name: "A",
-            kuerzel: "A",
-            reihenfolge: 5,
-            typ,
-          })
-        ).status,
-      ).toBe(400);
     }
-    // Ein Rang einer Jugendfeuerwehr ohne Angabe: jf
-    const jfA = `/api/v1/admin/einheiten/${welt.einheit.jfA}/raenge`;
-    const neu = await senden(konten.kommandoJfA, "POST", jfA, {
-      name: "Typ-Test",
-      kuerzel: "TT",
-      reihenfolge: 998,
-    });
-    expect(neu.status).toBe(201);
-    const jfListe = (await (
-      await senden(konten.kommandoJfA, "GET", jfA)
-    ).json()) as { raenge: { name: string; typ: string }[] };
-    expect(jfListe.raenge.find((r) => r.name === "Typ-Test")!.typ).toBe("jf");
   });
 
   test("ungültige Eingaben: Sterne über 5, Reihenfolge 0, leerer Name, fremde Felder", async () => {
+    const id = await legeRangAn();
     const schlecht = [
-      { name: "A", kuerzel: "A", reihenfolge: 1000 },
-      { name: "A", kuerzel: "A", reihenfolge: 0 },
-      { name: " ", kuerzel: "A", reihenfolge: 5 },
-      { name: "A", kuerzel: "A", reihenfolge: 5, abzeichenSterne: 6 },
-      { name: "A", kuerzel: "A", reihenfolge: 5, einheitId: welt.einheit.jfA },
+      { reihenfolge: 1000 },
+      { reihenfolge: 0 },
+      { name: " " },
+      { abzeichenSterne: 6 },
+      { einheitId: welt.einheit.jfA },
     ];
     for (const body of schlecht) {
-      expect((await senden(kommando(), "POST", basis(), body)).status).toBe(
-        400,
-      );
+      expect(
+        (await senden(kommando(), "PATCH", `${basis()}/${id}`, body)).status,
+      ).toBe(400);
     }
-    const id = await legeRangAn();
     expect(
       (await senden(kommando(), "PATCH", `${basis()}/${id}`, {})).status,
     ).toBe(400);
@@ -259,7 +259,8 @@ describe("Anlegen, Ändern, Ordnen", () => {
       await legeRangAn(),
       await legeRangAn(),
     ];
-    const alle = (await liste()).map((r) => r.id);
+    // Umgeordnet wird je Typ: hier die Kinderfeuerwehr-Ränge
+    const alle = (await liste()).filter((r) => r.typ === "kf").map((r) => r.id);
     // Die drei neuen tauschen die Plätze am Ende: c, a, b
     const ids = [...alle.filter((id) => ![a, b, c].includes(id)), c, a, b];
     const ok = await senden(kommando(), "PUT", `${basis()}/reihenfolge`, {
@@ -267,8 +268,9 @@ describe("Anlegen, Ändern, Ordnen", () => {
     });
     expect(ok.status).toBe(204);
     const jetzt = await liste();
-    expect(jetzt.map((r) => r.id)).toEqual(ids);
-    expect(jetzt.map((r) => r.reihenfolge)).toEqual(
+    const kf = jetzt.filter((r) => r.typ === "kf");
+    expect(kf.map((r) => r.id)).toEqual(ids);
+    expect(kf.map((r) => r.reihenfolge)).toEqual(
       ids.map((_, i) => (i + 1) * 10),
     );
     // Ein Rang fehlt oder ist fremd

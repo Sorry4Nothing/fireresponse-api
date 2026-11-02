@@ -14,7 +14,7 @@ import {
 import { erstelleApp } from "../src/app.js";
 import { erstelleDb } from "../src/db/client.js";
 import * as schema from "../src/db/schema.js";
-import { legeEinheitAn } from "../src/einheiten.js";
+import { legeEinheitAn, MILIZ_RAENGE } from "../src/einheiten.js";
 import { ladeSeiten } from "../src/seiten.js";
 import { bereiteAuthTestsVor, erstelleTestAuth } from "./hilfen/auth.js";
 import { API_URL } from "./hilfen/datenbank.js";
@@ -323,7 +323,7 @@ describe("legeEinheitAn", () => {
     ]);
   });
 
-  test("legt die Standard-Ränge 0 bis 5 an", async () => {
+  test("legt die vier Standard-Ränge und die Miliz-Dienstgrade an", async () => {
     const [admin, kommandant] = await Promise.all([
       person("kantonsadmin"),
       person("elternJfA"),
@@ -344,19 +344,25 @@ describe("legeEinheitAn", () => {
     const raenge = await db
       .select({
         name: schema.rang.name,
+        typ: schema.rang.typ,
         reihenfolge: schema.rang.reihenfolge,
         sterne: schema.rang.abzeichenSterne,
       })
       .from(schema.rang)
       .where(eq(schema.rang.einheitId, id))
-      .orderBy(schema.rang.reihenfolge);
-    expect(raenge).toEqual(
+      .orderBy(schema.rang.typ, schema.rang.reihenfolge);
+    expect(raenge.slice(0, 4)).toEqual(
       [null, 0, 1, 2].map((sterne, n) => ({
         name: `Rang ${n}`,
+        typ: "kf",
         reihenfolge: (n + 1) * 10,
         sterne,
       })),
     );
+    expect(raenge.slice(4).map((r) => [r.name, r.typ, r.reihenfolge])).toEqual(
+      MILIZ_RAENGE.map((r, n) => [r.name, "miliz", (n + 1) * 10]),
+    );
+    expect(raenge).toHaveLength(18);
   });
 
   test("scheitert die Kommandantin oder der Kommandant, entsteht keine Einheit", async () => {
