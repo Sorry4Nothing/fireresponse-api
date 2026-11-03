@@ -2714,6 +2714,48 @@ paths:
           $ref: "#/components/responses/AppVeraltet426"
         "429":
           $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/admin/einheiten/{einheitId}/leitende/bestehend:
+    post:
+      operationId: weiseAdminLeitendeZu
+      summary: Bestehendes Konto als Leitung zuweisen
+      tags:
+        - Verwaltung
+      description: |
+        Kommando, Stellvertretungen und Kantonsadmin (mit zweitem Faktor), nur in der Einheit im Pfad. Gibt einem Konto, das schon eine Rolle in einer Einheit hat, zusätzlich die Rolle «Leitung» in dieser Einheit (eine Person in Jugend- und Kinderfeuerwehr mit einem Konto). Kein neues Konto, kein Startpasswort.
+        Der Kantonsadmin darf jedes Konto mit einer Rolle zuweisen, Kommando und Stellvertretungen nur eines, das in einer Einheit eine Rolle hat, die sie selbst verwalten. Ein unbekanntes, deaktiviertes oder nicht erlaubtes Konto antwortet gleich (404). Danach gilt das Konto als gemeinsam: Zurücksetzen und Deaktivieren bleiben dem Kantonsadmin.
+
+        Statuscodes: 204, 400, 401, 403, 404, 409 (`ROLLE_GLEICH`), 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/EinheitIdPfad"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [benutzername]
+              properties:
+                benutzername:
+                  type: string
+      responses:
+        "204":
+          description: Rolle zugewiesen.
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "409":
+          $ref: "#/components/responses/AdminKonflikt409"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
   /api/v1/admin/einheiten/{einheitId}/teilnehmende:
     get:
       operationId: listeAdminTeilnehmende
