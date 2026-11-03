@@ -125,6 +125,35 @@ function anlegen(art, einheit, ctx, neu) {
   });
 }
 
+// Ein Konto, das schon eine Rolle in einer anderen Einheit hat, wird hier zusätzlich Leitung (ein Konto für JF und KF)
+function zuweisen(einheit, ctx, neu) {
+  const benutzername = feld({
+    label: "Benutzername",
+    hilfe:
+      "Das Konto muss schon eine Rolle haben. Das Kommando findet nur Konten aus den Einheiten, die es selbst verwaltet; sonst weist der Kantonsadmin zu.",
+    maxlength: 64,
+    autocapitalize: "none",
+    autocomplete: "off",
+    spellcheck: "false",
+    required: true,
+  });
+  dialogFormular({
+    titel: "Bestehende Person hinzufügen",
+    beschreibung:
+      "Die Person wird Leitung dieser Einheit und behält ihr Konto und ihr Passwort. Zurücksetzen und Deaktivieren macht danach nur noch der Kantonsadmin.",
+    felder: [benutzername.wurzel],
+    ok: "Hinzufügen",
+    senden: () =>
+      anfrage("POST", `${basis(einheit)}/leitende/bestehend`, {
+        benutzername: benutzername.eingabe.value.trim(),
+      }),
+    danach: () => {
+      neu();
+      ctx.melde("Die Person ist als Leitung hinzugefügt.");
+    },
+  });
+}
+
 // Seitenblatt: Name und Telefon (wenn die API es erlaubt), Rang und die Aktionen am Konto
 function bearbeiten(person, einheit, daten, ctx, neu) {
   const kontakt =
@@ -346,6 +375,10 @@ function zeichne(bereich, ctx, einheit, daten, neu) {
         symbol: "plus",
         onclick: () => anlegen("stellvertretung", einheit, ctx, neu),
       }),
+    knopf("Bestehende Person hinzufügen", {
+      symbol: "plus",
+      onclick: () => zuweisen(einheit, ctx, neu),
+    }),
     knopf("Leitende Person anlegen", {
       art: "haupt",
       symbol: "plus",

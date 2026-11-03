@@ -13,6 +13,7 @@ const AKTIONEN = {
   einheit_geloescht: "Einheit gelöscht",
   kommando_uebergeben: "Kommando übergeben",
   person_angelegt: "Konto angelegt",
+  person_zugewiesen: "Konto einer weiteren Einheit zugewiesen",
   person_geaendert: "Konto geändert",
   startpasswort_neu: "Neues Startpasswort",
   startpasswort_angezeigt: "Startpasswort angezeigt",

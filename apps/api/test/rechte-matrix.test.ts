@@ -496,6 +496,12 @@ const MATRIX: Record<string, Zeile> = {
     }),
     erwartet: VERWALTEN_JF_A(201),
   },
+  // Weist ein bestehendes Konto zu: Das Ziel ist das Kommando von JF A, das die Rolle hier schon hat, also antwortet die Route für alle Berechtigten 409 ROLLE_GLEICH, nachdem alle Prüfungen bestanden sind. Die echte Zuweisung und die Grenzen des Kommandos prüft test/konten-anlegen.test.ts
+  "POST /api/v1/admin/einheiten/:einheitId/leitende/bestehend": {
+    url: (w) => `/api/v1/admin/einheiten/${w.einheit.jfA}/leitende/bestehend`,
+    body: () => ({ benutzername: standard.kommandoJfA.benutzername! }),
+    erwartet: VERWALTEN_JF_A(409),
+  },
   // Entfernt nur die Rolle «Leitung», das Konto bleibt: Jede Anfrage verbraucht ihre Leitung
   "DELETE /api/v1/admin/einheiten/:einheitId/leitende/:userId": {
     urlJeAnfrage: async () =>

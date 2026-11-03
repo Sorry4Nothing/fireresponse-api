@@ -718,6 +718,71 @@ describe("Leitende", () => {
   });
 });
 
+describe("Bestehendes Konto als Leitung", () => {
+  test("der Kantonsadmin weist ein Konto einer weiteren Einheit zu; das Kommando nur, wenn es das Konto schon verwaltet; unbekannt und nicht erlaubt sind beide 404", async () => {
+    const pfad = einheitPfad("leitende/bestehend");
+    const kommandoJfB = await legePersonaAn(welt, "kommandoJfB");
+    const body = { benutzername: kommandoJfB.benutzername };
+    // Das Kommando von JF A verwaltet JF B nicht: Das Konto bleibt für es unsichtbar, wie ein unbekanntes
+    expect((await sende(konto("kommandoJfA"), "POST", pfad, body)).status).toBe(
+      404,
+    );
+    expect(
+      (
+        await sende(konto("kommandoJfA"), "POST", pfad, {
+          benutzername: name("gibt.es.nicht"),
+        })
+      ).status,
+    ).toBe(404);
+    // Das Konto des Kantonsadmins hat keine Einheit und lässt sich nie zuweisen
+    expect(
+      (
+        await sende(konto("kantonsadmin"), "POST", pfad, {
+          benutzername: konto("kantonsadmin").benutzername,
+        })
+      ).status,
+    ).toBe(404);
+    expect((await sende(konto("leitendeJfA"), "POST", pfad, body)).status).toBe(
+      403,
+    );
+
+    expect(
+      (await sende(konto("kantonsadmin"), "POST", pfad, body)).status,
+    ).toBe(204);
+    expect(
+      (await rollenVon(welt.einheit.jfA)).find(
+        (r) => r.userId === kommandoJfB.id,
+      ),
+    ).toMatchObject({ typ: "leitung", reihenfolge: null });
+    // Die Rolle in der eigenen Einheit bleibt
+    expect(
+      (await rollenVon(welt.einheit.jfB)).find(
+        (r) => r.userId === kommandoJfB.id,
+      ),
+    ).toMatchObject({ typ: "kommandant" });
+    const [eintrag] = await db
+      .select()
+      .from(schema.auditLog)
+      .where(
+        and(
+          eq(schema.auditLog.aktion, "person_zugewiesen"),
+          eq(schema.auditLog.zielId, kommandoJfB.id!),
+        ),
+      );
+    expect(eintrag).toMatchObject({
+      einheitId: welt.einheit.jfA,
+      akteurId: konto("kantonsadmin").id,
+    });
+    // Zweimal dieselbe Rolle gibt es nicht
+    expect(
+      (await sende(konto("kantonsadmin"), "POST", pfad, body)).status,
+    ).toBe(409);
+    expect((await sende(konto("kommandoJfA"), "POST", pfad, body)).status).toBe(
+      409,
+    );
+  });
+});
+
 describe("Teilnehmende und Eltern", () => {
   const pfad = () => einheitPfad("teilnehmende");
   const eltern = (extra: object = {}) => ({
