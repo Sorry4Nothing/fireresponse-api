@@ -799,7 +799,7 @@ th.zahl,
 /* Segment-Auswahl mit Radioknöpfen; gewählt zeigt ein Haken */
 
 .seg {
-  display: inline-flex;
+  display: flex;
   flex-wrap: wrap;
   gap: 4px;
   padding: 4px;
@@ -817,7 +817,9 @@ th.zahl,
 
 .seg label {
   display: inline-flex;
+  flex: 1 1 0;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   min-height: 44px;
   padding: 0 14px;
