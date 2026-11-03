@@ -1,8 +1,8 @@
 $kind: http-request
 name: "POST /api/v1/admin/einheiten/:einheitId/teilnehmende/:teilnehmendeId/konto-wechsel"
-order: 84000
+order: 82000
 method: POST
-url: "{{baseUrl}}/api/v1/admin/einheiten/{{einheit_jfA}}/teilnehmende/{{ziel_85}}/konto-wechsel"
+url: "{{baseUrl}}/api/v1/admin/einheiten/{{einheit_jfA}}/teilnehmende/{{ziel_82}}/konto-wechsel"
 headers:
   - key: "Cookie"
     value: "{{cookie}}"
@@ -17,4 +17,4 @@ headers:
 body:
   type: json
   content: |-
-    {{body_85}}
+    {{body_82}}

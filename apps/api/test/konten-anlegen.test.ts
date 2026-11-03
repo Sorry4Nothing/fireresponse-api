@@ -302,6 +302,101 @@ describe("Bezirk und Einheit mit Kommando", () => {
     ]);
   });
 
+  test("der Kantonsadmin löscht eine leere Einheit samt Kommando-Konto; mit Teilnehmenden ist es 409 EINHEIT_BELEGT, das Protokoll bleibt", async () => {
+    const neueEinheit = async (typ: "jf" | "kf") => {
+      const antwort = await sende(
+        konto("kantonsadmin"),
+        "POST",
+        "/api/v1/admin/einheiten",
+        {
+          bezirkId: await neuerBezirk(),
+          typ,
+          name: "Weg",
+          kommandant: {
+            vorname: "Wim",
+            nachname: "Weg",
+            benutzername: name("weg"),
+            telefon: "+41 79 123 45 67",
+          },
+        },
+      );
+      return (await antwort.json()) as {
+        id: string;
+        kommandant: { id: string };
+      };
+    };
+    const leer = await neueEinheit("jf");
+    const belegt = await neueEinheit("kf");
+    await db
+      .insert(schema.teilnehmende)
+      .values({ einheitId: belegt.id, vorname: "Tim", nachname: "Teil" });
+
+    for (const wer of ["kommandoJfA", "elternJfA"] as const) {
+      const verboten = await sende(
+        konto(wer),
+        "DELETE",
+        `/api/v1/admin/einheiten/${leer.id}`,
+      );
+      expect(verboten.status).toBeGreaterThanOrEqual(403);
+    }
+    const weg = await sende(
+      konto("kantonsadmin"),
+      "DELETE",
+      `/api/v1/admin/einheiten/${leer.id}`,
+    );
+    expect(weg.status).toBe(204);
+    expect(
+      await db
+        .select()
+        .from(schema.einheit)
+        .where(eq(schema.einheit.id, leer.id)),
+    ).toEqual([]);
+    expect(
+      await db
+        .select()
+        .from(schema.rang)
+        .where(eq(schema.rang.einheitId, leer.id)),
+    ).toEqual([]);
+    expect(
+      await db
+        .select()
+        .from(schema.user)
+        .where(eq(schema.user.id, leer.kommandant.id)),
+    ).toEqual([]);
+    const protokoll = await db
+      .select({ aktion: schema.auditLog.aktion })
+      .from(schema.auditLog)
+      .where(eq(schema.auditLog.einheitId, leer.id));
+    expect(protokoll.map((a) => a.aktion).sort()).toEqual([
+      "einheit_angelegt",
+      "einheit_geloescht",
+      "person_angelegt",
+    ]);
+
+    const abgelehnt = await sende(
+      konto("kantonsadmin"),
+      "DELETE",
+      `/api/v1/admin/einheiten/${belegt.id}`,
+    );
+    expect(abgelehnt.status).toBe(409);
+    expect(await abgelehnt.json()).toMatchObject({ code: "EINHEIT_BELEGT" });
+    expect(
+      await db
+        .select()
+        .from(schema.einheit)
+        .where(eq(schema.einheit.id, belegt.id)),
+    ).toHaveLength(1);
+    expect(await rollenVon(belegt.id)).toMatchObject([
+      { userId: belegt.kommandant.id, typ: "kommandant" },
+    ]);
+    const unbekannt = await sende(
+      konto("kantonsadmin"),
+      "DELETE",
+      `/api/v1/admin/einheiten/${randomUUID()}`,
+    );
+    expect(unbekannt.status).toBe(404);
+  });
+
   test("dieselbe Art im selben Bezirk ist 409 und legt kein Konto an", async () => {
     const bezirkId = await neuerBezirk();
     const body = (benutzername: string) => ({
