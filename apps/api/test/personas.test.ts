@@ -1,6 +1,7 @@
 import postgres from "postgres";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { erstelleDb } from "../src/db/client.js";
+import { EINWILLIGUNG_VERSION } from "../src/einwilligung.js";
 import {
   APP,
   PASSWORT,
@@ -38,7 +39,7 @@ const GRUND = {
   banned: false,
   deaktiviert_am: null,
   two_factor_enabled: false,
-  einwilligung_version: 1,
+  einwilligung_version: EINWILLIGUNG_VERSION,
   rollen: [],
   teilnehmende: [],
 };

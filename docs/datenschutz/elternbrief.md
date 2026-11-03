@@ -1,6 +1,6 @@
 # Elternbrief
 
-**Entwurf, Fassung 1.** Vorlage für die Einheiten; nicht rechtlich geprüft. Die Einheit ersetzt die Stellen in eckigen Klammern und gibt den Brief an die Eltern und an Teilnehmende mit eigenem Konto.
+**Entwurf, Fassung 2.** Vorlage für die Einheiten; nicht rechtlich geprüft. Die Einheit ersetzt die Stellen in eckigen Klammern und gibt den Brief an die Eltern und an Teilnehmende mit eigenem Konto.
 
 ---
 
@@ -30,6 +30,10 @@ ab [Datum] nutzen wir die App FireResponse. Sie zeigt die Termine unserer Übung
 - Technische Daten für den sicheren Betrieb (zum Beispiel, dass Sie angemeldet sind).
 
 Nicht gespeichert werden Adresse, Geburtsdatum, Gesundheitsdaten, Fotos Ihres Kindes oder sein Standort. Die App zeigt keine Werbung, setzt keine Analyse-Dienste ein und gibt keine Daten weiter, ausser an die Dienste, die für den Betrieb nötig sind (Server und Push-Mitteilungen über Google und Apple).
+
+**Widget auf Android**
+
+Die App bietet auf Android ein Widget für den Startbildschirm. Es zeigt die Vornamen der Kinder, ohne dass das Gerät entsperrt sein muss, je nach Launcher auch bei gesperrtem Gerät, und auch dann, wenn die Fingerabdruck-Sperre der App eingeschaltet ist. Wer das nicht will, platziert das Widget einfach nicht. Das Widget holt die Übungen und Logos alle 30 Minuten selbst vom Server, auch wenn die App nicht offen ist. Es legt nichts auf die Platte; die Daten liegen nur im Arbeitsspeicher und in dem, was Android für Widgets hält.
 
 **Wer die Daten sieht**
 
