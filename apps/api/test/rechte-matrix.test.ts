@@ -451,6 +451,20 @@ const MATRIX: Record<string, Zeile> = {
       ohneLogin: 401,
     },
   },
+  // Jede Anfrage verbraucht ihre Einheit: eine leere pro Persona, ohne Rolle für die Personen der Welt
+  "DELETE /api/v1/admin/einheiten/:einheitId": {
+    urlJeAnfrage: async () =>
+      `/api/v1/admin/einheiten/${await wegwerfEinheitId()}`,
+    erwartet: {
+      ...alle(404),
+      kantonsadmin: 204,
+      kantonsadminOhneZweitenFaktor: 403,
+      kommandoKfBOhneZweitenFaktor: 403,
+      mussPasswortAendern: 403,
+      deaktiviert: 401,
+      ohneLogin: 401,
+    },
+  },
   "POST /api/v1/admin/einheiten/:einheitId/stellvertretungen": {
     url: (w) => `/api/v1/admin/einheiten/${w.einheit.jfA}/stellvertretungen`,
     body: (konto) => ({
@@ -844,6 +858,16 @@ async function wegwerfBezirkId() {
     .insert(schema.bezirk)
     .values({ name: `Wegwerf Bezirk ${randomUUID().slice(0, 8)}` })
     .returning({ id: schema.bezirk.id });
+  return zeile.id;
+}
+
+// Eine leere Einheit in einem eigenen Bezirk pro Aufruf: das Ziel einer Löschung
+async function wegwerfEinheitId() {
+  const bezirkId = await wegwerfBezirkId();
+  const [zeile] = await welt.db
+    .insert(schema.einheit)
+    .values({ bezirkId, typ: "jf", name: "Wegwerf" })
+    .returning({ id: schema.einheit.id });
   return zeile.id;
 }
 

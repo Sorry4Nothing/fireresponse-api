@@ -1701,6 +1701,42 @@ paths:
           $ref: "#/components/responses/KeineBerechtigung403"
         "426":
           $ref: "#/components/responses/AppVeraltet426"
+  /api/v1/admin/einheiten/{einheitId}:
+    delete:
+      operationId: loescheAdminEinheit
+      summary: Einheit löschen
+      tags:
+        - Verwaltung
+      description: |
+        Nur das Konto des Kantonsadmins (mit zweitem Faktor). Gelöscht wird nur eine leere Einheit: Das Kommando zählt nicht als Inhalt, sein Konto geht mit, sofern es zu keiner anderen Einheit gehört und nicht für eine teilnehmende Person antwortet. Hat die Einheit Teilnehmende, Programme, Zeitregeln oder weitere Rollen, ist die Antwort 409 `EINHEIT_BELEGT`.
+        Das Löschen steht im Audit-Log.
+
+        Statuscodes: 204, 400, 401, 403, 404, 409, 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - name: einheitId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Einheit gelöscht.
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "409":
+          $ref: "#/components/responses/AdminKonflikt409"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
   /api/v1/admin/einheiten/{einheitId}/kommando:
     post:
       operationId: kommandoUebergeben
@@ -4147,6 +4183,7 @@ components:
             - BENUTZERNAME_VERGEBEN
             - BEZIRK_VORHANDEN
             - BEZIRK_BELEGT
+            - EINHEIT_BELEGT
             - EINHEIT_VORHANDEN
             - REIHENFOLGE_BELEGT
             - ROLLE_GLEICH

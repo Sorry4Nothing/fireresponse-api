@@ -13,7 +13,9 @@ import {
   bezirk,
   einheit,
   einheitRolle,
+  rang,
   teilnehmende,
+  teilnehmendeKonto,
   user,
 } from "../../db/schema.js";
 import {
@@ -25,7 +27,11 @@ import {
 import { eingabe } from "../../eingabe.js";
 import { ladeAdminRaenge } from "../../rang-anzeige.js";
 import { logoAntwort } from "../logo.js";
-import { eindeutigkeitsVerstoss, Konflikt } from "../../konflikt.js";
+import {
+  eindeutigkeitsVerstoss,
+  fremdschluesselVerstoss,
+  Konflikt,
+} from "../../konflikt.js";
 import {
   erstelleKontoFabrik,
   neuesKontoMitTelefonSchema,
@@ -181,6 +187,60 @@ export function erstelleEinheitenRouten({ db }: { db: Db }) {
           }
           throw fehler;
         }
+      })
+      // Nur eine leere Einheit: Das Kommando zählt nicht als Inhalt, sein Konto geht mit, wenn es sonst nirgends gebraucht wird. Alles andere (Teilnehmende, Programme, Zeitregeln, weitere Rollen) hält der Fremdschlüssel auf restrict zurück
+      .delete("/:einheitId", eingabe("param", pfadSchema), async (c) => {
+        const person = c.get("person");
+        const { einheitId } = c.req.valid("param");
+        // Fremde wie unbekannte Einheiten sind 404, erst danach zählt das Recht
+        await pruefeEinheit(db, person, einheitId, "lesen");
+        if (!person.kantonsadmin) throw new HTTPException(403);
+        await db
+          .transaction(async (tx) => {
+            const [weg] = await tx
+              .select({ typ: einheit.typ, bezirkId: einheit.bezirkId })
+              .from(einheit)
+              .where(eq(einheit.id, einheitId));
+            if (!weg) throw new HTTPException(404);
+            const [kommando] = await tx
+              .delete(einheitRolle)
+              .where(
+                and(
+                  eq(einheitRolle.einheitId, einheitId),
+                  eq(einheitRolle.typ, "kommandant"),
+                ),
+              )
+              .returning({ userId: einheitRolle.userId });
+            await tx.delete(rang).where(eq(rang.einheitId, einheitId));
+            await tx.delete(einheit).where(eq(einheit.id, einheitId));
+            if (kommando) {
+              const [gebraucht] = await tx
+                .select({ eins: sql<number>`1` })
+                .from(user)
+                .where(
+                  and(
+                    eq(user.id, kommando.userId),
+                    sql`(${user.role} = 'admin' or exists (select 1 from ${einheitRolle} where ${einheitRolle.userId} = ${user.id}) or exists (select 1 from ${teilnehmendeKonto} where ${teilnehmendeKonto.userId} = ${user.id}))`,
+                  ),
+                );
+              if (!gebraucht)
+                await tx.delete(user).where(eq(user.id, kommando.userId));
+            }
+            await protokolliere(tx, {
+              einheitId,
+              akteurId: person.id,
+              aktion: "einheit_geloescht",
+              zielTyp: "einheit",
+              zielId: einheitId,
+              details: { typ: weg.typ, bezirkId: weg.bezirkId },
+            });
+          })
+          .catch((fehler) => {
+            if (fremdschluesselVerstoss(fehler))
+              throw new Konflikt("EINHEIT_BELEGT");
+            throw fehler;
+          });
+        return c.body(null, 204);
       })
       .get("/:einheitId/logo", eingabe("param", pfadSchema), async (c) => {
         const person = c.get("person");

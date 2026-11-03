@@ -10,6 +10,7 @@ const AKTIONEN = {
   bezirk_umbenannt: "Bezirk umbenannt",
   bezirk_geloescht: "Bezirk gelöscht",
   einheit_angelegt: "Einheit angelegt",
+  einheit_geloescht: "Einheit gelöscht",
   kommando_uebergeben: "Kommando übergeben",
   person_angelegt: "Konto angelegt",
   person_geaendert: "Konto geändert",

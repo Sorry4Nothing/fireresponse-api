@@ -12,6 +12,11 @@ export const KONFLIKT = {
     code: "BEZIRK_BELEGT",
     message: "Der Bezirk hat noch Einheiten und lässt sich nicht löschen.",
   },
+  EINHEIT_BELEGT: {
+    code: "EINHEIT_BELEGT",
+    message:
+      "Die Einheit hat noch Teilnehmende, Programme, Zeitregeln oder weitere Rollen und lässt sich nicht löschen.",
+  },
   EINHEIT_VORHANDEN: {
     code: "EINHEIT_VORHANDEN",
     message: "Dieser Bezirk hat schon eine Einheit dieser Art.",
@@ -79,4 +84,13 @@ export function eindeutigkeitsVerstoss(fehler: unknown): string | undefined {
     f = f.cause as Record<string, unknown> | undefined;
   }
   return undefined;
+}
+
+// Drizzle verpackt den Fehler von postgres-js in cause; on delete restrict meldet 23001, ein anderer Fremdschlüssel 23503
+export function fremdschluesselVerstoss(fehler: unknown): boolean {
+  for (let f = fehler as Record<string, unknown> | undefined; f;) {
+    if (f.code === "23001" || f.code === "23503") return true;
+    f = f.cause as Record<string, unknown> | undefined;
+  }
+  return false;
 }

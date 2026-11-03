@@ -509,10 +509,8 @@ export const zeitregelGesendet = pgTable(
 // akteur_id und ziel_id ohne Fremdschlüssel, damit das Log Löschungen übersteht
 export const auditLog = pgTable("audit_log", {
   id: id(),
-  // Leer bei Aktionen, die keine Einheit betreffen (Bezirke, Kantonsadmin)
-  einheitId: uuid("einheit_id").references(() => einheit.id, {
-    onDelete: "restrict",
-  }),
+  // Leer bei Aktionen, die keine Einheit betreffen (Bezirke, Kantonsadmin). Ohne Fremdschlüssel, damit das Log das Löschen der Einheit übersteht
+  einheitId: uuid("einheit_id"),
   // UUID einer Person oder «cli» für die Kommandozeile, die kein Konto hat
   akteurId: text("akteur_id").notNull(),
   aktion: text("aktion").notNull(),
