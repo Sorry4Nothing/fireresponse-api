@@ -253,6 +253,29 @@ function stellvertretungEntfernen(person, einheit, ctx, neu) {
   });
 }
 
+// Befördert eine Leitung ans Ende der Stellvertretungen oder stuft eine Stellvertretung zur Leitung zurück; nur das Kommando
+function rolleAendern(person, nach, einheit, ctx, neu) {
+  const stv = nach === "stellvertretung";
+  bestaetigen({
+    titel: stv ? "Zur Stellvertretung befördern" : "Zur Leitung zurückstufen",
+    beschreibung: stv
+      ? `«${person.name}» wird Stellvertretung und kommt ans Ende der Reihenfolge. Konto und Rang bleiben. Sie darf danach die Einheit verwalten und braucht dafür einen zweiten Faktor. Eltern und Teilnehmende sehen die Nummer, falls eine hinterlegt ist.`
+      : `«${person.name}» wird Leitung und verlässt die Reihenfolge der Stellvertretungen. Konto und Rang bleiben. Die Nummer ist danach nicht mehr in der App zu sehen.`,
+    ok: stv ? "Befördern" : "Zurückstufen",
+    aktion: () =>
+      anfrage("PUT", `${basis(einheit)}/personen/${person.id}/rolle`, {
+        rolle: nach,
+      }),
+    danach: () => {
+      zustand.fokus = person.id;
+      neu();
+      ctx.melde(
+        `«${person.name}» ist jetzt ${stv ? "Stellvertretung" : "Leitung"}.`,
+      );
+    },
+  });
+}
+
 // Die Reihenfolge, in der die Kontaktliste der App die Stellvertretungen nennt; nur das Kommando ordnet
 function reihenfolgeKarte(stellvertretungen, einheit, ctx, neu) {
   const darf = darfStellvertretungen(einheit);
@@ -419,6 +442,17 @@ function zeichne(bereich, ctx, einheit, daten, neu) {
       zeilen: treffer.slice(von, bis).map((p) => {
         const eintraege = [
           ...kontoMenueEintraege(p, einheit, ctx, neu),
+          p.rolle === "leitung" &&
+            darfStellvertretungen(einheit) && {
+              text: "Zur Stellvertretung befördern",
+              onclick: () =>
+                rolleAendern(p, "stellvertretung", einheit, ctx, neu),
+            },
+          p.rolle === "stellvertretung" &&
+            darfStellvertretungen(einheit) && {
+              text: "Zur Leitung zurückstufen",
+              onclick: () => rolleAendern(p, "leitung", einheit, ctx, neu),
+            },
           p.rolle === "leitung" && {
             text: "Als Leitung entfernen",
             gefaehrlich: true,
@@ -443,7 +477,10 @@ function zeichne(bereich, ctx, einheit, daten, neu) {
             el(
               "div",
               { class: "wer" },
-              avatar(p.name, { hell: !p.eigenes }),
+              avatar(p.name, {
+                hell: !p.eigenes,
+                bildUrl: `/api/v1/personen/${p.id}/bild`,
+              }),
               el(
                 "div",
                 {},

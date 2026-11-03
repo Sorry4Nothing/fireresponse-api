@@ -18,6 +18,7 @@ const AKTIONEN = {
   person_deaktiviert: "Konto deaktiviert",
   person_aktiviert: "Konto aktiviert",
   zweiter_faktor_zurueckgesetzt: "Zweiter Faktor zurückgesetzt",
+  rolle_geaendert: "Rolle geändert",
   leitung_entfernt: "Leitung entfernt",
   stellvertretung_geordnet: "Stellvertretungen geordnet",
   stellvertretung_entfernt: "Stellvertretung entfernt",

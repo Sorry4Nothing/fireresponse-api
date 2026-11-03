@@ -209,7 +209,7 @@ Bleibt nach einem Abbruch ein Lock im Archiv zurück: `docker compose -f docker-
 
 `/health` antwortet ohne Login mit `ok` (Status 200), `fehler` oder `sync-veraltet` (Status 503). `fehler` heisst: Die Datenbank ist nicht erreichbar oder ihre Tabellen fehlen. `sync-veraltet` heisst: Der Lodur-Sync einer Einheit mit Link ist seit über 60 Minuten nicht gelungen; welche Einheit und warum, zeigt die Verwaltung (`GET /api/v1/admin/einheiten/{einheitId}/lodur`, Feld `syncFehler`) und das Log (`"ereignis":"lodur-sync"`, nur ein Code). Den Grund nennt nur das Log der API, nie die Antwort. Ist die Datenbank nicht erreichbar, dauert die Antwort rund 5 Sekunden.
 
-Ein kostenloser Uptime-Dienst ruft `/health` auf; er sieht nur `ok` oder `fehler`. Welcher Dienst, ist offen; infrage kommen etwa UptimeRobot oder Better Stack. Vor der Wahl die aktuellen Bedingungen des Gratis-Plans lesen (Intervall, Zahl der Monitore, erlaubte Nutzung, Standort der Server). Der Dienst sieht nur die öffentliche Adresse und die Antwort `ok` oder `fehler`, keine Personendaten. Anforderungen:
+Ein kostenloser Uptime-Dienst ruft `/health` auf; er sieht nur `ok` oder `fehler`. Gewählt ist UptimeRobot. Bei einem Wechsel zuerst die aktuellen Bedingungen des Gratis-Plans lesen (Intervall, Zahl der Monitore, erlaubte Nutzung, Standort der Server). Der Dienst sieht nur die öffentliche Adresse und die Antwort `ok` oder `fehler`, keine Personendaten. Anforderungen:
 
 - Gratis-Plan; für das Konto gelten die Regeln aus «Konten».
 - HTTPS-Check auf `https://api.fireresponse.ch/health`, im kürzesten Intervall des Gratis-Plans. HEAD oder GET: Die API beantwortet HEAD wie GET, samt Status.

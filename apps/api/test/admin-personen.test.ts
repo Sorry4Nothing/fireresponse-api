@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { and, eq } from "drizzle-orm";
 import postgres from "postgres";
 import {
@@ -502,6 +503,119 @@ describe("DELETE /leitende/:userId", () => {
     // Leitende dürfen es nicht
     const andere = await person("leitendeJfAElternKfA");
     expect((await senden(andere, "DELETE", pfad(andere.id!))).status).toBe(403);
+  });
+});
+
+describe("PUT /personen/:userId/rolle", () => {
+  const rolle = (id: string) => konto(id, "/rolle");
+  const zeile = async (userId: string) =>
+    (
+      await db
+        .select({
+          typ: schema.einheitRolle.typ,
+          reihenfolge: schema.einheitRolle.reihenfolge,
+          rangId: schema.einheitRolle.rangId,
+        })
+        .from(schema.einheitRolle)
+        .where(
+          and(
+            eq(schema.einheitRolle.userId, userId),
+            eq(schema.einheitRolle.einheitId, welt.einheit.jfA),
+          ),
+        )
+    )[0];
+
+  test("befördert eine Leitung ans Ende der Stellvertretungen und stuft sie zurück", async () => {
+    const [kdt, leitung] = await Promise.all([
+      person("kommandoJfA"),
+      person("leitendeJfA"),
+    ]);
+    const stellvertretungen = await db
+      .select({ reihenfolge: schema.einheitRolle.reihenfolge })
+      .from(schema.einheitRolle)
+      .where(
+        and(
+          eq(schema.einheitRolle.einheitId, welt.einheit.jfA),
+          eq(schema.einheitRolle.typ, "stellvertretung"),
+        ),
+      );
+    const ende =
+      Math.max(0, ...stellvertretungen.map((s) => s.reihenfolge ?? 0)) + 1;
+
+    const vorher = await zeile(leitung.id!);
+    expect(
+      (
+        await senden(kdt, "PUT", rolle(leitung.id!), {
+          rolle: "stellvertretung",
+        })
+      ).status,
+    ).toBe(204);
+    expect(await zeile(leitung.id!)).toEqual({
+      typ: "stellvertretung",
+      reihenfolge: ende,
+      rangId: vorher.rangId,
+    });
+
+    expect(
+      (await senden(kdt, "PUT", rolle(leitung.id!), { rolle: "leitung" }))
+        .status,
+    ).toBe(204);
+    expect(await zeile(leitung.id!)).toEqual({
+      typ: "leitung",
+      reihenfolge: null,
+      rangId: vorher.rangId,
+    });
+    const protokoll = await db
+      .select({ details: schema.auditLog.details })
+      .from(schema.auditLog)
+      .where(
+        and(
+          eq(schema.auditLog.zielId, leitung.id!),
+          eq(schema.auditLog.aktion, "rolle_geaendert"),
+        ),
+      );
+    expect(protokoll.map((p) => p.details)).toEqual(
+      expect.arrayContaining([
+        { von: "leitung", nach: "stellvertretung" },
+        { von: "stellvertretung", nach: "leitung" },
+      ]),
+    );
+  });
+
+  test("gleiche Rolle und Kommando sind 409, Fremde 404, eine Stellvertretung darf nicht", async () => {
+    const [kdt, stv, leitung] = await Promise.all([
+      person("kommandoJfA"),
+      person("stellvertretung1JfA"),
+      person("leitendeJfA"),
+    ]);
+    const code = async (antwort: Response) =>
+      ((await antwort.json()) as { code: string }).code;
+    const gleiche = await senden(kdt, "PUT", rolle(leitung.id!), {
+      rolle: "leitung",
+    });
+    expect(gleiche.status).toBe(409);
+    expect(await code(gleiche)).toBe("ROLLE_GLEICH");
+    const kommando = await senden(kdt, "PUT", rolle(kdt.id!), {
+      rolle: "leitung",
+    });
+    expect(kommando.status).toBe(409);
+    expect(await code(kommando)).toBe("ROLLE_KOMMANDO");
+    expect(
+      (await senden(kdt, "PUT", rolle(randomUUID()), { rolle: "leitung" }))
+        .status,
+    ).toBe(404);
+    expect(
+      (await senden(kdt, "PUT", rolle(leitung.id!), { rolle: "kommandant" }))
+        .status,
+    ).toBe(400);
+    expect(
+      (
+        await senden(stv, "PUT", rolle(leitung.id!), {
+          rolle: "stellvertretung",
+        })
+      ).status,
+    ).toBe(403);
+    expect((await zeile(leitung.id!)).typ).toBe("leitung");
   });
 });
 
