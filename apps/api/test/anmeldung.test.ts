@@ -541,41 +541,22 @@ describe("Termine einer Art ohne Anmeldung", () => {
     ).toHaveLength(0);
   });
 
-  test("der Termin bleibt im Kalender, ohne Anmeldung", async () => {
+  test("ein nicht gewählter Termin erreicht die App nicht, ein gewählter schon", async () => {
     const id = await sitzung();
     const eltern = await person("elternJfA");
-    const detail = await lies(eltern, `/api/v1/programme/${id}`);
-    expect(detail).toMatchObject({
-      art: "Sitzung",
-      anmeldbar: false,
-      teilnahmeOffen: false,
-      teilnehmende: [],
+    const detail = await app.request(`/api/v1/programme/${id}`, {
+      headers: eltern.headers,
     });
-    const leitung = await lies(
-      await person("leitendeJfA"),
-      `/api/v1/programme/${id}`,
-    );
-    expect(leitung).not.toHaveProperty("eigeneAnmeldung");
+    expect(detail.status).toBe(404);
 
     const jahr = new Date().getFullYear();
     const liste = await lies(
       eltern,
       `/api/v1/programme?von=${jahr}-01-01&bis=${jahr + 1}-12-31`,
     );
-    const eintrag = liste.programme.find((p: { id: string }) => p.id === id);
-    expect(eintrag).toMatchObject({
-      art: "Sitzung",
-      anmeldbar: false,
-      teilnahmeOffen: false,
-      teilnehmende: [],
-    });
-    const listeLeitung = await lies(
-      await person("leitendeJfA"),
-      `/api/v1/programme?von=${jahr}-01-01&bis=${jahr + 1}-12-31`,
-    );
     expect(
-      listeLeitung.programme.find((p: { id: string }) => p.id === id),
-    ).not.toHaveProperty("eigeneAnmeldung");
+      liste.programme.find((p: { id: string }) => p.id === id),
+    ).toBeUndefined();
     const anmeldbar = liste.programme.find((p: { id: string }) => p.id === jfA);
     expect(anmeldbar).toMatchObject({ anmeldbar: true, teilnahmeOffen: true });
     expect(anmeldbar.teilnehmende).not.toHaveLength(0);

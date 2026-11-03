@@ -591,10 +591,10 @@ function lodurAbschnitte(e, ctx, geaendert) {
         el(
           "p",
           { class: "hinweis hinweis--warn" },
-          "Noch nicht festgelegt: Solange du nichts speicherst, kann man sich für keinen Termin anmelden. Alle Termine bleiben im Kalender sichtbar.",
+          "Noch nicht festgelegt: Solange du nichts speicherst, kann man sich für keinen Termin anmelden. Die App zeigt alle Termine.",
         ),
       gruppe(
-        "Anmeldung anbieten für",
+        "In der App sichtbar für",
         el(
           "div",
           {},
@@ -604,7 +604,7 @@ function lodurAbschnitte(e, ctx, geaendert) {
       el(
         "p",
         { class: "hilfe" },
-        "Nur Termine der gewählten Arten haben eine Anmeldung, Erinnerungen und eine Auswertung. Die übrigen bleiben im Kalender sichtbar, ohne Anmeldung. Bestehende Antworten bleiben gespeichert.",
+        "Die App zeigt nur Termine der gewählten Arten; nur sie haben eine Anmeldung, Erinnerungen und eine Auswertung. Ohne Auswahl zeigt die App alle Termine, aber keiner hat eine Anmeldung. Bestehende Antworten bleiben gespeichert.",
       ),
       artenFehler,
       el(
