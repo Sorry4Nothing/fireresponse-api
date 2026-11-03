@@ -377,6 +377,32 @@ describe("GET /api/v1/personen/:id/bild: wer es sieht", () => {
     expect((await holen(anderer, eltern.id)).status).toBe(404);
   });
 
+  test("die Verwaltung holt das Bild unter /admin/ auch ohne Einwilligung in die App", async () => {
+    const [kommando, ohne] = await Promise.all([
+      person("kommandoJfA"),
+      person("ohneEinwilligung"),
+    ]);
+    await hochladen(kommando, await jpeg());
+    expect((await holen(ohne, kommando.id)).status).toBe(403);
+    const res = await app.request(
+      `/api/v1/admin/personen/${kommando.id}/bild`,
+      {
+        headers: ohne.headers,
+      },
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get("cache-control")).toBe("private, no-store");
+    // Dieselbe Sichtbarkeit: Wer die Person nicht kennt, bekommt 404
+    const fremd = await person("kommandoKfA");
+    expect(
+      (
+        await app.request(`/api/v1/admin/personen/${kommando.id}/bild`, {
+          headers: fremd.headers,
+        })
+      ).status,
+    ).toBe(404);
+  });
+
   test("die Liste der Anmeldungen trägt bildUrl der Leitenden", async () => {
     const [kommando, leitende] = await Promise.all([
       person("kommandoJfA"),
