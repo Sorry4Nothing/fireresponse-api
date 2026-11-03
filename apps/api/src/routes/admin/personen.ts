@@ -33,6 +33,10 @@ import {
 } from "../../startpasswort.js";
 import { telefonSchema } from "../../telefon.js";
 import { setzeZweitenFaktorZurueck } from "../../zweiter-faktor.js";
+import {
+  sperreStellvertretungen,
+  stellvertretungen,
+} from "./stellvertretungen.js";
 
 const einheitPfad = z.strictObject({ einheitId: z.uuid() });
 const zielPfad = z.strictObject({ einheitId: z.uuid(), userId: z.uuid() });
@@ -45,6 +49,10 @@ const aendernSchema = z
   })
   .partial()
   .refine((b) => Object.values(b).some((wert) => wert !== undefined));
+
+const rolleSchema = z.strictObject({
+  rolle: z.enum(["leitung", "stellvertretung"]),
+});
 
 // Darf der Akteur diese Aktion am Konto? Sonst die Antwort, die dem Panel den Grund nennt
 function pruefeAktion(
@@ -208,7 +216,60 @@ export function erstellePersonenRouten({ db }: { db: Db }) {
         return c.body(null, 204);
       },
     )
-    .get("/:userId/startpasswort", eingabe("param", zielPfad), async (c) => {
+  // Befördert eine Leitung zur Stellvertretung oder stuft sie zurück; Konto, Rang und Telefon bleiben. Recht wie bei den Stellvertretungen: nur das Kommando (und der Kantonsadmin)
+    .put(
+      "/:userId/rolle",
+      eingabe("param", zielPfad),
+      eingabe("json", rolleSchema),
+      async (c) => {
+        const person = c.get("person");
+        const { einheitId, userId } = c.req.valid("param");
+        const { rolle } = c.req.valid("json");
+        await pruefeEinheit(db, person, einheitId, "stellvertretungen");
+        await db.transaction(async (tx) => {
+          await sperreStellvertretungen(tx, einheitId);
+          const [bisher] = await tx
+            .select({ typ: einheitRolle.typ })
+            .from(einheitRolle)
+            .where(
+              and(
+                eq(einheitRolle.einheitId, einheitId),
+                eq(einheitRolle.userId, userId),
+              ),
+            );
+          if (!bisher) throw new HTTPException(404);
+          if (bisher.typ === "kommandant")
+            throw new Konflikt("ROLLE_KOMMANDO");
+          if (bisher.typ === rolle) throw new Konflikt("ROLLE_GLEICH");
+          await tx
+            .update(einheitRolle)
+            .set({
+              typ: rolle,
+              // Eine neue Stellvertretung kommt ans Ende; die Lücke einer zurückgestuften schliesst sich beim Zählen
+              reihenfolge:
+                rolle === "stellvertretung"
+                  ? sql`(select coalesce(max(${einheitRolle.reihenfolge}), 0) + 1 from ${einheitRolle} where ${stellvertretungen(einheitId)})`
+                  : null,
+            })
+            .where(
+              and(
+                eq(einheitRolle.einheitId, einheitId),
+                eq(einheitRolle.userId, userId),
+              ),
+            );
+          await protokolliere(tx, {
+            einheitId,
+            akteurId: person.id,
+            aktion: "rolle_geaendert",
+            zielTyp: "person",
+            zielId: userId,
+            details: { von: bisher.typ, nach: rolle },
+          });
+        });
+        return c.body(null, 204);
+      },
+    )
+      .get("/:userId/startpasswort", eingabe("param", zielPfad), async (c) => {
       const person = c.get("person");
       const { einheitId, userId } = c.req.valid("param");
       const ziel = await ladeZiel(person, einheitId, userId);

@@ -20,6 +20,14 @@ export const KONFLIKT = {
     code: "REIHENFOLGE_BELEGT",
     message: "Diese Position der Stellvertretung ist schon besetzt.",
   },
+  ROLLE_GLEICH: {
+    code: "ROLLE_GLEICH",
+    message: "Die Person hat diese Rolle schon.",
+  },
+  ROLLE_KOMMANDO: {
+    code: "ROLLE_KOMMANDO",
+    message: "Das Kommando wechselt nur über die Übergabe.",
+  },
   ELTERN_ANTWORTEN: {
     code: "ELTERN_ANTWORTEN",
     message:

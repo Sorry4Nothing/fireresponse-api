@@ -23,7 +23,7 @@ const anlegenSchema = neuesKontoMitTelefonSchema.extend({
 });
 const ordnenSchema = z.strictObject({ reihenfolge: position });
 
-const sperreStellvertretungen = (tx: Tx, einheitId: string) =>
+export const sperreStellvertretungen = (tx: Tx, einheitId: string) =>
   // Zeilensperre auf der Einheit, wie bei der Übergabe: Zwei gleichzeitige Änderungen laufen nacheinander
   tx
     .select({ id: einheit.id })
@@ -31,7 +31,7 @@ const sperreStellvertretungen = (tx: Tx, einheitId: string) =>
     .where(eq(einheit.id, einheitId))
     .for("no key update");
 
-const stellvertretungen = (einheitId: string) =>
+export const stellvertretungen = (einheitId: string) =>
   and(
     eq(einheitRolle.einheitId, einheitId),
     eq(einheitRolle.typ, "stellvertretung"),
