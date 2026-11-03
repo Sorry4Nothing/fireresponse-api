@@ -488,6 +488,13 @@ const MATRIX: Record<string, Zeile> = {
       `/api/v1/admin/einheiten/${welt.einheit.jfA}/leitende/${(await wegwerfKonto()).id}`,
     erwartet: VERWALTEN_JF_A(204),
   },
+  // Befördert eine Leitung zur Stellvertretung, nur das Kommando: Jede Anfrage verbraucht ihre Leitung
+  "PUT /api/v1/admin/einheiten/:einheitId/personen/:userId/rolle": {
+    urlJeAnfrage: async () =>
+      `/api/v1/admin/einheiten/${welt.einheit.jfA}/personen/${(await wegwerfKonto()).id}/rolle`,
+    body: () => ({ rolle: "stellvertretung" }),
+    erwartet: STELLVERTRETUNGEN_JF_A(204),
+  },
   // Konten der Einheit (Kommando, Stellvertretungen, Leitende) mit Zustand und erlaubten Aktionen; die Aktionen am Konto prüft test/admin-personen.test.ts. Die Ziele sind Wegwerf-Konten, die keine Persona der Matrix sind: Ein neues Startpasswort beendet ihre Sitzungen
   "GET /api/v1/admin/einheiten/:einheitId/personen": {
     url: (w) => `/api/v1/admin/einheiten/${w.einheit.jfA}/personen`,

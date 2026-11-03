@@ -2978,6 +2978,44 @@ paths:
           $ref: "#/components/responses/AppVeraltet426"
         "429":
           $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/admin/einheiten/{einheitId}/personen/{userId}/rolle:
+    put:
+      operationId: aendereAdminPersonRolle
+      summary: Rolle einer Person ändern (Leitung und Stellvertretung)
+      tags:
+        - Verwaltung
+      description: |
+        Nur Kommando der Einheit und Kantonsadmin. Befördert eine Leitung zur Stellvertretung (`stellvertretung`, ans Ende der Reihenfolge) oder stuft eine Stellvertretung zur Leitung zurück (`leitung`). Konto, Rang und Telefon bleiben. Die Position ändert das Ordnen der Stellvertretungen. Der Wechsel steht im Audit-Log.
+        Das Kommando wechselt nur über die Übergabe (409 `ROLLE_KOMMANDO`); dieselbe Rolle ist 409 `ROLLE_GLEICH`.
+
+        Statuscodes: 204, 400, 401, 403 (auch Stellvertretungen), 404 (Einheit unsichtbar oder Person ohne Rolle in der Einheit), 409, 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/EinheitIdPfad"
+        - $ref: "#/components/parameters/AdminUserIdPfad"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminRolleAendern"
+      responses:
+        "204":
+          description: Geändert.
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "409":
+          $ref: "#/components/responses/AdminKonflikt409"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
   /api/v1/admin/einheiten/{einheitId}/personen/{userId}/startpasswort:
     get:
       operationId: zeigeAdminStartpasswort
@@ -4067,6 +4105,8 @@ components:
             - BEZIRK_BELEGT
             - EINHEIT_VORHANDEN
             - REIHENFOLGE_BELEGT
+            - ROLLE_GLEICH
+            - ROLLE_KOMMANDO
             - ELTERN_ANTWORTEN
             - SELBST_ANTWORTET
             - EIGENES_KONTO_VORHANDEN
@@ -5639,6 +5679,14 @@ components:
           type: integer
           minimum: 1
           maximum: 99
+    AdminRolleAendern:
+      type: object
+      required: [rolle]
+      additionalProperties: false
+      properties:
+        rolle:
+          type: string
+          enum: [leitung, stellvertretung]
     AdminElternAnlegen:
       type: object
       required: [eltern]
