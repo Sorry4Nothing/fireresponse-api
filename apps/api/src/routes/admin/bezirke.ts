@@ -5,7 +5,11 @@ import { z } from "zod";
 import type { Db } from "../../db/client.js";
 import { bezirk } from "../../db/schema.js";
 import { eingabe } from "../../eingabe.js";
-import { eindeutigkeitsVerstoss, Konflikt } from "../../konflikt.js";
+import {
+  eindeutigkeitsVerstoss,
+  fremdschluesselVerstoss,
+  Konflikt,
+} from "../../konflikt.js";
 import { protokolliere } from "../../konten.js";
 import type { Person } from "../../rechte.js";
 
@@ -14,15 +18,6 @@ const anlegenSchema = z.strictObject({
 });
 
 const pfadSchema = z.strictObject({ bezirkId: z.uuid() });
-
-// Drizzle verpackt den Fehler von postgres-js in cause; on delete restrict meldet 23001, ein anderer Fremdschlüssel 23503
-function fremdschluesselVerstoss(fehler: unknown): boolean {
-  for (let f = fehler as Record<string, unknown> | undefined; f;) {
-    if (f.code === "23001" || f.code === "23503") return true;
-    f = f.cause as Record<string, unknown> | undefined;
-  }
-  return false;
-}
 
 // Bezirke gehören dem Kantonsadmin; sie sind kein Objekt einer Einheit, darum gleich 403
 export function erstelleBezirkRouten({ db }: { db: Db }) {

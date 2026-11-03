@@ -665,6 +665,38 @@ function lodurAbschnitte(e, ctx, geaendert) {
   return [linkBlock, artenBlock];
 }
 
+// Nur eine leere Einheit: Das Kommando-Konto geht mit, Teilnehmende, Programme und Zeitregeln halten die Einheit zurück
+function loeschenAbschnitt(e, ctx, neu, schliesse) {
+  return el(
+    "div",
+    { class: "abschnitt" },
+    el("h3", {}, "Einheit löschen"),
+    el(
+      "p",
+      { class: "hilfe" },
+      "Das geht nur, solange die Einheit leer ist: ohne Teilnehmende, Programme, Zeitregeln und weitere Rollen. Das Konto des Kommandos wird mit gelöscht.",
+    ),
+    knopf("Einheit löschen", {
+      art: "gefahr",
+      symbol: "papierkorb",
+      onclick: () =>
+        bestaetigen({
+          titel: `Einheit «${e.name}» löschen?`,
+          beschreibung:
+            "Die Einheit und das Konto der Kommandantin oder des Kommandanten werden gelöscht. Das lässt sich nicht rückgängig machen.",
+          ok: "Löschen",
+          aktion: () => anfrage("DELETE", `/api/v1/admin/einheiten/${e.id}`),
+          danach: async () => {
+            schliesse();
+            await ctx.einheitenNeu();
+            neu();
+            ctx.melde("Die Einheit ist gelöscht.");
+          },
+        }),
+    }),
+  );
+}
+
 function details(e, ctx, neu) {
   const geaendert = { wert: false };
   const blatt = seitenblatt({
@@ -703,6 +735,7 @@ function details(e, ctx, neu) {
       ),
       logoAbschnitt(e, ctx, neu, () => blatt.close()),
       ...lodurAbschnitte(e, ctx, geaendert),
+      istKantonsadmin() && loeschenAbschnitt(e, ctx, neu, () => blatt.close()),
       el(
         "div",
         { class: "abschnitt" },
