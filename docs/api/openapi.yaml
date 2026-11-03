@@ -3448,6 +3448,50 @@ paths:
                 type: string
         "429":
           $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/admin/personen/{id}/bild:
+    get:
+      operationId: adminPersonBildLesen
+      summary: Profilbild einer Person für die Verwaltung lesen
+      tags:
+        - Verwaltung
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - name: id
+          in: path
+          required: true
+          description: ID der Person.
+          schema:
+            type: string
+            format: uuid
+      description: |
+        Dasselbe Bild wie `GET /api/v1/personen/{id}/bild`, mit denselben Rollen, demselben Cache-Header und derselben Antwort 404 für alle,
+        die es nicht sehen. Der Unterschied: Unter `/admin/` gilt die Einwilligung in die App nicht, dafür der zweite Faktor
+        (Kommando, Stellvertretung und Kantonsadmin ohne zweiten Faktor: 403). Die Verwaltung ruft diese Adresse auf.
+        Statuscodes: 200, 400, 401, 403, 404, 426.
+      responses:
+        "200":
+          description: Das Bild.
+          headers:
+            Cache-Control:
+              description: Immer `private, no-store`.
+              schema:
+                type: string
+                const: private, no-store
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
   /api/v1/admin/konten:
     get:
       operationId: sucheAdminKonto
