@@ -193,12 +193,12 @@ function einheitAnlegen(daten, ctx, neu) {
       el("label", { for: id }, icon("haken"), text),
     ];
   });
-  const name = feld({
-    label: "Name der Einheit",
-    maxlength: 100,
-    required: true,
-    hilfe: "Zum Beispiel «Jugendfeuerwehr Musterdorf».",
-  });
+  // Der Name ist Art und Bezirk (je Bezirk und Art gibt es nur eine Einheit), darum kein eigenes Feld
+  const einheitenName = () =>
+    `${TYPNAME[typ.wert]} ${daten.bezirke.find((b) => b.id === bezirk.eingabe.value).name}`.slice(
+      0,
+      100,
+    ); // shortcut: schneidet bei überlangem Bezirksnamen ab, den Namen der Einheit begrenzt die API auf 100 Zeichen
   const vorname = feld({ label: "Vorname", maxlength: 100, required: true });
   const nachname = feld({ label: "Nachname", maxlength: 100, required: true });
   const benutzername = feld({
@@ -232,7 +232,6 @@ function einheitAnlegen(daten, ctx, neu) {
           typOptionen,
         ),
       ),
-      name.wurzel,
       el("h3", {}, "Kommando"),
       vorname.wurzel,
       nachname.wurzel,
@@ -244,7 +243,7 @@ function einheitAnlegen(daten, ctx, neu) {
       anfrage("POST", "/api/v1/admin/einheiten", {
         bezirkId: bezirk.eingabe.value,
         typ: typ.wert,
-        name: name.eingabe.value.trim(),
+        name: einheitenName(),
         kommandant: {
           vorname: vorname.eingabe.value.trim(),
           nachname: nachname.eingabe.value.trim(),
@@ -258,7 +257,7 @@ function einheitAnlegen(daten, ctx, neu) {
       zustand.fokus = antwort.id;
       await ctx.einheitenNeu();
       neu();
-      ctx.melde(`Die Einheit «${name.eingabe.value.trim()}» ist angelegt.`);
+      ctx.melde(`Die Einheit «${einheitenName()}» ist angelegt.`);
       geheimnisDialog({
         titel: "Startpasswort",
         beschreibung: `Gib das Startpasswort für «${antwort.kommandant.benutzername}» sicher weiter. Es gilt 7 Tage und steht nur in diesem Fenster; solange es offen ist, zeigt die Verwaltung es wieder an.`,

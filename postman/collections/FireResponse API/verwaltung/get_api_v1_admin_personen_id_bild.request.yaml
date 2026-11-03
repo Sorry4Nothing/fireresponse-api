@@ -1,0 +1,14 @@
+$kind: http-request
+name: "GET /api/v1/admin/personen/:id/bild"
+order: 95500
+method: GET
+url: "{{baseUrl}}/api/v1/admin/personen/{{bildZielId}}/bild"
+headers:
+  - key: "Cookie"
+    value: "{{cookie}}"
+  - key: "expo-origin"
+    value: "{{expoOrigin}}"
+  - key: "X-Forwarded-For"
+    value: "{{ip}}"
+  - key: "X-App-Version"
+    value: "{{appVersion}}"
