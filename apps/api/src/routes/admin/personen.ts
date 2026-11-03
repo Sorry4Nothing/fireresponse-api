@@ -216,12 +216,12 @@ export function erstellePersonenRouten({ db }: { db: Db }) {
         return c.body(null, 204);
       },
     )
-  // Befördert eine Leitung zur Stellvertretung oder stuft sie zurück; Konto, Rang und Telefon bleiben. Recht wie bei den Stellvertretungen: nur das Kommando (und der Kantonsadmin)
     .put(
       "/:userId/rolle",
       eingabe("param", zielPfad),
       eingabe("json", rolleSchema),
       async (c) => {
+        // Befördert eine Leitung zur Stellvertretung oder stuft sie zurück; Konto, Rang und Telefon bleiben. Recht wie bei den Stellvertretungen: nur das Kommando (und der Kantonsadmin)
         const person = c.get("person");
         const { einheitId, userId } = c.req.valid("param");
         const { rolle } = c.req.valid("json");
@@ -238,8 +238,7 @@ export function erstellePersonenRouten({ db }: { db: Db }) {
               ),
             );
           if (!bisher) throw new HTTPException(404);
-          if (bisher.typ === "kommandant")
-            throw new Konflikt("ROLLE_KOMMANDO");
+          if (bisher.typ === "kommandant") throw new Konflikt("ROLLE_KOMMANDO");
           if (bisher.typ === rolle) throw new Konflikt("ROLLE_GLEICH");
           await tx
             .update(einheitRolle)
@@ -269,7 +268,7 @@ export function erstellePersonenRouten({ db }: { db: Db }) {
         return c.body(null, 204);
       },
     )
-      .get("/:userId/startpasswort", eingabe("param", zielPfad), async (c) => {
+    .get("/:userId/startpasswort", eingabe("param", zielPfad), async (c) => {
       const person = c.get("person");
       const { einheitId, userId } = c.req.valid("param");
       const ziel = await ladeZiel(person, einheitId, userId);
