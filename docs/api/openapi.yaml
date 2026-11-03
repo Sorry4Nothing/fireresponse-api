@@ -4024,7 +4024,7 @@ components:
           description: Art des Termins laut Lodur (Sitzung, Übung, Kurs, Anlass …); `null`, wenn die Quelle sie nicht liefert.
         anmeldbar:
           type: boolean
-          description: Die Einheit hat die Art des Termins für die Anmeldung freigegeben. Falsch heisst, der Termin hat keine Anmeldung (`teilnehmende` ist leer, `eigeneAnmeldung` fehlt, `teilnahmeOffen` ist falsch); die App zeigt ihn nur im Kalender.
+          description: Die Einheit hat die Art des Termins für die Anmeldung freigegeben. Falsch heisst, der Termin hat keine Anmeldung (`teilnehmende` ist leer, `eigeneAnmeldung` fehlt, `teilnahmeOffen` ist falsch); die App zeigt ihn nur im Kalender. Hat die Einheit Arten gewählt, liefern Liste und Detail nur Termine dieser Arten (die anderen fehlen in der Liste, das Detail meldet 404); ohne Auswahl liefern sie alle.
         anmeldungAb:
           type: string
           format: date

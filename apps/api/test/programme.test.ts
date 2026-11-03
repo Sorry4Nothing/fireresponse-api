@@ -1,3 +1,4 @@
+import { eq } from "drizzle-orm";
 import postgres from "postgres";
 import {
   afterAll,
@@ -255,6 +256,68 @@ describe("Liste und Detail: jede Einheit mal jede Persona", () => {
     ]);
     // Die aktive Person in KF A trägt die Sicht, die inaktive in JF A nicht
     expect({ a: a.status, b: b.status }).toEqual({ a: 404, b: 200 });
+  });
+});
+
+describe("Sichtbare Arten der Einheit", () => {
+  test("nur gewählte Arten erreichen die App; ohne Auswahl alle", async () => {
+    const einheitId = welt.einheit.jfA;
+    const tag = new Date(Date.UTC(2028, 4, 2, 8));
+    const uebung = await legeProgrammAn(db, { einheitId, beginn: tag });
+    const kurs = await legeProgrammAn(db, {
+      einheitId,
+      beginn: tag,
+      art: "Kurs",
+      anmeldbar: false,
+    });
+    const [vorher] = await db
+      .select({ a: schema.einheit.anmeldeArten })
+      .from(schema.einheit)
+      .where(eq(schema.einheit.id, einheitId));
+    const setze = (anmeldeArten: string[] | null) =>
+      db
+        .update(schema.einheit)
+        .set({ anmeldeArten })
+        .where(eq(schema.einheit.id, einheitId));
+    const sicht = async () => {
+      const liste = await app.request(
+        "/api/v1/programme?von=2028-05-01&bis=2028-05-03",
+        { headers: konten.elternJfA.headers },
+      );
+      const ids = (
+        (await liste.json()) as { programme: { id: string }[] }
+      ).programme.map((z) => z.id);
+      const detail = await app.request(`/api/v1/programme/${kurs.id}`, {
+        headers: konten.elternJfA.headers,
+      });
+      return {
+        uebung: ids.includes(uebung.id),
+        kurs: ids.includes(kurs.id),
+        kursDetail: detail.status,
+      };
+    };
+    try {
+      await setze(["Übung"]);
+      expect(await sicht()).toEqual({
+        uebung: true,
+        kurs: false,
+        kursDetail: 404,
+      });
+      await setze([]);
+      expect(await sicht()).toEqual({
+        uebung: true,
+        kurs: true,
+        kursDetail: 200,
+      });
+      await setze(null);
+      expect(await sicht()).toEqual({
+        uebung: true,
+        kurs: true,
+        kursDetail: 200,
+      });
+    } finally {
+      await setze(vorher.a);
+    }
   });
 });
 

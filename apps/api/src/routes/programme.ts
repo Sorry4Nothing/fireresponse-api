@@ -25,6 +25,7 @@ import {
   anmeldungAb,
   anmeldbar,
   antwortOffen,
+  artSichtbar,
   fensterOffen,
   schweizerDatum,
 } from "../anmeldefenster.js";
@@ -215,6 +216,7 @@ export function erstelleProgrammRouten({
         .where(
           and(
             programmSichtbar(einheiten),
+            artSichtbar,
             // Inklusive Schweizer Kalendertage: Ein Lager zählt an jedem seiner Tage
             sql`coalesce(programm.tag_bis, (programm.ende at time zone 'Europe/Zurich')::date) >= ${von}`,
             sql`coalesce(programm.tag_von, (programm.beginn at time zone 'Europe/Zurich')::date) <= ${bis}`,
@@ -266,7 +268,9 @@ export function erstelleProgrammRouten({
         })
         .from(programm)
         .innerJoin(einheit, eq(einheit.id, programm.einheitId))
-        .where(and(eq(programm.id, id), programmSichtbar(einheiten)));
+        .where(
+          and(eq(programm.id, id), programmSichtbar(einheiten), artSichtbar),
+        );
       if (!zeile) throw new HTTPException(404);
       // Nur wer sich anmelden dürfte, bekommt den Schlüssel; undefined fällt aus dem JSON, für alle anderen fehlt er
       let eigeneAnmeldung: Antwort | undefined;
