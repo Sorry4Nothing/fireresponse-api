@@ -540,7 +540,7 @@ describe("PUT /personen/:userId/rolle", () => {
         ),
       );
     const ende =
-      Math.max(...stellvertretungen.map((s) => s.reihenfolge ?? 0)) + 1;
+      Math.max(0, ...stellvertretungen.map((s) => s.reihenfolge ?? 0)) + 1;
 
     const vorher = await zeile(leitung.id!);
     expect(
