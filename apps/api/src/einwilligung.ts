@@ -1,5 +1,5 @@
 // Fassung der Einwilligung beim ersten Start. Eine neue Fassung heisst: neu fragen (die Version steigt). Sie steigt auch, wenn sich die Datenschutzerklärung oder die Nutzungsbedingungen (public/*.html) inhaltlich ändern; die Seiten zeigen diese Nummer als «Fassung»
-export const EINWILLIGUNG_VERSION = 1;
+export const EINWILLIGUNG_VERSION = 2;
 
 // Die Apps zeigen den Text, den die API liefert, mit Verweisen auf die beiden Seiten. Entwurf, rechtlich noch zu prüfen (docs/datenschutz/README.md)
 export const EINWILLIGUNG_TEXT =

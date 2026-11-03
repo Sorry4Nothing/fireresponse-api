@@ -1,6 +1,6 @@
 # Datenschutz-Folgenabschätzung (DSFA)
 
-**Entwurf, Fassung 1.** Nicht rechtlich geprüft; Stellen mit «[…]» sind zu ergänzen. Grundlage: Art. 22 DSG. Ob eine DSFA Pflicht ist, hängt davon ab, ob die Bearbeitung ein hohes Risiko für die Persönlichkeit der betroffenen Personen bringt. Weil Kinder betroffen sind und die Anmeldungen ausgewertet werden, wird sie vorsichtshalber erstellt. Verantwortlich ist je Bezirk der Bezirk; der Betreiber liefert dieses Dokument für alle Bezirke.
+**Entwurf, Fassung 2.** Nicht rechtlich geprüft; Stellen mit «[…]» sind zu ergänzen. Grundlage: Art. 22 DSG. Ob eine DSFA Pflicht ist, hängt davon ab, ob die Bearbeitung ein hohes Risiko für die Persönlichkeit der betroffenen Personen bringt. Weil Kinder betroffen sind und die Anmeldungen ausgewertet werden, wird sie vorsichtshalber erstellt. Verantwortlich ist je Bezirk der Bezirk; der Betreiber liefert dieses Dokument für alle Bezirke.
 
 ## 1. Beschreibung der Bearbeitung
 
@@ -48,6 +48,7 @@ Die Verwaltung wertet die Anmeldungen aus (Präsenzliste, Teilnahmequote pro Per
 | 9   | Datenverlust oder Ausfall                                                    | tief    | tief               | Tägliche verschlüsselte Sicherung, Rücksicherungstest pro Quartal                                                                                                                                                       | tief       |
 | 10  | Datenpanne bleibt unbemerkt                                                  | hoch    | tief               | Anfrage-Log, Ablauf «Datenpanne» in `docs/betrieb.md`, Meldung an den EDÖB bei hohem Risiko                                                                                                                             | mittel     |
 | 11  | Lodur-Link gelangt in falsche Hände oder die API ruft eine fremde Adresse ab | mittel  | tief               | Link verschlüsselt gespeichert, nie in Antwort oder Log; nur https, nur Hosts von der Liste des Betreibers, keine Weiterleitungen, interne Adressen blockiert; Kommando kann den Link jederzeit ersetzen oder entfernen | tief       |
+| 12  | Widget (Android) zeigt Vornamen der Kinder ohne Entsperren, auch bei eingeschalteter App-Sperre | mittel  | mittel             | Das Widget ist freiwillig (nicht platzieren); die Datenschutzerklärung nennt es offen samt Hintergrundabruf alle 30 Minuten und Speicherung nur im Arbeitsspeicher und im Widget-Speicher von Android | mittel     |
 
 Die technischen Bedrohungen und Massnahmen stehen im [Bedrohungsmodell](../sicherheit/bedrohungsmodell.md).
 

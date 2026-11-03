@@ -1,9 +1,9 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { z } from "zod";
 import type { Db } from "../../db/client.js";
-import { einheitRolle, user } from "../../db/schema.js";
+import { einheitRolle, rang, user } from "../../db/schema.js";
 import { eingabe } from "../../eingabe.js";
 import { Konflikt } from "../../konflikt.js";
 import {
@@ -72,7 +72,10 @@ export function erstelleLeitendeRouten({ db }: { db: Db }) {
               );
             const rollen = konto
               ? await tx
-                  .select({ einheitId: einheitRolle.einheitId })
+                  .select({
+                    einheitId: einheitRolle.einheitId,
+                    rangId: einheitRolle.rangId,
+                  })
                   .from(einheitRolle)
                   .where(eq(einheitRolle.userId, konto.id))
               : [];
@@ -93,9 +96,36 @@ export function erstelleLeitendeRouten({ db }: { db: Db }) {
             if (rollen.some((r) => r.einheitId === einheitId)) {
               throw new Konflikt("ROLLE_GLEICH");
             }
-            await tx
-              .insert(einheitRolle)
-              .values({ userId: konto.id, einheitId, typ: "leitung" });
+            // Der Dienstgrad gehört zur Person, der Rang aber zu einer Einheit: In der Zieleinheit gilt der Miliz-Rang mit demselben Kürzel. Fehlt er dort, bleibt der Rang leer
+            const quellRangIds = rollen.flatMap((r) =>
+              r.rangId ? [r.rangId] : [],
+            );
+            const [quelle] = quellRangIds.length
+              ? await tx
+                  .select({ kuerzel: rang.kuerzel })
+                  .from(rang)
+                  .where(
+                    and(inArray(rang.id, quellRangIds), eq(rang.typ, "miliz")),
+                  )
+              : [];
+            const [ziel] = quelle
+              ? await tx
+                  .select({ id: rang.id })
+                  .from(rang)
+                  .where(
+                    and(
+                      eq(rang.einheitId, einheitId),
+                      eq(rang.typ, "miliz"),
+                      eq(rang.kuerzel, quelle.kuerzel),
+                    ),
+                  )
+              : [];
+            await tx.insert(einheitRolle).values({
+              userId: konto.id,
+              einheitId,
+              typ: "leitung",
+              rangId: ziel?.id ?? null,
+            });
             await protokolliere(tx, {
               einheitId,
               akteurId: person.id,

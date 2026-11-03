@@ -781,6 +781,71 @@ describe("Bestehendes Konto als Leitung", () => {
       409,
     );
   });
+
+  test("der Miliz-Rang kommt mit: in der Zieleinheit gilt der Rang mit demselben Kürzel; ohne Rang bleibt er leer", async () => {
+    const kommandoKfA = await legePersonaAn(welt, "kommandoKfA");
+    // Die Test-Einheiten haben keine Standard-Ränge: je einen Miliz-Rang mit gleichem Kürzel anlegen
+    const legeRangAn = async (einheitId: string, kuerzel: string) =>
+      (
+        await db
+          .insert(schema.rang)
+          .values({
+            einheitId,
+            name: "Korporal",
+            kuerzel,
+            typ: "miliz",
+            reihenfolge: 10,
+          })
+          .returning()
+      )[0];
+    const quelle = await legeRangAn(welt.einheit.kfA, "Kpl");
+    const ziel = await legeRangAn(welt.einheit.jfB, "Kpl");
+    const body = { benutzername: kommandoKfA.benutzername };
+    const rolleIn = async (einheitId: string) =>
+      (await rollenVon(einheitId)).find((r) => r.userId === kommandoKfA.id);
+
+    // Ohne Rang in der eigenen Einheit bleibt der Rang auch in der neuen leer
+    expect(
+      (
+        await sende(
+          konto("kantonsadmin"),
+          "POST",
+          `/api/v1/admin/einheiten/${welt.einheit.jfB}/leitende/bestehend`,
+          body,
+        )
+      ).status,
+    ).toBe(204);
+    expect(await rolleIn(welt.einheit.jfB)).toMatchObject({ rangId: null });
+
+    await db
+      .update(schema.einheitRolle)
+      .set({ rangId: quelle.id })
+      .where(
+        and(
+          eq(schema.einheitRolle.userId, kommandoKfA.id!),
+          eq(schema.einheitRolle.einheitId, welt.einheit.kfA),
+        ),
+      );
+    await db
+      .delete(schema.einheitRolle)
+      .where(
+        and(
+          eq(schema.einheitRolle.userId, kommandoKfA.id!),
+          eq(schema.einheitRolle.einheitId, welt.einheit.jfB),
+        ),
+      );
+    expect(
+      (
+        await sende(
+          konto("kantonsadmin"),
+          "POST",
+          `/api/v1/admin/einheiten/${welt.einheit.jfB}/leitende/bestehend`,
+          body,
+        )
+      ).status,
+    ).toBe(204);
+    expect(await rolleIn(welt.einheit.jfB)).toMatchObject({ rangId: ziel.id });
+  });
 });
 
 describe("Teilnehmende und Eltern", () => {
