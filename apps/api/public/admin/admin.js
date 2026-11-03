@@ -687,7 +687,9 @@ function zeigeVerwaltung() {
       el(
         "div",
         { class: "konto-zeile" },
-        avatar(profil.name, { bildUrl: `/api/v1/personen/${profil.id}/bild` }),
+        avatar(profil.name, {
+          bildUrl: `/api/v1/admin/personen/${profil.id}/bild`,
+        }),
         el(
           "div",
           { class: "konto-text" },

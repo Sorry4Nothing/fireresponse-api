@@ -665,6 +665,17 @@ const MATRIX: Record<string, Zeile> = {
     url: () => `/api/v1/personen/${bildZielId}/bild`,
     erwartet: { ...SEHEN_JF_A, ...SPERREN },
   },
+  // Dasselbe Bild für die Verwaltung: Wer die Verwaltung braucht, braucht den zweiten Faktor (403); die Einwilligung in die App gilt hier nicht (wie bei allen Pfaden unter /admin/)
+  "GET /api/v1/admin/personen/:id/bild": {
+    url: () => `/api/v1/admin/personen/${bildZielId}/bild`,
+    erwartet: {
+      ...SEHEN_JF_A,
+      ...SPERREN,
+      ohneEinwilligung: 200,
+      kantonsadminOhneZweitenFaktor: 403,
+      kommandoKfBOhneZweitenFaktor: 403,
+    },
+  },
   // Konto löschen (test/konto-loeschen.test.ts): Ziel ist eine Leitung von JF A. Wer die Einheit nicht sieht, bekommt 404; Leitende, Eltern und Teilnehmende der Einheit sehen das Konto, dürfen es aber nicht löschen (403)
   "GET /api/v1/admin/konten": {
     url: () => `/api/v1/admin/konten?benutzername=${kontoZiel}`,
