@@ -479,7 +479,7 @@ function zeichne(bereich, ctx, einheit, daten, neu) {
               { class: "wer" },
               avatar(p.name, {
                 hell: !p.eigenes,
-                bildUrl: `/api/v1/personen/${p.id}/bild`,
+                bildUrl: `/api/v1/admin/personen/${p.id}/bild`,
               }),
               el(
                 "div",

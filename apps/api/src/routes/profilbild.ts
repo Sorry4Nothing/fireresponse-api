@@ -1,5 +1,5 @@
 import { and, eq, inArray, or, sql } from "drizzle-orm";
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { HTTPException } from "hono/http-exception";
 import { z } from "zod";
@@ -78,6 +78,24 @@ export function erstelleProfilbildRouten({
     versuche.set(id, liste);
     return voll;
   };
+  const liefereBild = async (c: Context<{ Variables: { person: Person } }>) => {
+    const person = c.get("person");
+    const { id } = pfadSchema.parse(c.req.param());
+    // Ein Bild gehört nie in einen Cache, auch nicht in den der App; nosniff, damit kein Client die Bytes als etwas anderes liest
+    c.header("Cache-Control", "private, no-store");
+    c.header("X-Content-Type-Options", "nosniff");
+    const [zeile] = await db
+      .select({ inhalt: profilbild.inhalt })
+      .from(profilbild)
+      .where(eq(profilbild.userId, id));
+    // Gleiche Antwort für «kein Bild» und «darf es nicht sehen»: Wer kein Recht hat, erfährt nicht, ob es die Person gibt
+    if (!zeile || !(await darfBildSehen(db, person, id))) {
+      throw new HTTPException(404);
+    }
+    return c.body(zeile.inhalt as Uint8Array<ArrayBuffer>, 200, {
+      "Content-Type": "image/jpeg",
+    });
+  };
   return (
     new Hono<{ Variables: { person: Person } }>()
       // Der Body ist das Bild selbst (JPEG, PNG oder WebP); die Grösse begrenzt bodyLimit, bevor die Route einliest, der Typ ergibt sich aus den Bytes und nie aus Header oder Endung. Das Ergebnis ersetzt ein vorhandenes Bild
@@ -110,23 +128,12 @@ export function erstelleProfilbildRouten({
           .where(eq(profilbild.userId, c.get("person").id));
         return c.body(null, 204);
       })
-      .get("/personen/:id/bild", eingabe("param", pfadSchema), async (c) => {
-        const person = c.get("person");
-        const { id } = c.req.valid("param");
-        // Ein Bild gehört nie in einen Cache, auch nicht in den der App; nosniff, damit kein Client die Bytes als etwas anderes liest
-        c.header("Cache-Control", "private, no-store");
-        c.header("X-Content-Type-Options", "nosniff");
-        const [zeile] = await db
-          .select({ inhalt: profilbild.inhalt })
-          .from(profilbild)
-          .where(eq(profilbild.userId, id));
-        // Gleiche Antwort für «kein Bild» und «darf es nicht sehen»: Wer kein Recht hat, erfährt nicht, ob es die Person gibt
-        if (!zeile || !(await darfBildSehen(db, person, id))) {
-          throw new HTTPException(404);
-        }
-        return c.body(zeile.inhalt as Uint8Array<ArrayBuffer>, 200, {
-          "Content-Type": "image/jpeg",
-        });
-      })
+      .get("/personen/:id/bild", eingabe("param", pfadSchema), liefereBild)
+      // Dasselbe Bild für die Verwaltung: Unter /admin/ fragt personAusSitzung die Einwilligung der App nicht ab, die Verwaltung hat ihren eigenen Zugang
+      .get(
+        "/admin/personen/:id/bild",
+        eingabe("param", pfadSchema),
+        liefereBild,
+      )
   );
 }
