@@ -1,4 +1,3 @@
-const TAG_MS = 86_400_000;
 const WOCHENTAG = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
 
 const zuerich = new Intl.DateTimeFormat("en-GB", {
@@ -32,34 +31,31 @@ function versatz(t: number) {
 export const wanduhr = (t: Date) =>
   new Date(t.getTime() + versatz(t.getTime()));
 
-// Wochentag nach ISO: 1 Montag bis 7 Sonntag
-const isoWochentag = (d: Date) => d.getUTCDay() || 7;
-
 // «Sa 31.10.» für den Tag, an dem das Programm in Zürich beginnt
 export function kurzDatum(beginn: Date) {
   const w = wanduhr(beginn);
   return `${WOCHENTAG[w.getUTCDay()]} ${w.getUTCDate()}.${w.getUTCMonth() + 1}.`;
 }
 
-// Der letzte Zeitpunkt (Zürcher Zeit) mit diesem Wochentag und dieser Uhrzeit, der nicht nach dem Beginn liegt
+// Der Zeitpunkt `tageVorher` Kalendertage vor dem Tag des Beginns (Zürcher Zeit) zur Uhrzeit; er kann nach dem Beginn liegen (0 Tage, Uhrzeit nach dem Beginn), dann ist die Regel für dieses Programm sinnlos
 // shortcut: Eine Uhrzeit in der übersprungenen Stunde der Umstellung (02:xx im Frühling) rückt auf 03:xx; in der doppelten Stunde (Herbst) gilt die zweite. Genauer nur, falls eine Einheit genau dort Regeln will
 export function ausloesezeit(
   beginn: Date,
-  wochentag: number,
+  tageVorher: number,
   uhrzeit: string,
 ): Date {
   const [h, m] = uhrzeit.split(":").map(Number) as [number, number];
-  const beginnWand = wanduhr(beginn);
-  let wand = Date.UTC(
-    beginnWand.getUTCFullYear(),
-    beginnWand.getUTCMonth(),
-    beginnWand.getUTCDate(),
-    h,
-    m,
+  const w = wanduhr(beginn);
+  // Date.UTC rechnet den Tagesüberlauf (Monat, Jahr) selbst
+  return vonWanduhr(
+    Date.UTC(
+      w.getUTCFullYear(),
+      w.getUTCMonth(),
+      w.getUTCDate() - tageVorher,
+      h,
+      m,
+    ),
   );
-  if (wand > beginnWand.getTime()) wand -= TAG_MS;
-  while (isoWochentag(new Date(wand)) !== wochentag) wand -= TAG_MS;
-  return vonWanduhr(wand);
 }
 
 // Von der Zürcher Wanduhr (als UTC-Millisekunden verpackt) zurück zum Zeitpunkt: erst mit dem Versatz an der Wanduhr geraten, dann mit dem Versatz am Ergebnis nachgerechnet

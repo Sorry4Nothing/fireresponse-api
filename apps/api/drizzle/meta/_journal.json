@@ -71,6 +71,20 @@
       "when": 1793708936901,
       "tag": "0009_audit_ohne_einheit_fk",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1794508037194,
+      "tag": "0010_termin_nur_leitende",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1794509037194,
+      "tag": "0011_zeitregel_abstand",
+      "breakpoints": true
     }
   ]
 }

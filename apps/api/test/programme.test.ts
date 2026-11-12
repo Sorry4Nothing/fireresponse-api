@@ -1,4 +1,3 @@
-import { eq } from "drizzle-orm";
 import postgres from "postgres";
 import {
   afterAll,
@@ -259,65 +258,81 @@ describe("Liste und Detail: jede Einheit mal jede Persona", () => {
   });
 });
 
-describe("Sichtbare Arten der Einheit", () => {
-  test("nur gewählte Arten erreichen die App; ohne Auswahl alle", async () => {
+describe("Termine nur für Leitende", () => {
+  test("Kinder und Eltern sehen sie nicht, Kommando, Leitende und Kantonsadmin schon", async () => {
     const einheitId = welt.einheit.jfA;
     const tag = new Date(Date.UTC(2028, 4, 2, 8));
-    const uebung = await legeProgrammAn(db, { einheitId, beginn: tag });
-    const kurs = await legeProgrammAn(db, {
+    const offen = await legeProgrammAn(db, { einheitId, beginn: tag });
+    const intern = await legeProgrammAn(db, {
       einheitId,
       beginn: tag,
-      art: "Kurs",
-      anmeldbar: false,
+      art: "Leitersitzung",
+      nurLeitende: true,
     });
-    const [vorher] = await db
-      .select({ a: schema.einheit.anmeldeArten })
-      .from(schema.einheit)
-      .where(eq(schema.einheit.id, einheitId));
-    const setze = (anmeldeArten: string[] | null) =>
-      db
-        .update(schema.einheit)
-        .set({ anmeldeArten })
-        .where(eq(schema.einheit.id, einheitId));
-    const sicht = async () => {
+    const sicht = async (name: Persona) => {
       const liste = await app.request(
         "/api/v1/programme?von=2028-05-01&bis=2028-05-03",
-        { headers: konten.elternJfA.headers },
+        { headers: konten[name].headers },
       );
       const ids = (
         (await liste.json()) as { programme: { id: string }[] }
       ).programme.map((z) => z.id);
-      const detail = await app.request(`/api/v1/programme/${kurs.id}`, {
-        headers: konten.elternJfA.headers,
+      const detail = await app.request(`/api/v1/programme/${intern.id}`, {
+        headers: konten[name].headers,
       });
+      const teilnahmen = await app.request(
+        `/api/v1/programme/${intern.id}/teilnahmen`,
+        { headers: konten[name].headers },
+      );
       return {
-        uebung: ids.includes(uebung.id),
-        kurs: ids.includes(kurs.id),
-        kursDetail: detail.status,
+        offen: ids.includes(offen.id),
+        intern: ids.includes(intern.id),
+        detail: detail.status,
+        teilnahmen: teilnahmen.status,
       };
     };
-    try {
-      await setze(["Übung"]);
-      expect(await sicht()).toEqual({
-        uebung: true,
-        kurs: false,
-        kursDetail: 404,
-      });
-      await setze([]);
-      expect(await sicht()).toEqual({
-        uebung: true,
-        kurs: true,
-        kursDetail: 200,
-      });
-      await setze(null);
-      expect(await sicht()).toEqual({
-        uebung: true,
-        kurs: true,
-        kursDetail: 200,
-      });
-    } finally {
-      await setze(vorher.a);
-    }
+    const verborgen = {
+      offen: true,
+      intern: false,
+      detail: 404,
+      teilnahmen: 404,
+    };
+    const sichtbar = {
+      offen: true,
+      intern: true,
+      detail: 200,
+      teilnahmen: 200,
+    };
+    expect(await sicht("elternJfA")).toEqual(verborgen);
+    expect(await sicht("teilnehmendeSelbstJfA")).toEqual(verborgen);
+    expect(await sicht("kommandoJfA")).toEqual(sichtbar);
+    expect(await sicht("stellvertretung1JfA")).toEqual(sichtbar);
+    expect(await sicht("leitendeJfA")).toEqual(sichtbar);
+    expect(await sicht("kantonsadmin")).toEqual(sichtbar);
+    // Leitende einer anderen Einheit sehen den Termin nicht
+    expect(await sicht("kommandoKfA")).toEqual({
+      offen: false,
+      intern: false,
+      detail: 404,
+      teilnahmen: 404,
+    });
+  });
+
+  test("die Liste der Antworten führt nur Leitende", async () => {
+    const intern = await legeProgrammAn(db, {
+      einheitId: welt.einheit.jfA,
+      beginn: new Date(Date.UTC(2028, 4, 3, 8)),
+      nurLeitende: true,
+    });
+    const res = await app.request(`/api/v1/programme/${intern.id}/teilnahmen`, {
+      headers: konten.kommandoJfA.headers,
+    });
+    const liste = (await res.json()) as {
+      teilnehmende: unknown[];
+      leitende: unknown[];
+    };
+    expect(liste.teilnehmende).toEqual([]);
+    expect(liste.leitende.length).toBeGreaterThan(0);
   });
 });
 

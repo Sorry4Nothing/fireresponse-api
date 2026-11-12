@@ -23,9 +23,7 @@ import {
 import {
   ANMELDEFENSTER_STANDARD,
   anmeldungAb,
-  anmeldbar,
   antwortOffen,
-  artSichtbar,
   fensterOffen,
   schweizerDatum,
 } from "../anmeldefenster.js";
@@ -41,6 +39,7 @@ import {
   programmBeginn,
   programmSichtbar,
   rollenReihenfolge,
+  terminFuerPerson,
   type Person,
 } from "../rechte.js";
 
@@ -58,7 +57,7 @@ const teilnahmePfad = z.strictObject({
 });
 const teilnahmeSchema = z.strictObject({ status: z.enum(["ja", "nein"]) });
 
-// Ein Satz Felder für Liste und Detail; nie einheit_id als Eingabe, google_event_id oder google_serie. Die Anmeldung öffnet `tage` Tage vor dem Beginn; teilnahmeOffen: aktiv, nicht begonnen, im Fenster und anmeldbar. anmeldbar: Die Einheit hat die Art des Termins für die Anmeldung freigegeben; sonst gibt es für ihn keine Anmeldung
+// Ein Satz Felder für Liste und Detail; nie einheit_id als Eingabe, google_event_id oder google_serie. Die Anmeldung öffnet `tage` Tage vor dem Beginn; teilnahmeOffen: aktiv, nicht begonnen und im Fenster. shortcut: anmeldbar ist immer true und nur noch für Apps da, die das Feld lesen; entfällt mit der nächsten API-Version
 const programmFelder = (tage: number) => ({
   id: programm.id,
   titel: programm.titel,
@@ -69,7 +68,7 @@ const programmFelder = (tage: number) => ({
   tagVon: programm.tagVon,
   tagBis: programm.tagBis,
   art: programm.art,
-  anmeldbar,
+  anmeldbar: sql<boolean>`true`,
   anmeldungAb: anmeldungAb(tage),
   teilnahmeOffen: antwortOffen(tage),
   einheitId: einheit.id,
@@ -109,7 +108,6 @@ export function erstelleProgrammRouten({
       .select({
         begonnen: sql<boolean>`${programmBeginn} <= now()`,
         aktiv: sql<boolean>`programm.status = 'aktiv'`,
-        anmeldbar,
         fensterOffen: fensterOffen(anmeldefensterTage),
         ab: anmeldungAb(anmeldefensterTage),
       })
@@ -117,11 +115,6 @@ export function erstelleProgrammRouten({
       .where(eq(programm.id, programmId));
     return zeile;
   }
-
-  const keineAnmeldung = {
-    code: "KEINE_ANMELDUNG",
-    message: "Für diesen Termin gibt es keine Anmeldung.",
-  };
 
   // Der Tag, an dem die Anmeldung öffnet, steht in der Meldung; eigener Code per c.json wie bei den übrigen 409
   const fensterZu = (ab: string) => ({
@@ -193,13 +186,23 @@ export function erstelleProgrammRouten({
     return nachProgramm;
   }
 
-  // Das Programm, wenn die Person es sehen darf, sonst 404
+  // Das Programm, wenn die Person es sehen darf (Einheit und «nur Leitende»), sonst 404
   async function ladeSichtbar(person: Person, id: string) {
     const einheiten = await einheitenFuer(db, person, "lesen");
     const [zeile] = await db
-      .select({ id: programm.id, einheitId: programm.einheitId })
+      .select({
+        id: programm.id,
+        einheitId: programm.einheitId,
+        nurLeitende: programm.nurLeitende,
+      })
       .from(programm)
-      .where(and(eq(programm.id, id), programmSichtbar(einheiten)));
+      .where(
+        and(
+          eq(programm.id, id),
+          programmSichtbar(einheiten),
+          terminFuerPerson(person),
+        ),
+      );
     if (!zeile) throw new HTTPException(404);
     return zeile;
   }
@@ -216,7 +219,7 @@ export function erstelleProgrammRouten({
         .where(
           and(
             programmSichtbar(einheiten),
-            artSichtbar,
+            terminFuerPerson(person),
             // Inklusive Schweizer Kalendertage: Ein Lager zählt an jedem seiner Tage
             sql`coalesce(programm.tag_bis, (programm.ende at time zone 'Europe/Zurich')::date) >= ${von}`,
             sql`coalesce(programm.tag_von, (programm.beginn at time zone 'Europe/Zurich')::date) <= ${bis}`,
@@ -245,13 +248,11 @@ export function erstelleProgrammRouten({
       return c.json({
         programme: programme.map((p) => ({
           ...ausgabe(p),
-          // Ohne Anmeldung gibt es nichts zu beantworten
-          teilnehmende: p.anmeldbar ? (eigene.get(p.id) ?? []) : [],
+          teilnehmende: eigene.get(p.id) ?? [],
           // Wie im Detail: nur wer sich anmelden dürfte, bekommt den Schlüssel; undefined fällt aus dem JSON
-          eigeneAnmeldung:
-            p.anmeldbar && hatRolleIn(person, p.einheitId)
-              ? (leitung.get(p.id) ?? "offen")
-              : undefined,
+          eigeneAnmeldung: hatRolleIn(person, p.einheitId)
+            ? (leitung.get(p.id) ?? "offen")
+            : undefined,
         })),
       });
     })
@@ -269,12 +270,16 @@ export function erstelleProgrammRouten({
         .from(programm)
         .innerJoin(einheit, eq(einheit.id, programm.einheitId))
         .where(
-          and(eq(programm.id, id), programmSichtbar(einheiten), artSichtbar),
+          and(
+            eq(programm.id, id),
+            programmSichtbar(einheiten),
+            terminFuerPerson(person),
+          ),
         );
       if (!zeile) throw new HTTPException(404);
       // Nur wer sich anmelden dürfte, bekommt den Schlüssel; undefined fällt aus dem JSON, für alle anderen fehlt er
       let eigeneAnmeldung: Antwort | undefined;
-      if (zeile.anmeldbar && hatRolleIn(person, zeile.einheitId)) {
+      if (hatRolleIn(person, zeile.einheitId)) {
         const [anmeldung] = await db
           .select({ status: leitungAnmeldung.status })
           .from(leitungAnmeldung)
@@ -286,9 +291,7 @@ export function erstelleProgrammRouten({
           );
         eigeneAnmeldung = anmeldung?.status ?? "offen";
       }
-      const eigene = zeile.anmeldbar
-        ? ((await eigeneTeilnehmende(person, [id])).get(id) ?? [])
-        : [];
+      const eigene = (await eigeneTeilnehmende(person, [id])).get(id) ?? [];
       return c.json({
         ...ausgabe(zeile),
         teilnehmende: eigene,
@@ -299,48 +302,51 @@ export function erstelleProgrammRouten({
     .get("/:id/teilnahmen", eingabe("param", pfadSchema), async (c) => {
       const person = c.get("person");
       const { id } = c.req.valid("param");
-      const { einheitId } = await ladeSichtbar(person, id);
+      const { einheitId, nurLeitende } = await ladeSichtbar(person, id);
       // Ganze Liste: das Kantonsadmin-Konto sowie Kommando und Leitende der Einheit; sonst nur die eigenen Teilnehmenden
       const gesamt = person.kantonsadmin || hatRolleIn(person, einheitId);
-      const liste = (
-        await db
-          .select({
-            id: teilnehmende.id,
-            vorname: teilnehmende.vorname,
-            nachname: teilnehmende.nachname,
-            status: sql<Antwort>`coalesce(${teilnahme.status}, 'offen')`,
-            ...abzeichenFelder,
-          })
-          .from(teilnehmende)
-          .leftJoin(
-            teilnahme,
-            and(
-              eq(teilnahme.teilnehmendeId, teilnehmende.id),
-              eq(teilnahme.programmId, id),
-            ),
-          )
-          .leftJoin(
-            rang,
-            and(
-              eq(rang.id, teilnehmende.rangId),
-              eq(rang.einheitId, teilnehmende.einheitId),
-            ),
-          )
-          .where(
-            and(
-              eq(teilnehmende.einheitId, einheitId),
-              isNull(teilnehmende.inaktivSeit),
-              gesamt
-                ? undefined
-                : sql`exists (select 1 from teilnehmende_konto where teilnehmende_konto.teilnehmende_id = ${teilnehmende.id} and teilnehmende_konto.user_id = ${person.id})`,
-            ),
-          )
-          .orderBy(
-            asc(teilnehmende.vorname),
-            asc(teilnehmende.nachname),
-            asc(teilnehmende.id),
-          )
-      ).map(mitAbzeichen);
+      // Bei «nur Leitende» antworten nur Leitende: Kinder und Eltern kommen nicht vor
+      const liste = nurLeitende
+        ? []
+        : (
+            await db
+              .select({
+                id: teilnehmende.id,
+                vorname: teilnehmende.vorname,
+                nachname: teilnehmende.nachname,
+                status: sql<Antwort>`coalesce(${teilnahme.status}, 'offen')`,
+                ...abzeichenFelder,
+              })
+              .from(teilnehmende)
+              .leftJoin(
+                teilnahme,
+                and(
+                  eq(teilnahme.teilnehmendeId, teilnehmende.id),
+                  eq(teilnahme.programmId, id),
+                ),
+              )
+              .leftJoin(
+                rang,
+                and(
+                  eq(rang.id, teilnehmende.rangId),
+                  eq(rang.einheitId, teilnehmende.einheitId),
+                ),
+              )
+              .where(
+                and(
+                  eq(teilnehmende.einheitId, einheitId),
+                  isNull(teilnehmende.inaktivSeit),
+                  gesamt
+                    ? undefined
+                    : sql`exists (select 1 from teilnehmende_konto where teilnehmende_konto.teilnehmende_id = ${teilnehmende.id} and teilnehmende_konto.user_id = ${person.id})`,
+                ),
+              )
+              .orderBy(
+                asc(teilnehmende.vorname),
+                asc(teilnehmende.nachname),
+                asc(teilnehmende.id),
+              )
+          ).map(mitAbzeichen);
       // Sichtbar, aber weder mit Rolle noch mit eigenen Teilnehmenden in dieser Einheit: kein Recht
       if (!gesamt && liste.length === 0) throw new HTTPException(403);
       const leitende = gesamt
@@ -400,7 +406,6 @@ export function erstelleProgrammRouten({
         const { einheitId } = await ladeSichtbar(person, id);
         if (!hatRolleIn(person, einheitId)) throw new HTTPException(403);
         const stand = await antwortStand(id);
-        if (!stand.anmeldbar) return c.json(keineAnmeldung, 409);
         // Eigener Code per c.json: onError machte aus einem unbekannten HTTPException-Status den allgemeinen Text
         if (stand.begonnen) {
           return c.json(
@@ -431,7 +436,8 @@ export function erstelleProgrammRouten({
         const { id, teilnehmendeId } = c.req.valid("param");
         const { status } = c.req.valid("json");
         // Fremde wie unbekannte Programme und Teilnehmende sind 404, auch wenn sie in derselben Einheit liegen: Es antworten nur die Eltern oder die Teilnehmenden selbst, Kommando und Leitende antworten für sich
-        const { einheitId } = await ladeSichtbar(person, id);
+        const { einheitId, nurLeitende } = await ladeSichtbar(person, id);
+        if (nurLeitende) throw new HTTPException(404);
         const [ziel] = await db
           .select({ inaktivSeit: teilnehmende.inaktivSeit })
           .from(teilnehmende)
@@ -451,7 +457,6 @@ export function erstelleProgrammRouten({
         if (!ziel) throw new HTTPException(404);
         if (ziel.inaktivSeit) throw new HTTPException(403);
         const stand = await antwortStand(id);
-        if (!stand.anmeldbar) return c.json(keineAnmeldung, 409);
         if (!stand.aktiv || stand.begonnen) {
           return c.json(
             {

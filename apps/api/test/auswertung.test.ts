@@ -189,13 +189,13 @@ beforeAll(async () => {
     })
   ).id;
 
-  // Ohne Anmeldung (Art nicht freigegeben): Alle wären «offen»; der Termin zählt nicht in die Quote
+  // Nur Leitende: Die Teilnehmenden hätten alle «offen»; der Termin zählt bei ihnen nicht in die Quote
   await legeProgrammAn(db, {
     einheitId: a,
-    titel: "Sitzung ohne Anmeldung",
+    titel: "Leitersitzung",
     beginn: new Date("2025-03-25T18:00:00Z"),
     art: "Sitzung",
-    anmeldbar: false,
+    nurLeitende: true,
   });
 
   const tn = welt.teilnehmende;
@@ -376,10 +376,10 @@ describe("Quote pro Person", () => {
     expect(person(kommandoId)).toMatchObject({
       art: "leitende",
       rolle: "kommandant",
-      termine: 5,
+      termine: 6,
       ja: 2,
       nein: 0,
-      offen: 3,
+      offen: 4,
     });
     expect(person(stvId)).toMatchObject({
       rolle: "stellvertretung",
@@ -672,10 +672,10 @@ describe("Drilldown pro Person", () => {
       rolle: "stellvertretung",
     });
     expect(r.json.zahlen).toMatchObject({
-      termine: 5,
+      termine: 6,
       ja: 0,
       nein: 1,
-      offen: 4,
+      offen: 5,
     });
   });
 
@@ -727,8 +727,8 @@ describe("Jahresübersicht", () => {
     const e = r.json.einheiten[0];
     expect(e.einheit).toMatchObject({ id: welt.einheit.jfA, typ: "jf" });
     expect(e.einheit.bezirk.id).toBe(welt.bezirkAId);
-    // Bezug: T1, T2, Lager, Neujahr 2025, Silvester 2025
-    expect(e.termine).toBe(5);
+    // Bezug: T1, T2, Lager, Neujahr 2025, Silvester 2025 und die Leitersitzung (nur Leitende)
+    expect(e.termine).toBe(6);
     expect(e.kommend).toBe(0);
     // Je Person die Antworten des Jahres, summiert über alle aktiven Teilnehmenden (3 Personen × 5 Termine = 15)
     expect(e.teilnehmende.ja + e.teilnehmende.nein + e.teilnehmende.offen).toBe(
@@ -737,7 +737,7 @@ describe("Jahresübersicht", () => {
     expect(e.teilnehmende).toMatchObject({ ja: 4, nein: 2, offen: 9 });
     expect(e.monate).toHaveLength(12);
     const maerz = e.monate[2];
-    expect(maerz).toMatchObject({ monat: 3, termine: 2 });
+    expect(maerz).toMatchObject({ monat: 3, termine: 3 });
     expect(maerz.teilnehmende).toMatchObject({ ja: 3, nein: 1, offen: 2 });
     expect(e.monate[0]).toMatchObject({ monat: 1, termine: 1 });
     expect(e.monate[5].termine).toBe(1);

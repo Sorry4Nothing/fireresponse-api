@@ -12,15 +12,16 @@ import {
   tabelle,
 } from "./dom.js";
 
-// ISO: 1 Montag bis 7 Sonntag, wie in der API
-const WOCHENTAGE = [
-  [1, "Montag"],
-  [2, "Dienstag"],
-  [3, "Mittwoch"],
-  [4, "Donnerstag"],
-  [5, "Freitag"],
-  [6, "Samstag"],
-  [7, "Sonntag"],
+// Kalendertage vor dem Tag des Termins, wie in der API (0 bis 7)
+const ABSTAENDE = [
+  [0, "Am Tag des Termins"],
+  [1, "1 Tag vorher"],
+  [2, "2 Tage vorher"],
+  [3, "3 Tage vorher"],
+  [4, "4 Tage vorher"],
+  [5, "5 Tage vorher"],
+  [6, "6 Tage vorher"],
+  [7, "7 Tage vorher"],
 ];
 
 const url = (einheit, rest = "") =>
@@ -35,10 +36,10 @@ export function zeige(bereich, ctx) {
 }
 
 function dialog({ regel, einheit, ctx, neu }) {
-  const wochentag = auswahl({
-    label: "Wochentag",
-    optionen: WOCHENTAGE.map(([w, name]) => [String(w), name]),
-    wert: String(regel?.wochentag ?? 3),
+  const tage = auswahl({
+    label: "Wie viele Tage vor dem Termin",
+    optionen: ABSTAENDE.map(([n, name]) => [String(n), name]),
+    wert: String(regel?.tageVorher ?? 3),
   });
   const uhrzeit = feld({
     label: "Uhrzeit (Schweizer Zeit)",
@@ -46,7 +47,7 @@ function dialog({ regel, einheit, ctx, neu }) {
     wert: regel?.uhrzeit ?? "08:00",
     required: true,
     hilfe:
-      "Die Erinnerung geht zum letzten passenden Zeitpunkt vor dem Termin.",
+      "Zum Beispiel «3 Tage vorher» um 18:00: Bei einem Termin am Samstag geht die Erinnerung am Mittwoch um 18:00 raus.",
   });
   const text = feld({
     label: "Titel der Erinnerung",
@@ -74,7 +75,7 @@ function dialog({ regel, einheit, ctx, neu }) {
     beschreibung:
       "Erinnert Personen, die für einen Termin noch nicht zu- oder abgesagt haben.",
     felder: [
-      wochentag.wurzel,
+      tage.wurzel,
       uhrzeit.wurzel,
       text.wurzel,
       beschreibung.wurzel,
@@ -83,7 +84,7 @@ function dialog({ regel, einheit, ctx, neu }) {
     ok: regel ? "Speichern" : "Anlegen",
     senden: () => {
       const body = {
-        wochentag: Number(wochentag.eingabe.value),
+        tageVorher: Number(tage.eingabe.value),
         uhrzeit: uhrzeit.eingabe.value,
         text: text.eingabe.value.trim(),
         beschreibung: beschreibung.eingabe.value.trim() || null,
@@ -127,7 +128,7 @@ function zeichne(bereich, ctx, einheit, regeln, neu) {
     );
     return;
   }
-  const tagName = new Map(WOCHENTAGE);
+  const abstandName = new Map(ABSTAENDE);
   const { wurzel } = tabelle({
     beschriftung: "Erinnerungen",
     spalten: ["Titel", "Zeitpunkt", "Status", "Aktionen"],
@@ -136,7 +137,11 @@ function zeichne(bereich, ctx, einheit, regeln, neu) {
         "tr",
         { class: regel.aktiv ? undefined : "inaktiv" },
         el("th", { scope: "row" }, el("span", { class: "name" }, regel.text)),
-        el("td", {}, `${tagName.get(regel.wochentag)}, ${regel.uhrzeit} Uhr`),
+        el(
+          "td",
+          {},
+          `${abstandName.get(regel.tageVorher)}, ${regel.uhrzeit} Uhr`,
+        ),
         el(
           "td",
           {},

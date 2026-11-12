@@ -515,24 +515,22 @@ describe("PUT /api/v1/programme/:id/leitung", () => {
   });
 });
 
-describe("Termine einer Art ohne Anmeldung", () => {
-  const sitzung = () =>
+describe("Termine nur für Leitende", () => {
+  const intern = () =>
     legeProgrammAn(db, {
       einheitId: welt.einheit.jfA,
       beginn: IN_ZEHN_TAGEN(),
-      art: "Sitzung",
-      anmeldbar: false,
+      art: "Leitersitzung",
+      nurLeitende: true,
     }).then((p) => p.id);
 
-  test("Teilnahme und Leitung: 409 KEINE_ANMELDUNG, auch im offenen Fenster", async () => {
-    const id = await sitzung();
+  test("Eltern antworten nicht (404), Kommando und Leitende schon", async () => {
+    const id = await intern();
     const eltern = await person("elternJfA");
-    const antwort = await melde(eltern, id, welt.teilnehmende.jfA);
-    expect(antwort.status).toBe(409);
-    expect(await antwort.json()).toMatchObject({ code: "KEINE_ANMELDUNG" });
-    const leitung = await meldeLeitung(await person("leitendeJfA"), id);
-    expect(leitung.status).toBe(409);
-    expect(await leitung.json()).toMatchObject({ code: "KEINE_ANMELDUNG" });
+    expect((await melde(eltern, id, welt.teilnehmende.jfA)).status).toBe(404);
+    expect((await meldeLeitung(await person("leitendeJfA"), id)).status).toBe(
+      204,
+    );
     expect(
       await db
         .select()
@@ -541,66 +539,15 @@ describe("Termine einer Art ohne Anmeldung", () => {
     ).toHaveLength(0);
   });
 
-  test("ein nicht gewählter Termin erreicht die App nicht, ein gewählter schon", async () => {
-    const id = await sitzung();
-    const eltern = await person("elternJfA");
-    const detail = await app.request(`/api/v1/programme/${id}`, {
-      headers: eltern.headers,
-    });
-    expect(detail.status).toBe(404);
-
-    const jahr = new Date().getFullYear();
-    const liste = await lies(
-      eltern,
-      `/api/v1/programme?von=${jahr}-01-01&bis=${jahr + 1}-12-31`,
-    );
-    expect(
-      liste.programme.find((p: { id: string }) => p.id === id),
-    ).toBeUndefined();
-    const anmeldbar = liste.programme.find((p: { id: string }) => p.id === jfA);
-    expect(anmeldbar).toMatchObject({ anmeldbar: true, teilnahmeOffen: true });
-    expect(anmeldbar.teilnehmende).not.toHaveLength(0);
-  });
-
-  test("ohne Art ist nichts anmeldbar; eine Freigabe gilt sofort, ihr Entzug auch", async () => {
-    const eltern = await person("elternJfA");
-    const ohneArt = (
+  test("auch ohne Art lässt sich ein Termin anmelden", async () => {
+    const id = (
       await legeProgrammAn(db, {
         einheitId: welt.einheit.jfA,
         beginn: IN_ZEHN_TAGEN(),
         art: null,
       })
     ).id;
-    expect((await melde(eltern, ohneArt, welt.teilnehmende.jfA)).status).toBe(
-      409,
-    );
-    const kurs = (
-      await legeProgrammAn(db, {
-        einheitId: welt.einheit.jfA,
-        beginn: IN_ZEHN_TAGEN(),
-        art: "Kurs",
-        anmeldbar: false,
-      })
-    ).id;
-    expect((await melde(eltern, kurs, welt.teilnehmende.jfA)).status).toBe(409);
-    await db
-      .update(schema.einheit)
-      .set({ anmeldeArten: ["Übung", "Kurs"] })
-      .where(eq(schema.einheit.id, welt.einheit.jfA));
-    expect((await melde(eltern, kurs, welt.teilnehmende.jfA)).status).toBe(204);
-    // Wieder abgewählt: die Antwort bleibt gespeichert, ändern geht nicht mehr
-    await db
-      .update(schema.einheit)
-      .set({ anmeldeArten: ["Übung"] })
-      .where(eq(schema.einheit.id, welt.einheit.jfA));
-    expect(
-      (await melde(eltern, kurs, welt.teilnehmende.jfA, "nein")).status,
-    ).toBe(409);
-    expect(
-      await db
-        .select()
-        .from(schema.teilnahme)
-        .where(eq(schema.teilnahme.programmId, kurs)),
-    ).toHaveLength(1);
+    const eltern = await person("elternJfA");
+    expect((await melde(eltern, id, welt.teilnehmende.jfA)).status).toBe(204);
   });
 });

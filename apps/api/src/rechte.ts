@@ -205,5 +205,14 @@ export function programmSichtbar(einheitIds: string[]): SQL {
   return inArray(sql`programm.einheit_id`, einheitIds);
 }
 
+// Termine «nur Leitende» sehen nur das Kantonsadmin-Konto sowie Kommando, Stellvertretung und Leitende der Einheit des Termins; für alle anderen sind sie unsichtbar (404)
+export function terminFuerPerson(person: Person): SQL {
+  if (person.kantonsadmin) return sql`true`;
+  return sql`(not programm.nur_leitende or ${inArray(
+    sql`programm.einheit_id`,
+    person.einheiten.map((r) => r.einheitId),
+  )})`;
+}
+
 // Beginn des Programms; ganztägige beginnen um 00:00 Schweizer Zeit, nie über die Sitzungszone (tag_von::timestamptz)
 export const programmBeginn: SQL = sql`coalesce(programm.beginn, programm.tag_von::timestamp at time zone 'Europe/Zurich')`;
