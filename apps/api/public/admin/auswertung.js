@@ -330,10 +330,11 @@ function zeichne(bereich, ctx, optionen) {
     const wahl = auswahl({
       label: "Einheit",
       optionen: [
-        ["", "Alle Einheiten"],
+        ["", "Alle Einheiten", icon("einheit")],
         ...liste.map((e) => [
           e.id,
           `${e.name} (${e.typ === "jf" ? "JF" : "KF"})`,
+          e.logoUrl ?? icon("einheit"),
         ]),
       ],
       wert: "",

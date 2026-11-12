@@ -1265,8 +1265,10 @@ describe("Konten suchen", () => {
     const antwort = await suche(wer, q, fuer);
     expect(antwort.status).toBe(200);
     return (await antwort.json()).konten as {
+      id: string;
       benutzername: string;
       name: string;
+      hatBild: boolean;
     }[];
   };
 
@@ -1293,8 +1295,10 @@ describe("Konten suchen", () => {
       "leitung",
     );
     expect(nachBenutzername).toContainEqual({
+      id: expect.any(String),
       benutzername: kfA.benutzername,
       name: expect.any(String),
+      hatBild: false,
     });
     const nachName = await treffer(
       konto("kantonsadmin"),
@@ -1302,7 +1306,22 @@ describe("Konten suchen", () => {
       "leitung",
     );
     expect(nachName.map((k) => k.benutzername)).toContain(kfA.benutzername);
-    expect(Object.keys(nachName[0]).sort()).toEqual(["benutzername", "name"]);
+    // hatBild zeigt, ob die Verwaltung das Bild laden kann
+    await db
+      .insert(schema.profilbild)
+      .values({ userId: kfA.id!, inhalt: Buffer.from("bild") });
+    const mitBild = await treffer(
+      konto("kantonsadmin"),
+      kfA.benutzername,
+      "leitung",
+    );
+    expect(mitBild.find((k) => k.id === kfA.id)?.hatBild).toBe(true);
+    expect(Object.keys(nachName[0]).sort()).toEqual([
+      "benutzername",
+      "hatBild",
+      "id",
+      "name",
+    ]);
     // Das Konto des Kantonsadmins lässt sich nie zuweisen
     expect(
       await treffer(
@@ -1339,6 +1358,16 @@ describe("Konten suchen", () => {
     expect(
       await treffer(konto("kantonsadmin"), selbst.benutzername, "eltern"),
     ).toEqual([]);
+    // Elternkonten kommen nie mit Bild: das Kommando darf es nicht laden
+    await db
+      .insert(schema.profilbild)
+      .values({ userId: konto("elternJfA").id!, inhalt: Buffer.from("bild") });
+    const [eltern] = await treffer(
+      konto("kommandoJfA"),
+      konto("elternJfA").benutzername,
+      "eltern",
+    );
+    expect(eltern.hatBild).toBe(false);
   });
 
   test("Prüfung: mindestens 2 Zeichen, bekannte Art, Platzhalter sind Text, nur wer verwaltet", async () => {

@@ -3,6 +3,7 @@ import {
   aktionenZelle,
   ankreuzen,
   auswahl,
+  avatar,
   bestaetigen,
   chip,
   dialogFormular,
@@ -294,6 +295,10 @@ async function uebergabe(e, ctx, neu, fertig) {
     optionen: kandidaten.map((p) => [
       p.id,
       `${p.name} (${ROLLENNAME[p.rolle]})`,
+      avatar(p.name, {
+        hell: true,
+        bildUrl: p.hatBild ? `/api/v1/admin/personen/${p.id}/bild` : null,
+      }),
     ]),
     wert: kandidaten[0].id,
   });

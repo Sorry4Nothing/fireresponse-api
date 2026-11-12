@@ -1426,6 +1426,59 @@ legend,
   font: inherit;
 }
 
+/* Vorschläge unter einem Kontenfeld: eigene Liste statt Browser-Datalist, damit sie wie die übrigen Menüs aussieht */
+.vorschlag-huelle {
+  position: relative;
+}
+
+.vorschlaege {
+  position: absolute;
+  inset: calc(100% + 4px) 0 auto;
+  z-index: 5;
+  max-height: 15rem;
+  margin: 0;
+  padding: 4px;
+  overflow-y: auto;
+  list-style: none;
+  background: var(--erhoben);
+  border: 1px solid var(--rand);
+  border-radius: 16px;
+  box-shadow: var(--schatten);
+}
+
+.vorschlag {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 4px 12px;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.vorschlag:hover {
+  background: var(--tab-sel);
+}
+
+/* Die helle Fläche des Avatars gleicht dem Grund der Liste; der Rand hält den Kreis sichtbar */
+.vorschlag .ava--hell {
+  box-shadow: inset 0 0 0 1px var(--rand);
+}
+
+.vorschlag[aria-selected="true"] {
+  background: var(--tab-sel);
+  box-shadow: inset 0 0 0 2px var(--fokus);
+}
+
+.vorschlag--leer {
+  color: var(--leise);
+  cursor: default;
+}
+
+.vorschlag--leer:hover {
+  background: transparent;
+}
+
 .feld textarea {
   min-height: 12rem;
   padding: 12px 16px;
@@ -1671,6 +1724,19 @@ fieldset .feld .auswahl {
   align-items: center;
   gap: 12px;
   min-width: 0;
+}
+
+/* Avatar und Symbol in der Auswahl haben die Grösse eines Logos */
+.auswahl-wert .ava {
+  width: 28px;
+  height: 28px;
+  font-size: 0.6875rem;
+}
+
+/* Symbol auf die Breite eines Logos, damit die Namen untereinander stehen */
+.auswahl-wert .i {
+  flex: none;
+  margin-inline: 2px;
 }
 
 .auswahl-bild {
