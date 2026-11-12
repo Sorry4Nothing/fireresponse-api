@@ -112,7 +112,7 @@ async function neueWelt() {
 }
 
 describe("Absage-Push", () => {
-  test("geht an alle Aktiven der Einheit, auch ohne Antwort, mit Text ohne Inhalte und Namen", async () => {
+  test("geht an alle Aktiven der Einheit, auch ohne Antwort, mit Titel und Tag, ohne Namen", async () => {
     const w = await neueWelt();
     const andere = await neueWelt();
     const p = await w.programm();
@@ -161,14 +161,14 @@ describe("Absage-Push", () => {
     expect(nachrichten[0]).toStrictEqual(
       fcmNachricht(
         nachrichten[0]!.token,
-        "Termin abgesagt",
+        "Waldtag am Sa 6.3. abgesagt",
         { typ: "programm", id: p.id },
         "termine",
-        "In Fire-Response",
+        "Mehr in Fire-Response.",
       ),
     );
-    // Weder Titel noch Name im Push
-    expect(JSON.stringify(nachrichten)).not.toMatch(/Waldtag|Vorname|Nachname/);
+    // Kein Name im Push
+    expect(JSON.stringify(nachrichten)).not.toMatch(/Vorname|Nachname/);
   });
 
   test("ein begonnenes oder unbekanntes Programm löst nichts aus", async () => {
@@ -253,13 +253,13 @@ describe("Änderungs-Push", () => {
     expect(nachrichten[0]).toStrictEqual(
       fcmNachricht(
         nachrichten[0]!.token,
-        "Termin geändert",
+        "Waldtag am Sa 6.3. geändert",
         { typ: "programm", id: p.id },
         "termine",
-        "In Fire-Response",
+        "Bitte Zeit und Aufgebot in der App prüfen.",
       ),
     );
-    expect(JSON.stringify(nachrichten)).not.toMatch(/Waldtag|Vorname|Nachname/);
+    expect(JSON.stringify(nachrichten)).not.toMatch(/Vorname|Nachname/);
   });
 
   test("hat noch niemand geantwortet, geschieht nichts", async () => {

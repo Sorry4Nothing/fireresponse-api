@@ -20,6 +20,7 @@ import {
   aufgabenHinweis,
   BENUTZERNAME_HILFE,
   kontoMenueEintraege,
+  kontoVorschlaege,
   mehrzahl,
   zustandsChips,
 } from "./konten.js";
@@ -72,7 +73,7 @@ function startpasswoerter(konten, ctx, text) {
 }
 
 // Ein Elternteil: neues Konto oder ein bestehendes, das schon für ein anderes Kind antwortet
-function elternBlock(nr, beiEntfernen) {
+function elternBlock(nr, einheit, beiEntfernen) {
   const art = { wert: "neu" };
   const gruppe = neueId("eltern-art");
   const vorname = feld({ label: "Vorname", maxlength: 100 });
@@ -85,14 +86,15 @@ function elternBlock(nr, beiEntfernen) {
     spellcheck: "false",
   });
   const bestehend = feld({
-    label: "Benutzername des bestehenden Kontos",
+    label: "Name oder Benutzername des bestehenden Kontos",
     hilfe:
-      "Für Eltern, die schon für ein anderes Kind antworten. Das Konto behält sein Passwort.",
+      "Für Eltern, die schon für ein anderes Kind antworten. Tippe mindestens 2 Zeichen und wähle das Konto aus der Liste. Es behält sein Passwort.",
     maxlength: 64,
     autocapitalize: "none",
     autocomplete: "off",
     spellcheck: "false",
   });
+  kontoVorschlaege(bestehend, einheit, "eltern");
   const neuFelder = el(
     "div",
     { class: "formular" },
@@ -201,7 +203,7 @@ function anlegen(einheit, daten, ctx, neu) {
     hinzufuegen,
   );
   function neuesElternteil() {
-    const block = elternBlock(eltern.length + 1, () => {
+    const block = elternBlock(eltern.length + 1, einheit, () => {
       eltern.splice(eltern.indexOf(block), 1);
       block.wurzel.remove();
       zeichneEltern();
@@ -288,7 +290,7 @@ function anlegen(einheit, daten, ctx, neu) {
 }
 
 function elternHinzufuegen(t, einheit, ctx, neu, fertig) {
-  const block = elternBlock(1, () => {});
+  const block = elternBlock(1, einheit, () => {});
   // Das einzelne Formular braucht kein «Entfernen»
   block.wurzel.querySelector("button")?.remove();
   dialogFormular({
