@@ -512,7 +512,9 @@ function zeichne(bereich, ctx, einheit, daten, neu) {
               { class: "wer" },
               avatar(p.name, {
                 hell: !p.eigenes,
-                bildUrl: p.hatBild ? `/api/v1/admin/personen/${p.id}/bild` : null,
+                bildUrl: p.hatBild
+                  ? `/api/v1/admin/personen/${p.id}/bild`
+                  : null,
               }),
               el(
                 "div",
