@@ -173,19 +173,95 @@ export const mehrzahl = (n, einzahl, mehrfach) =>
   `${n} ${n === 1 ? einzahl : mehrfach}`;
 
 // Die Felder für ein neues Konto sind überall gleich
-// Vorschläge unter einem Benutzername-Feld: ab 2 Zeichen nach Name oder Benutzername. fuer: «leitung» oder «eltern». Die API zeigt nur, was das Kommando auch zuweisen darf; Fehler und Treffer ohne Antwort lassen das Feld einfach leer
+// Vorschläge unter einem Feld für ein bestehendes Konto: ab 2 Zeichen nach Name (die API findet auch Benutzernamen). Die Liste zeigt nur Namen; der Benutzername bleibt am Feld und geht über kontoWert an die API. fuer: «leitung» oder «eltern». Die API zeigt nur, was das Kommando auch zuweisen darf; ein Fehler leert die Liste
 export function kontoVorschlaege(feld, einheit, fuer) {
-  const liste = el("datalist", { id: neueId("vorschlaege") });
-  feld.eingabe.setAttribute("list", liste.id);
-  feld.wurzel.append(liste);
+  const { eingabe } = feld;
+  const liste = el("ul", {
+    class: "vorschlaege",
+    id: neueId("vorschlaege"),
+    role: "listbox",
+    "aria-label": "Konten",
+    hidden: true,
+  });
+  const huelle = el("div", { class: "vorschlag-huelle" });
+  eingabe.replaceWith(huelle);
+  huelle.append(eingabe, liste);
+  eingabe.setAttribute("role", "combobox");
+  eingabe.setAttribute("aria-autocomplete", "list");
+  eingabe.setAttribute("aria-controls", liste.id);
+  eingabe.setAttribute("aria-expanded", "false");
+
   let warte;
   let lauf = 0;
-  feld.eingabe.addEventListener("input", () => {
+  let aktiv = -1;
+  const eintraege = () => [
+    ...liste.querySelectorAll('[role="option"][data-benutzername]'),
+  ];
+  const zeige = (i) => {
+    aktiv = i;
+    eintraege().forEach((li, n) => {
+      li.setAttribute("aria-selected", String(n === i));
+      if (n === i) {
+        eingabe.setAttribute("aria-activedescendant", li.id);
+        li.scrollIntoView({ block: "nearest" });
+      }
+    });
+    if (i < 0) eingabe.removeAttribute("aria-activedescendant");
+  };
+  const schliesse = () => {
+    lauf++;
     clearTimeout(warte);
-    const q = feld.eingabe.value.trim();
+    liste.hidden = true;
+    liste.replaceChildren();
+    eingabe.setAttribute("aria-expanded", "false");
+    zeige(-1);
+  };
+  const waehle = (li) => {
+    eingabe.value = li.textContent;
+    eingabe.dataset.benutzername = li.dataset.benutzername;
+    schliesse();
+  };
+  const fuelle = (konten) => {
+    liste.replaceChildren(
+      ...(konten.length === 0
+        ? [
+            el(
+              "li",
+              {
+                role: "option",
+                "aria-disabled": "true",
+                class: "vorschlag vorschlag--leer",
+              },
+              "Kein passendes Konto",
+            ),
+          ]
+        : konten.map((k) =>
+            el(
+              "li",
+              {
+                role: "option",
+                id: neueId("vorschlag"),
+                class: "vorschlag",
+                "aria-selected": "false",
+                "data-benutzername": k.benutzername,
+              },
+              k.name,
+            ),
+          )),
+    );
+    liste.hidden = false;
+    eingabe.setAttribute("aria-expanded", "true");
+    zeige(-1);
+  };
+
+  eingabe.addEventListener("input", () => {
+    // Wer nach der Auswahl weitertippt, wählt neu
+    delete eingabe.dataset.benutzername;
+    clearTimeout(warte);
+    const q = eingabe.value.trim();
     const nr = ++lauf;
     if (q.length < 2) {
-      liste.replaceChildren();
+      schliesse();
       return;
     }
     warte = setTimeout(async () => {
@@ -194,18 +270,43 @@ export function kontoVorschlaege(feld, einheit, fuer) {
           "GET",
           `/api/v1/admin/einheiten/${einheit.id}/konten-suche?fuer=${fuer}&q=${encodeURIComponent(q)}`,
         );
-        if (nr !== lauf) return;
-        liste.replaceChildren(
-          ...antwort.konten.map((k) =>
-            el("option", { value: k.benutzername, label: k.name }),
-          ),
-        );
+        if (nr === lauf) fuelle(antwort.konten);
       } catch {
-        if (nr === lauf) liste.replaceChildren();
+        if (nr === lauf) schliesse();
       }
     }, 250);
   });
+  eingabe.addEventListener("keydown", (e) => {
+    const offen = !liste.hidden;
+    const n = eintraege().length;
+    if (e.key === "Escape" && offen) {
+      // Schliesst nur die Liste, nicht den Dialog
+      e.preventDefault();
+      e.stopPropagation();
+      schliesse();
+    } else if (e.key === "ArrowDown" && offen && n > 0) {
+      e.preventDefault();
+      zeige((aktiv + 1) % n);
+    } else if (e.key === "ArrowUp" && offen && n > 0) {
+      e.preventDefault();
+      zeige((aktiv - 1 + n) % n);
+    } else if (e.key === "Enter" && offen && aktiv >= 0) {
+      e.preventDefault();
+      waehle(eintraege()[aktiv]);
+    }
+  });
+  eingabe.addEventListener("blur", schliesse);
+  // mousedown statt click: Das Feld verliert sonst den Fokus und schliesst die Liste vor der Auswahl
+  liste.addEventListener("mousedown", (e) => {
+    e.preventDefault();
+    const li = e.target.closest("[data-benutzername]");
+    if (li) waehle(li);
+  });
 }
+
+// Der Benutzername des gewählten Kontos; ohne Auswahl der getippte Text
+export const kontoWert = ({ eingabe }) =>
+  eingabe.dataset.benutzername ?? eingabe.value.trim();
 
 export const BENUTZERNAME_HILFE =
   "3 bis 64 Zeichen: Buchstaben, Ziffern, Punkt, Unterstrich und Bindestrich. Gross- und Kleinschreibung zählt nicht.";

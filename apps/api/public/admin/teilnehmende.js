@@ -21,6 +21,7 @@ import {
   BENUTZERNAME_HILFE,
   kontoMenueEintraege,
   kontoVorschlaege,
+  kontoWert,
   mehrzahl,
   zustandsChips,
 } from "./konten.js";
@@ -86,7 +87,7 @@ function elternBlock(nr, einheit, beiEntfernen) {
     spellcheck: "false",
   });
   const bestehend = feld({
-    label: "Name oder Benutzername des bestehenden Kontos",
+    label: "Name des bestehenden Kontos",
     hilfe:
       "Für Eltern, die schon für ein anderes Kind antworten. Tippe mindestens 2 Zeichen und wähle das Konto aus der Liste. Es behält sein Passwort.",
     maxlength: 64,
@@ -161,7 +162,7 @@ function elternBlock(nr, einheit, beiEntfernen) {
             nachname: nachname.eingabe.value.trim(),
             benutzername: benutzername.eingabe.value.trim(),
           }
-        : { bestehendesKonto: bestehend.eingabe.value.trim() },
+        : { bestehendesKonto: kontoWert(bestehend) },
   };
 }
 
@@ -429,7 +430,7 @@ function bearbeiten(t, einheit, daten, ctx, neu) {
               el(
                 "span",
                 { class: "mini leise" },
-                `${k.art === "selbst" ? "Eigenes Konto" : "Eltern"} · ${k.benutzername}`,
+                k.art === "selbst" ? "Eigenes Konto" : "Eltern",
               ),
             ),
             el("ul", { class: "chips" }, zustandsChips(k)),
@@ -670,7 +671,7 @@ function zeichne(bereich, ctx, einheit, daten, neu) {
                   { class: "chips" },
                   t.konten.map((k) =>
                     chip(
-                      `${k.art === "selbst" ? "Eigenes Konto" : "Eltern"}: ${k.benutzername}`,
+                      `${k.art === "selbst" ? "Eigenes Konto" : "Eltern"}: ${k.name}`,
                       k.deaktiviert ? "fehler" : undefined,
                       k.deaktiviert ? "sperre" : false,
                     ),

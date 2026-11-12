@@ -23,6 +23,7 @@ import {
   BENUTZERNAME_HILFE,
   kontoMenueEintraege,
   kontoVorschlaege,
+  kontoWert,
   mehrzahl,
   zustandsChips,
 } from "./konten.js";
@@ -129,7 +130,7 @@ function anlegen(art, einheit, ctx, neu) {
 // Ein Konto, das schon eine Rolle in einer anderen Einheit hat, wird hier zusätzlich Leitung (ein Konto für JF und KF)
 function zuweisen(einheit, ctx, neu) {
   const benutzername = feld({
-    label: "Name oder Benutzername",
+    label: "Name der Person",
     hilfe:
       "Tippe mindestens 2 Zeichen und wähle die Person aus der Liste. Das Konto muss schon eine Rolle haben. Das Kommando findet nur Konten aus den Einheiten, die es selbst verwaltet; sonst weist der Kantonsadmin zu.",
     maxlength: 64,
@@ -147,7 +148,7 @@ function zuweisen(einheit, ctx, neu) {
     ok: "Hinzufügen",
     senden: () =>
       anfrage("POST", `${basis(einheit)}/leitende/bestehend`, {
-        benutzername: benutzername.eingabe.value.trim(),
+        benutzername: kontoWert(benutzername),
       }),
     danach: () => {
       neu();
@@ -187,7 +188,7 @@ function bearbeiten(person, einheit, daten, ctx, neu) {
   );
   const blatt = seitenblatt({
     titel: person.name,
-    untertitel: `${ROLLENNAME[person.rolle]} · ${person.benutzername}`,
+    untertitel: ROLLENNAME[person.rolle],
     inhalt: [
       el(
         "form",
@@ -417,7 +418,7 @@ function zeichne(bereich, ctx, einheit, daten, neu) {
     id: suchId,
     class: "eingabe",
     type: "search",
-    placeholder: "Name oder Benutzername",
+    placeholder: "Name",
     autocomplete: "off",
     value: zustand.frage,
   });
@@ -450,9 +451,7 @@ function zeichne(bereich, ctx, einheit, daten, neu) {
   function zeichneListe() {
     const frage = zustand.frage.trim().toLowerCase();
     const treffer = personen.filter(
-      (p) =>
-        passt(p, zustand.filter) &&
-        `${p.name} ${p.benutzername}`.toLowerCase().includes(frage),
+      (p) => passt(p, zustand.filter) && p.name.toLowerCase().includes(frage),
     );
     const [von, bis] = seiten.fenster(treffer.length);
     zaehler.textContent =
@@ -518,12 +517,7 @@ function zeichne(bereich, ctx, einheit, daten, neu) {
                   ? `/api/v1/admin/personen/${p.id}/bild`
                   : null,
               }),
-              el(
-                "div",
-                {},
-                el("span", { class: "name" }, p.name),
-                el("span", { class: "mini leise" }, p.benutzername),
-              ),
+              el("span", { class: "name" }, p.name),
             ),
           ),
           el(
