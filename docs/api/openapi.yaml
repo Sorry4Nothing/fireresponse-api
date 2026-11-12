@@ -424,6 +424,21 @@ paths:
             text/javascript:
               schema:
                 type: string
+  /admin/termine.js:
+    get:
+      operationId: getAdminTermineSkript
+      summary: Skript der Verwaltung – Bereich Termine
+      tags:
+        - Allgemein
+      security: []
+      description: Statische Datei der Verwaltung (siehe `GET /admin`), ohne Anmeldung.
+      responses:
+        "200":
+          description: Datei (`text/javascript; charset=UTF-8`).
+          content:
+            text/javascript:
+              schema:
+                type: string
   /admin/zeitregeln.js:
     get:
       operationId: getAdminZeitregelnSkript

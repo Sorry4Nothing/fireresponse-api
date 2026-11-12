@@ -1,8 +1,6 @@
-import { anfrage } from "./api.js";
-import { auswahl, chip, el } from "./dom.js";
-import { mehrzahl } from "./konten.js";
+import { auswahl, el } from "./dom.js";
 
-// Ränge einer Einheit mit Abzeichen: 0 bis 2 Sterne oder ein eigenes Bild (SVG oder PNG). Sie sind fest und werden nur im Backend gepflegt.
+// Abzeichen der Ränge: 0 bis 2 Sterne oder ein eigenes Bild (SVG oder PNG), dazu die Auswahl eines Rangs. Die Ränge sind fest und werden nur im Backend gepflegt; die Verwaltung zeigt sie in Personen und Teilnehmenden.
 
 export const RANGTYP = {
   kf: "Kinderfeuerwehr",
@@ -184,71 +182,4 @@ export function raengeAuswahl(raenge, wert, label = "Rang") {
     ],
     wert,
   });
-}
-
-const url = (einheit, rest = "") =>
-  `/api/v1/admin/einheiten/${einheit.id}/raenge${rest}`;
-
-export function zeige(bereich, ctx) {
-  const einheit = ctx.einheit;
-  ctx.lade(
-    () => anfrage("GET", url(einheit)),
-    (daten) => zeichne(bereich, daten.raenge),
-  );
-}
-
-// Die Ränge sind fest: Die Verwaltung zeigt sie nur
-function zeichne(bereich, raenge) {
-  if (raenge.length === 0) {
-    bereich.append(
-      el("p", { class: "leer" }, "Diese Einheit hat noch keine Ränge."),
-    );
-    return;
-  }
-  const karte = (r) => {
-    const n = r.teilnehmende + r.rollen;
-    return el(
-      "li",
-      { class: "karte rang-karte", "data-fokus": r.id },
-      abzeichenOderGrund(r, "g"),
-      el(
-        "div",
-        { class: "rang-text" },
-        el("h3", {}, r.name),
-        el(
-          "ul",
-          { class: "chips" },
-          chip(RANGTYP[r.typ], "stufe"),
-          chip(`Kürzel ${r.kuerzel}`),
-          chip(`Nr. ${r.reihenfolge}`),
-          chip(mehrzahl(n, "Person", "Personen")),
-          r.abzeichen?.art === "sterne" &&
-            chip(SCHRIFT_ABZEICHEN.sterne(r.abzeichen.sterne)),
-          r.abzeichen?.art === "bild" && chip("Eigenes Bild"),
-          !r.abzeichen && chip("Kein Abzeichen"),
-        ),
-      ),
-    );
-  };
-  // Jeder Typ hat seine eigene Hierarchie: eine Liste je Typ
-  const listen = Object.entries(RANGTYP).flatMap(([typ, text]) => {
-    const gruppe = raenge.filter((r) => r.typ === typ);
-    if (gruppe.length === 0) return [];
-    return [
-      el("h2", { class: "abschnitt" }, text),
-      el(
-        "ul",
-        { class: "rang-liste", "aria-label": `Ränge ${text}` },
-        gruppe.map(karte),
-      ),
-    ];
-  });
-  bereich.append(
-    el(
-      "p",
-      { class: "klein leise", role: "status" },
-      `${mehrzahl(raenge.length, "Rang", "Ränge")} · jeder Typ hat seine eigene Reihenfolge, von oben nach unten; die Ränge sind fest`,
-    ),
-    ...listen,
-  );
 }

@@ -16,9 +16,9 @@ import {
   zeigeUmschalter,
 } from "./kontext.js";
 import * as personen from "./personen.js";
-import * as raenge from "./raenge.js";
 import * as system from "./system.js";
 import * as teilnehmende from "./teilnehmende.js";
+import * as termine from "./termine.js";
 import * as uebersicht from "./uebersicht.js";
 import * as zeitregeln from "./zeitregeln.js";
 
@@ -51,12 +51,12 @@ const BEREICHE = [
     einheit: true,
   },
   {
-    schluessel: "raenge",
-    name: "Ränge",
-    modul: raenge,
-    symbol: "stufen",
+    schluessel: "termine",
+    name: "Termine",
+    modul: termine,
+    symbol: "kalender",
     untertitel:
-      "Die Ränge gelten nur für diese Einheit. Name, Reihenfolge und Abzeichen legst du selbst fest.",
+      "Die Termine der Einheit aus dem Terminkalender. Du bestimmst, welche nur Leitende sehen.",
     einheit: true,
   },
   {
@@ -82,7 +82,8 @@ const BEREICHE = [
     modul: auswertung,
     symbol: "auswertung",
     untertitel:
-      "Anmeldungen auswerten: Quote pro Person, Termine, Jahresübersicht.",
+      "Anmeldungen der Einheit auswerten: Quote pro Person, Termine, Jahresübersicht.",
+    einheit: true,
   },
   {
     schluessel: "konto-loeschen",
