@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { IcsErgebnis, IcsTermin } from "./ics.js";
+import { titelOhneDatum, type IcsErgebnis, type IcsTermin } from "./ics.js";
 import { vonWanduhr } from "./zeitregeln/ausloesezeit.js";
 
 // Liest die öffentliche Terminliste einer Einheit in Lodur (index.php?modul=13&what=10&year=…): eine HTML-Tabelle mit den Spalten Tag, Datum, Zeit, Thema | Dienst, Übungsstoff und Art. Das Ergebnis hat die Form des ICS-Parsers, damit der Sync beide gleich übernimmt.
@@ -91,7 +91,7 @@ function zeile(zellen: string[]): Omit<IcsTermin, "uid"> | null {
   const letzter = bis < von ? von : bis;
   const z = uhr ? zeit(uhr) : null;
   const basis = {
-    titel: thema || art || "Termin",
+    titel: titelOhneDatum(thema || art || "Termin"),
     thema: null,
     info: stoff || null,
     aufgebot: null,
