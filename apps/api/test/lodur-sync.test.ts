@@ -307,7 +307,7 @@ describe("Sync einer Einheit", () => {
       .insert(schema.leitungAnmeldung)
       .values({ programmId: id, userId: kommando, status: "ja" });
 
-    // Der Push nennt weder Datum noch Inhalt
+    // Der Push nennt Titel und Tag, aber nicht Zeit, Info oder Thema
     await w.lauf(
       seite([[Z1[0], Z1[1], "19:30 - 21:00", Z1[3], "17:30", "Übung"]]),
     );
@@ -321,14 +321,15 @@ describe("Sync einer Einheit", () => {
     // Eltern beider Elternteile und das Kommando, nicht wer nichts geantwortet hat, nicht wer Pushes ausgeschaltet hat
     expect(empfaenger()).toEqual(["kommando", "mutter", "vater"]);
     expect(nachrichten[0]).toMatchObject({
-      notification: { title: "Termin geändert", body: "In Fire-Response" },
+      notification: {
+        title: "Allgemein am Sa 14.11. geändert",
+        body: "Bitte Zeit und Aufgebot in der App prüfen.",
+      },
       data: { typ: "programm", id },
       android: { notification: { channelId: "termine" } },
     });
-    // Weder Titel noch Thema noch Name im Push
-    expect(JSON.stringify(nachrichten[0])).not.toMatch(
-      /Allgemein|Person|Test|17:30/,
-    );
+    // Weder Zeit noch Info noch Name im Push
+    expect(JSON.stringify(nachrichten[0])).not.toMatch(/Person|Test|17:30/);
   });
 
   test("vergangene Termine ändert der Sync nie, und fehlen sie im Kalender, bleiben sie aktiv", async () => {
@@ -386,7 +387,10 @@ describe("Sync einer Einheit", () => {
     ).toHaveLength(1);
     expect(empfaenger()).toEqual(["kommando", "mutter", "ohne-antwort"]);
     expect(nachrichten[0]).toMatchObject({
-      notification: { title: "Termin abgesagt", body: "In Fire-Response" },
+      notification: {
+        title: "Allgemein am Sa 14.11. abgesagt",
+        body: "Mehr in Fire-Response.",
+      },
       data: { typ: "programm", id },
       android: { notification: { channelId: "termine" } },
     });
@@ -587,7 +591,7 @@ describe("HTML-Terminliste", () => {
     });
     expect(nachher.inhaltHash).not.toBe(vorher.inhaltHash);
     expect(nachrichten[0]).toMatchObject({
-      notification: { title: "Termin geändert" },
+      notification: { title: "Allgemein am Sa 14.11. geändert" },
     });
   });
 

@@ -14,12 +14,21 @@ import { anmeldbar } from "./anmeldefenster.js";
 import { log } from "./log.js";
 import { type Fcm, sendePush } from "./push.js";
 import { aktivesKonto, programmBeginn } from "./rechte.js";
+import { kurzDatum } from "./zeitregeln/ausloesezeit.js";
 
 // jetzt gibt der Sync vor, dessen Lauf eine feste Zeit hat; sonst gilt die Uhr der Datenbank
 type Umgebung = { db: Db; fcm?: Fcm; c?: Context; jetzt?: Date };
 
-// Der Text nennt weder Termin noch Person: Der Push steht je nach Handy auf dem gesperrten Bildschirm, und er läuft über Apple und Google
-const TEXT = "In Fire-Response";
+// Der Push steht je nach Handy auf dem gesperrten Bildschirm und läuft über Apple und Google. Titel und Tag des Programms dürfen darin stehen (wie bei den Erinnerungen); Namen von Personen, Antworten und Orte nie
+const MAX_TITEL = 60;
+
+// Lange Programmtitel kürzen, damit der Push nicht überläuft
+const gekuerzt = (titel: string) => {
+  const zeichen = [...titel];
+  return zeichen.length > MAX_TITEL
+    ? `${zeichen.slice(0, MAX_TITEL - 1).join("")}…`
+    : titel;
+};
 
 // Konten, die der Push erreicht: Eltern und teilnehmende Personen aktiver Teilnehmender der Einheit sowie Kommando und Leitende; aktives Konto, Schalter pushProgramme an. Mit nurAntworten nur, wer für dieses Programm schon geantwortet hat (ja oder nein)
 async function empfaenger(
@@ -99,13 +108,19 @@ async function empfaenger(
 async function pushAnTermin(
   { db, fcm, c, jetzt }: Umgebung,
   programmId: string,
-  titel: string,
+  was: "abgesagt" | "geändert",
+  text: string,
   nurAntworten: boolean,
 ) {
   try {
     // Nur künftige Programme: Für ein begonnenes ist jede Meldung zu spät. Und nur mit Anmeldung: Wer sich nicht anmelden kann, braucht keine Meldung über eine Sitzung oder einen Anlass
     const [zeile] = await db
-      .select({ einheitId: programm.einheitId })
+      .select({
+        einheitId: programm.einheitId,
+        titel: programm.titel,
+        // Millisekunden statt Zeitstempel: Der Treiber liefert Zeitstempel als Text
+        beginnMs: roh<string>`(extract(epoch from ${programmBeginn}) * 1000)::bigint`,
+      })
       .from(programm)
       .where(
         and(
@@ -128,8 +143,8 @@ async function pushAnTermin(
       typ: "programm",
       kanal: "termine",
       id: programmId,
-      titel,
-      text: TEXT,
+      titel: `${gekuerzt(zeile.titel)} am ${kurzDatum(new Date(Number(zeile.beginnMs)))} ${was}`,
+      text,
     });
   } catch (fehler) {
     // Nur der Code: message enthielte die SQL-Parameter
@@ -139,8 +154,20 @@ async function pushAnTermin(
 
 // Nach dem Absagen eines künftigen Programms aufrufen. Geht an alle der Einheit (Eltern, teilnehmende Personen, Kommando, Leitende), auch ohne Antwort: Wer nicht abgesagt hat, käme sonst vergeblich
 export const sendeAbsagePush = (umgebung: Umgebung, programmId: string) =>
-  pushAnTermin(umgebung, programmId, "Termin abgesagt", false);
+  pushAnTermin(
+    umgebung,
+    programmId,
+    "abgesagt",
+    "Mehr in Fire-Response.",
+    false,
+  );
 
 // Nach der Änderung eines künftigen Programms aufrufen. Geht nur an Personen, die schon geantwortet haben; hat noch niemand geantwortet, geschieht nichts (der Sync übernimmt die Änderung still)
 export const sendeAenderungsPush = (umgebung: Umgebung, programmId: string) =>
-  pushAnTermin(umgebung, programmId, "Termin geändert", true);
+  pushAnTermin(
+    umgebung,
+    programmId,
+    "geändert",
+    "Bitte Zeit und Aufgebot in der App prüfen.",
+    true,
+  );
