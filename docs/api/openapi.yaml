@@ -1197,8 +1197,8 @@ paths:
 
         Jeder Eintrag trägt `anmeldungAb`, den Schweizer Kalendertag, ab dem sich anmelden lässt (`ANMELDEFENSTER_TAGE` Tage
         vor dem Beginn, Standard 42). Spätere Programme sind sichtbar; die App zeigt dort «Anmeldung ab <Datum>».
-        `teilnahmeOffen` sagt, ob sich jetzt antworten lässt (aktiv, nicht begonnen, Fenster offen, Anmeldung für die Art freigegeben).
-        `anmeldbar` sagt, ob der Termin überhaupt eine Anmeldung hat: Die Einheit gibt in der Verwaltung frei, für welche `art` (Sitzung, Übung …) sich anmelden lässt.
+        `teilnahmeOffen` sagt, ob sich jetzt antworten lässt (aktiv, nicht begonnen, Fenster offen).
+        `anmeldbar` ist immer `true` und nur noch für Apps da, die das Feld lesen. Termine, die die Verwaltung auf «nur Leitende» gestellt hat, fehlen für Eltern und Teilnehmende in Liste und Detail (404).
 
         Statuscodes: 200 Erfolg; 400 `von` oder `bis` fehlt, ist kein gültiges Datum `JJJJ-MM-TT`, beginnt mit Jahr
         0000 oder es gibt unbekannte Query-Parameter; 401 keine gültige Sitzung (auch deaktiviertes Konto);
@@ -1324,7 +1324,7 @@ paths:
         Die Person kommt aus der Sitzung. Das Konto des Kantonsadmins, Eltern und Teilnehmende bekommen 403, wer die Einheit nicht sieht 404.
 
         Reihenfolge der Prüfung: Eingabe (400); Programm nicht sichtbar (404); keine Rolle in der Einheit (403);
-        Art nicht freigegeben (409, Code `KEINE_ANMELDUNG`); Programm schon begonnen (409, Code `PROGRAMM_BEGONNEN`); Anmeldefenster noch nicht offen (409, Code
+        Programm schon begonnen (409, Code `PROGRAMM_BEGONNEN`); Anmeldefenster noch nicht offen (409, Code
         `ANMELDEFENSTER_NICHT_OFFEN`). Statuscodes: 204, 400, 401, 403, 404, 409, 426, 429.
       parameters:
         - $ref: "#/components/parameters/AppVersion"
@@ -1348,17 +1348,13 @@ paths:
           $ref: "#/components/responses/NichtGefunden404"
         "409":
           description: |
-            Für den Termin gibt es keine Anmeldung (`KEINE_ANMELDUNG`), das Programm hat schon begonnen (`PROGRAMM_BEGONNEN`) oder die Anmeldung öffnet erst später
+            Das Programm hat schon begonnen (`PROGRAMM_BEGONNEN`) oder die Anmeldung öffnet erst später
             (`ANMELDEFENSTER_NICHT_OFFEN`, die Meldung nennt den Tag).
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Fehler"
               examples:
-                keineAnmeldung:
-                  value:
-                    code: KEINE_ANMELDUNG
-                    message: Für diesen Termin gibt es keine Anmeldung.
                 begonnen:
                   value:
                     code: PROGRAMM_BEGONNEN
@@ -1450,7 +1446,7 @@ paths:
         Wert gleich, geht kein Push hinaus. Ein Fehler beim Push lässt den Aufruf nicht scheitern.
 
         Reihenfolge der Prüfung: Eingabe (400); Programm nicht sichtbar oder Person nicht die eigene (404, ohne Unterscheidung);
-        inaktive Person (403); Art nicht freigegeben (409, `KEINE_ANMELDUNG`); Programm abgesagt oder begonnen (409, `PROGRAMM_GESCHLOSSEN`); Anmeldefenster noch nicht
+        inaktive Person (403); Programm abgesagt oder begonnen (409, `PROGRAMM_GESCHLOSSEN`); Anmeldefenster noch nicht
         offen (409, `ANMELDEFENSTER_NICHT_OFFEN`). Zwei Elternteile: Die letzte Antwort gilt.
       parameters:
         - $ref: "#/components/parameters/AppVersion"
@@ -1475,17 +1471,13 @@ paths:
           $ref: "#/components/responses/NichtGefunden404"
         "409":
           description: |
-            Für den Termin gibt es keine Anmeldung (`KEINE_ANMELDUNG`), das Programm ist abgesagt (Status nicht «aktiv») oder hat schon begonnen (`PROGRAMM_GESCHLOSSEN`), oder die
+            Das Programm ist abgesagt (Status nicht «aktiv») oder hat schon begonnen (`PROGRAMM_GESCHLOSSEN`), oder die
             Anmeldung öffnet erst später (`ANMELDEFENSTER_NICHT_OFFEN`, die Meldung nennt den Tag).
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Fehler"
               examples:
-                keineAnmeldung:
-                  value:
-                    code: KEINE_ANMELDUNG
-                    message: Für diesen Termin gibt es keine Anmeldung.
                 geschlossen:
                   value:
                     code: PROGRAMM_GESCHLOSSEN
@@ -1790,7 +1782,7 @@ paths:
       operationId: listeAdminZeitregeln
       summary: Erinnerungsregeln der Einheit
       description: |
-        Kommando der Einheit und Kantonsadmin. Liefert alle Regeln der Einheit, sortiert nach Wochentag und Uhrzeit.
+        Kommando der Einheit und Kantonsadmin. Liefert alle Regeln der Einheit, sortiert nach Abstand (grösster zuerst) und Uhrzeit.
 
         Der Server prüft die Regeln jede Minute und schickt die Erinnerung an Konten mit offener Antwort, nur für Programme im Anmeldefenster (`ANMELDEFENSTER_TAGE`), die noch nicht begonnen haben.
 
@@ -1821,7 +1813,7 @@ paths:
       operationId: legeAdminZeitregelAn
       summary: Erinnerungsregel anlegen
       description: |
-        Kommando der Einheit und Kantonsadmin. Legt eine Regel an, die Konten ohne gespeichertes «ja» oder «nein» an ein Programm erinnert. Der Server prüft jede Minute, ob eine Regel fällig ist: Die Auslösezeit pro Programm ist der letzte passende Wochentag samt Uhrzeit (Schweizer Zeit) vor Programmbeginn. Pro Regel und Programm geht höchstens eine Erinnerung hinaus; eine Regel, die erst nach der Auslösezeit entsteht, holt sie bis zum Programmbeginn nach. Das Anlegen steht im Audit-Log (ohne den Text).
+        Kommando der Einheit und Kantonsadmin. Legt eine Regel an, die Konten ohne gespeichertes «ja» oder «nein» an ein Programm erinnert. Der Server prüft jede Minute, ob eine Regel fällig ist: Die Auslösezeit pro Programm ist der Tag des Beginns minus `tageVorher` Kalendertage, zur Uhrzeit (Schweizer Zeit). Liegt sie nach dem Beginn (0 Tage und späte Uhrzeit), gibt es für dieses Programm keine Erinnerung. Pro Regel und Programm geht höchstens eine Erinnerung hinaus; eine Regel, die erst nach der Auslösezeit entsteht, holt sie bis zum Programmbeginn nach. Das Anlegen steht im Audit-Log (ohne den Text).
 
         Statuscodes: 201 bei Erfolg. 400 bei ungültiger Eingabe. 403 für Leitende und Eltern. 404 bei unbekannter oder unsichtbarer Einheit.
       tags:
@@ -1919,28 +1911,40 @@ paths:
           $ref: "#/components/responses/AppVeraltet426"
         "429":
           $ref: "#/components/responses/ZuVieleAnfragen429"
-  /api/v1/admin/einheiten/{einheitId}/anmelde-arten:
+  /api/v1/admin/einheiten/{einheitId}/termine:
     get:
-      operationId: holeAdminAnmeldeArten
-      summary: Arten der Termine der Einheit und ihre Freigabe für die Anmeldung
+      operationId: holeAdminTermine
+      summary: Termine der Einheit für die Verwaltung
       description: |
-        Kantonsadmin, Kommandant und Stellvertretungen der Einheit. Liefert die Arten (Spalte «Art» der Lodur-Terminliste: Sitzung, Übung, Kurs, Anlass …), die bei den synchronisierten Terminen der Einheit vorkommen, mit der Anzahl Termine und der Freigabe.
+        Kantonsadmin, Kommandant und Stellvertretungen der Einheit. Liefert die synchronisierten Termine der Einheit, die den Zeitraum `von` bis `bis` (Schweizer Kalendertage, einschliesslich) berühren, nach Beginn sortiert. Titel, Zeit und Art gehören dem Lodur-Sync; der Schalter `nurLeitende` gehört der Verwaltung.
 
-        Nur Termine einer freigegebenen Art haben eine Anmeldung (Antworten, Erinnerungen, Push, Auswertung). `entschieden: false` heisst: Die Verwaltung hat noch nie gewählt; bis dahin ist keine Art anmeldbar.
-
-        Statuscodes: 200 bei Erfolg. 403 für Leitende und Eltern der Einheit (und ohne zweiten Faktor, Code `ZWEITER_FAKTOR_FEHLT`); 404, wenn die Einheit unbekannt oder unsichtbar ist.
+        Statuscodes: 200 bei Erfolg. 400 bei fehlendem oder ungültigem Zeitraum. 403 für Leitende und Eltern der Einheit (und ohne zweiten Faktor, Code `ZWEITER_FAKTOR_FEHLT`); 404, wenn die Einheit unbekannt oder unsichtbar ist.
       tags:
         - Verwaltung
       parameters:
         - $ref: "#/components/parameters/AppVersion"
         - $ref: "#/components/parameters/EinheitIdPfad"
+        - name: von
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: bis
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
       responses:
         "200":
-          description: Arten und Freigabe.
+          description: Die Termine des Zeitraums.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AdminAnmeldeArten"
+                $ref: "#/components/schemas/AdminTermine"
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
         "401":
           $ref: "#/components/responses/NichtAngemeldet401"
         "403":
@@ -1951,39 +1955,53 @@ paths:
           $ref: "#/components/responses/AppVeraltet426"
         "429":
           $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/admin/einheiten/{einheitId}/termine/{id}:
     put:
-      operationId: setzeAdminAnmeldeArten
-      summary: Arten mit Anmeldung für die Einheit festlegen
+      operationId: setzeAdminTerminNurLeitende
+      summary: Termin auf «nur Leitende» stellen oder wieder freigeben
       description: |
-        Kantonsadmin, Kommandant und Stellvertretungen der Einheit. Ersetzt die Auswahl: Genau die genannten Arten haben eine Anmeldung, alle anderen nicht (`arten: []` schaltet die Anmeldung ganz ab). Es zählen nur Arten, die bei der Einheit vorkommen oder schon gewählt sind. Die Änderung gilt sofort für alle Termine der Einheit; bestehende Antworten bleiben gespeichert. Das Setzen steht im Audit-Log (`anmelde_arten_gesetzt`).
+        Kantonsadmin, Kommandant und Stellvertretungen der Einheit. «Nur Leitende» versteckt den Termin vor Eltern und Teilnehmenden (Liste, Detail, Push, Erinnerung, Auswertung); Kantonsadmin, Kommando, Stellvertretung und Leitende der Einheit sehen ihn weiter. Der Sync überschreibt den Schalter nie. Eine Änderung steht im Audit-Log (`termin_sichtbarkeit_geaendert`); derselbe Wert ändert nichts.
 
-        Statuscodes: 200 bei Erfolg. 400 bei ungültigem Body oder unbekannter Art (Code `ART_UNBEKANNT`). 403 für Leitende und Eltern. 404 bei unbekannter oder unsichtbarer Einheit.
+        Statuscodes: 200 bei Erfolg. 400 bei ungültigem Body. 403 für Leitende und Eltern. 404 bei unbekannter oder unsichtbarer Einheit und bei einem Termin einer anderen Einheit.
       tags:
         - Verwaltung
       parameters:
         - $ref: "#/components/parameters/AppVersion"
         - $ref: "#/components/parameters/EinheitIdPfad"
+        - name: id
+          in: path
+          required: true
+          description: ID des Termins (UUID).
+          schema:
+            type: string
+            format: uuid
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/AdminAnmeldeArtenSetzen"
+              type: object
+              additionalProperties: false
+              required: [nurLeitende]
+              properties:
+                nurLeitende:
+                  type: boolean
       responses:
         "200":
-          description: Auswahl gespeichert.
+          description: Gespeichert.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AdminAnmeldeArten"
+                type: object
+                required: [id, nurLeitende]
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  nurLeitende:
+                    type: boolean
         "400":
-          description: Ungültiger Body oder eine Art, die bei der Einheit nicht vorkommt.
-          content:
-            application/json:
-              schema:
-                oneOf:
-                  - $ref: "#/components/schemas/Fehler"
-                  - $ref: "#/components/schemas/AdminArtUnbekannt"
+          $ref: "#/components/responses/UngueltigeEingabe400"
         "401":
           $ref: "#/components/responses/NichtAngemeldet401"
         "403":
@@ -4208,7 +4226,7 @@ components:
           description: Art des Termins laut Lodur (Sitzung, Übung, Kurs, Anlass …); `null`, wenn die Quelle sie nicht liefert.
         anmeldbar:
           type: boolean
-          description: Die Einheit hat die Art des Termins für die Anmeldung freigegeben. Falsch heisst, der Termin hat keine Anmeldung (`teilnehmende` ist leer, `eigeneAnmeldung` fehlt, `teilnahmeOffen` ist falsch); die App zeigt ihn nur im Kalender. Hat die Einheit Arten gewählt, liefern Liste und Detail nur Termine dieser Arten (die anderen fehlen in der Liste, das Detail meldet 404); ohne Auswahl liefern sie alle.
+          description: Immer `true`; bleibt nur für Apps, die das Feld lesen, und entfällt mit der nächsten API-Version.
         anmeldungAb:
           type: string
           format: date
@@ -4685,17 +4703,17 @@ components:
     AdminZeitregelAnlegen:
       type: object
       required:
-        - wochentag
+        - tageVorher
         - uhrzeit
         - text
         - aktiv
       additionalProperties: false
       properties:
-        wochentag:
+        tageVorher:
           type: integer
-          minimum: 1
+          minimum: 0
           maximum: 7
-          description: ISO, 1 Montag bis 7 Sonntag.
+          description: Kalendertage vor dem Tag des Programmbeginns (Schweizer Zeit); 0 heisst am Tag selbst.
         uhrzeit:
           type: string
           pattern: ^([01][0-9]|2[0-3]):[0-5][0-9]$
@@ -4722,9 +4740,9 @@ components:
       description: Alle Felder optional; ein leeres Objekt ist erlaubt (No-op).
       additionalProperties: false
       properties:
-        wochentag:
+        tageVorher:
           type: integer
-          minimum: 1
+          minimum: 0
           maximum: 7
         uhrzeit:
           type: string
@@ -4746,7 +4764,7 @@ components:
       type: object
       required:
         - id
-        - wochentag
+        - tageVorher
         - uhrzeit
         - text
         - beschreibung
@@ -4755,9 +4773,9 @@ components:
         id:
           type: string
           format: uuid
-        wochentag:
+        tageVorher:
           type: integer
-          minimum: 1
+          minimum: 0
           maximum: 7
         uhrzeit:
           type: string
@@ -4779,51 +4797,46 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/AdminZeitregel"
-    AdminAnmeldeArtenSetzen:
+    AdminTermine:
       type: object
       additionalProperties: false
-      required: [arten]
+      required: [termine]
       properties:
-        arten:
+        termine:
           type: array
-          maxItems: 50
-          description: Die Arten mit Anmeldung; doppelte Einträge zählen einmal.
-          items:
-            type: string
-            minLength: 1
-            maxLength: 100
-    AdminAnmeldeArten:
-      type: object
-      additionalProperties: false
-      required: [entschieden, arten]
-      properties:
-        entschieden:
-          type: boolean
-          description: Falsch, solange die Verwaltung nie gewählt hat. Auch dann ist keine Art anmeldbar.
-        arten:
-          type: array
-          description: "Alphabetisch. Eine gewählte Art ohne Termine bleibt mit `anzahl` 0 in der Liste, damit sie sich abwählen lässt."
           items:
             type: object
             additionalProperties: false
-            required: [art, anzahl, anmeldbar]
+            required: [id, titel, art, status, ganztaegig, beginn, ende, tagVon, tagBis, nurLeitende]
             properties:
-              art:
+              id:
                 type: string
-              anzahl:
-                type: integer
-                description: Termine dieser Art bei der Einheit (alle, auch vergangene).
-              anmeldbar:
+                format: uuid
+              titel:
+                type: string
+              art:
+                type: [string, "null"]
+                description: Art laut Lodur (Sitzung, Übung, Kurs …).
+              status:
+                type: string
+                enum: [aktiv, abgesagt, pruefen]
+              ganztaegig:
                 type: boolean
-    AdminArtUnbekannt:
-      type: object
-      required: [code, message]
-      properties:
-        code:
-          type: string
-          enum: [ART_UNBEKANNT]
-        message:
-          type: string
+              beginn:
+                type: [string, "null"]
+                format: date-time
+                description: "`null` bei ganztägigen Terminen; dann gelten `tagVon` und `tagBis`."
+              ende:
+                type: [string, "null"]
+                format: date-time
+              tagVon:
+                type: [string, "null"]
+                format: date
+              tagBis:
+                type: [string, "null"]
+                format: date
+              nurLeitende:
+                type: boolean
     AdminLodurSetzen:
       type: object
       additionalProperties: false

@@ -145,6 +145,7 @@ export function erstelleAuswertungRouten({ db }: { db: Db }) {
           tagVon: programm.tagVon,
           tagBis: programm.tagBis,
           begonnen: sql<boolean>`${programmBeginn} <= now()`,
+          nurLeitende: programm.nurLeitende,
           einheitId: einheit.id,
           einheitName: einheit.name,
           einheitTyp: einheit.typ,
@@ -173,8 +174,9 @@ export function erstelleAuswertungRouten({ db }: { db: Db }) {
           tagBis: z.tagBis,
           begonnen: z.begonnen,
           einheit: { id: z.einheitId, name: z.einheitName, typ: z.einheitTyp },
+          // Bei «nur Leitende» antworten nur Leitende
           teilnehmende:
-            q.rolle === "leitende"
+            q.rolle === "leitende" || z.nurLeitende
               ? null
               : zahlen(
                   z.teilnehmendeGesamt,
@@ -203,6 +205,7 @@ export function erstelleAuswertungRouten({ db }: { db: Db }) {
           tagVon: programm.tagVon,
           tagBis: programm.tagBis,
           begonnen: sql<boolean>`${programmBeginn} <= now()`,
+          nurLeitende: programm.nurLeitende,
           einheitId: einheit.id,
           einheitName: einheit.name,
           einheitTyp: einheit.typ,
@@ -219,32 +222,34 @@ export function erstelleAuswertungRouten({ db }: { db: Db }) {
       await pruefeEinheit(db, person, zeile.einheitId, "verwalten");
 
       const [teilnehmendeListe, leitende] = await Promise.all([
-        db
-          .select({
-            id: teilnehmende.id,
-            vorname: teilnehmende.vorname,
-            nachname: teilnehmende.nachname,
-            status: sql<Antwort>`coalesce(${teilnahme.status}, 'offen')`,
-          })
-          .from(teilnehmende)
-          .leftJoin(
-            teilnahme,
-            and(
-              eq(teilnahme.teilnehmendeId, teilnehmende.id),
-              eq(teilnahme.programmId, id),
-            ),
-          )
-          .where(
-            and(
-              eq(teilnehmende.einheitId, zeile.einheitId),
-              isNull(teilnehmende.inaktivSeit),
-            ),
-          )
-          .orderBy(
-            asc(teilnehmende.nachname),
-            asc(teilnehmende.vorname),
-            asc(teilnehmende.id),
-          ),
+        zeile.nurLeitende
+          ? []
+          : db
+              .select({
+                id: teilnehmende.id,
+                vorname: teilnehmende.vorname,
+                nachname: teilnehmende.nachname,
+                status: sql<Antwort>`coalesce(${teilnahme.status}, 'offen')`,
+              })
+              .from(teilnehmende)
+              .leftJoin(
+                teilnahme,
+                and(
+                  eq(teilnahme.teilnehmendeId, teilnehmende.id),
+                  eq(teilnahme.programmId, id),
+                ),
+              )
+              .where(
+                and(
+                  eq(teilnehmende.einheitId, zeile.einheitId),
+                  isNull(teilnehmende.inaktivSeit),
+                ),
+              )
+              .orderBy(
+                asc(teilnehmende.nachname),
+                asc(teilnehmende.vorname),
+                asc(teilnehmende.id),
+              ),
         db
           .select({
             id: user.id,
@@ -364,7 +369,7 @@ export function erstelleAuswertungRouten({ db }: { db: Db }) {
               eq(teilnahme.teilnehmendeId, id),
             ),
           )
-          .where(programmeIn(b, true))
+          .where(and(programmeIn(b, true), sql`not ${programm.nurLeitende}`))
           .orderBy(programmBeginn, programm.id);
         return c.json({
           person: {

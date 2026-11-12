@@ -1300,11 +1300,13 @@ describe("Konten suchen", () => {
       name: expect.any(String),
       hatBild: false,
     });
-    const nachName = await treffer(
-      konto("kantonsadmin"),
-      "KOMMANDO KF A",
-      "leitung",
-    );
+    // Eigener Name, weil alle Testdateien in einer Datenbank gleichnamige Konten anlegen und die Suche bei 10 Treffern abschneidet
+    const suchName = `Suchname ${randomUUID()}`;
+    await db
+      .update(schema.user)
+      .set({ name: suchName })
+      .where(eq(schema.user.id, kfA.id!));
+    const nachName = await treffer(konto("kantonsadmin"), suchName, "leitung");
     expect(nachName.map((k) => k.benutzername)).toContain(kfA.benutzername);
     // hatBild zeigt, ob die Verwaltung das Bild laden kann
     await db

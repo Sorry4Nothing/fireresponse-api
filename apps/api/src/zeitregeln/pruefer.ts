@@ -14,17 +14,13 @@ import {
 } from "../db/schema.js";
 import { fehlerCode, log } from "../log.js";
 import { type Fcm, sendePush } from "../push.js";
-import {
-  ANMELDEFENSTER_STANDARD,
-  anmeldbar,
-  fensterOffen,
-} from "../anmeldefenster.js";
+import { ANMELDEFENSTER_STANDARD, fensterOffen } from "../anmeldefenster.js";
 import { aktivesKonto, programmBeginn } from "../rechte.js";
 import { ausloesezeit, kurzDatum } from "./ausloesezeit.js";
 
 // Eigener Schlüssel für die Sperre; 740027 und 740028 bleiben für spätere Hintergrundläufe frei
 const SPERRE_ZEITREGELN = 740_029;
-// Die Auslösezeit liegt höchstens 7 Tage (plus eine Stunde Umstellung) vor dem Beginn; weiter entfernte Programme sind nie fällig
+// Die Auslösezeit liegt höchstens 7 Tage plus einen Tag (Uhrzeit vor dem Beginn am selben Tag) vor dem Beginn; weiter entfernte Programme sind nie fällig
 const VORLAUF_MS = 8 * 86_400_000;
 
 // Titel und Beschreibung der Regel; die Platzhalter ersetzt der Server, nie Namen
@@ -38,7 +34,7 @@ export const titelAusRegel = (
     .replaceAll("{Datum}", kurzDatum(beginn));
 
 // Sendet jede fällige Erinnerung genau einmal: Die Zeile in zeitregel_gesendet entsteht vor dem Versand (INSERT … ON CONFLICT DO NOTHING ist die Sperre, auch bei zwei Servern). Stürzt der Prozess dazwischen ab, fällt diese eine Erinnerung aus, doppelt kommt sie nie.
-// Fällig heisst: Auslösezeit erreicht und das Programm hat noch nicht begonnen; ein Lauf nach einem Ausfall holt sie damit nach
+// Fällig heisst: Auslösezeit (Abstand in Tagen und Uhrzeit vor dem Termin) erreicht und das Programm hat noch nicht begonnen; ein Lauf nach einem Ausfall holt sie damit nach
 // Nur für Programme im Anmeldefenster (`anmeldefensterTage`): Vorher lässt sich nicht antworten, eine Erinnerung wäre sinnlos
 export async function sendeFaelligeErinnerungen(
   {
@@ -48,12 +44,13 @@ export async function sendeFaelligeErinnerungen(
   }: { db: Db; fcm: Fcm; anmeldefensterTage?: number },
   jetzt: Date,
 ) {
-  // Nur Programme, die noch Anmeldungen annehmen (wie teilnahmeOffen)
+  // Nur Programme, die noch Anmeldungen annehmen (wie teilnahmeOffen); bei «nur Leitende» geht die Erinnerung nur an Kommando und Leitende
   const programme = await db
     .select({
       id: programm.id,
       einheitId: programm.einheitId,
       titel: programm.titel,
+      nurLeitende: programm.nurLeitende,
       // Millisekunden statt Zeitstempel: Der Treiber liefert Zeitstempel als Text
       beginnMs: roh<string>`(extract(epoch from ${programmBeginn}) * 1000)::bigint`,
     })
@@ -64,7 +61,6 @@ export async function sendeFaelligeErinnerungen(
         roh`${programmBeginn} > ${jetzt.toISOString()}`,
         roh`${programmBeginn} <= ${new Date(jetzt.getTime() + VORLAUF_MS).toISOString()}`,
         fensterOffen(anmeldefensterTage, jetzt),
-        anmeldbar,
       ),
     );
   if (programme.length === 0) return;
@@ -78,8 +74,9 @@ export async function sendeFaelligeErinnerungen(
     const beginn = new Date(Number(p.beginnMs));
     for (const regel of regeln) {
       if (regel.einheitId !== p.einheitId) continue;
-      if (ausloesezeit(beginn, regel.wochentag, regel.uhrzeit) > jetzt)
-        continue;
+      const zeit = ausloesezeit(beginn, regel.tageVorher, regel.uhrzeit);
+      // Noch nicht erreicht, oder erst nach dem Beginn: dann gibt es für dieses Programm keine Erinnerung
+      if (zeit > jetzt || zeit >= beginn) continue;
       try {
         const [neu] = await db
           .insert(zeitregelGesendet)
@@ -88,38 +85,40 @@ export async function sendeFaelligeErinnerungen(
           .returning({ regelId: zeitregelGesendet.regelId });
         if (!neu) continue;
         // Konten aktiver Teilnehmender der Einheit ohne gespeichertes «ja» oder «nein», dazu Kommando und Leitende ohne Anmeldung; wer mehrere Kinder offen hat, kommt einmal vor
-        const ohneAntwort = await db
-          .selectDistinct({ id: user.id })
-          .from(teilnehmende)
-          .innerJoin(
-            teilnehmendeKonto,
-            eq(teilnehmendeKonto.teilnehmendeId, teilnehmende.id),
-          )
-          .innerJoin(
-            user,
-            and(
-              eq(user.id, teilnehmendeKonto.userId),
-              aktivesKonto(),
-              eq(user.pushProgramme, true),
-            ),
-          )
-          .where(
-            and(
-              eq(teilnehmende.einheitId, p.einheitId),
-              isNull(teilnehmende.inaktivSeit),
-              notExists(
-                db
-                  .select({ eins: roh`1` })
-                  .from(teilnahme)
-                  .where(
-                    and(
-                      eq(teilnahme.teilnehmendeId, teilnehmende.id),
-                      eq(teilnahme.programmId, p.id),
-                    ),
+        const ohneAntwort = p.nurLeitende
+          ? []
+          : await db
+              .selectDistinct({ id: user.id })
+              .from(teilnehmende)
+              .innerJoin(
+                teilnehmendeKonto,
+                eq(teilnehmendeKonto.teilnehmendeId, teilnehmende.id),
+              )
+              .innerJoin(
+                user,
+                and(
+                  eq(user.id, teilnehmendeKonto.userId),
+                  aktivesKonto(),
+                  eq(user.pushProgramme, true),
+                ),
+              )
+              .where(
+                and(
+                  eq(teilnehmende.einheitId, p.einheitId),
+                  isNull(teilnehmende.inaktivSeit),
+                  notExists(
+                    db
+                      .select({ eins: roh`1` })
+                      .from(teilnahme)
+                      .where(
+                        and(
+                          eq(teilnahme.teilnehmendeId, teilnehmende.id),
+                          eq(teilnahme.programmId, p.id),
+                        ),
+                      ),
                   ),
-              ),
-            ),
-          );
+                ),
+              );
         const leitungOhneAntwort = await db
           .selectDistinct({ id: user.id })
           .from(einheitRolle)

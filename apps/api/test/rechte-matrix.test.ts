@@ -633,7 +633,7 @@ const MATRIX: Record<string, Zeile> = {
   "POST /api/v1/admin/einheiten/:einheitId/zeitregeln": {
     url: (w) => `/api/v1/admin/einheiten/${w.einheit.jfA}/zeitregeln`,
     body: () => ({
-      wochentag: 3,
+      tageVorher: 3,
       uhrzeit: "08:00",
       text: "Matrix",
       aktiv: false,
@@ -666,14 +666,16 @@ const MATRIX: Record<string, Zeile> = {
     url: (w) => `/api/v1/admin/einheiten/${w.einheit.jfA}/lodur`,
     erwartet: VERWALTEN_JF_A(204),
   },
-  // Arten mit Anmeldung: dieselben Rechte wie der Lodur-Link; Auswahl und Fehlerfälle prüft test/admin-anmelde-arten.test.ts
-  "GET /api/v1/admin/einheiten/:einheitId/anmelde-arten": {
-    url: (w) => `/api/v1/admin/einheiten/${w.einheit.jfA}/anmelde-arten`,
+  // Termine der Einheit: dieselben Rechte wie der Lodur-Link; Schalter «nur Leitende» und Fehlerfälle prüft test/admin-termine.test.ts
+  "GET /api/v1/admin/einheiten/:einheitId/termine": {
+    url: (w) =>
+      `/api/v1/admin/einheiten/${w.einheit.jfA}/termine?von=2027-01-01&bis=2027-12-31`,
     erwartet: VERWALTEN_JF_A(200),
   },
-  "PUT /api/v1/admin/einheiten/:einheitId/anmelde-arten": {
-    url: (w) => `/api/v1/admin/einheiten/${w.einheit.jfA}/anmelde-arten`,
-    body: () => ({ arten: ["Übung"] }),
+  "PUT /api/v1/admin/einheiten/:einheitId/termine/:id": {
+    url: (w) =>
+      `/api/v1/admin/einheiten/${w.einheit.jfA}/termine/${programmId}`,
+    body: () => ({ nurLeitende: false }),
     erwartet: VERWALTEN_JF_A(200),
   },
   // Profilbild (#173): Jede Person mit Sitzung lädt ihr eigenes hoch und löscht es; nur die Person selbst, nie eine andere. Typ, Grösse und Rate-Limit prüft test/profilbild.test.ts
@@ -889,7 +891,7 @@ async function wegwerfRegelId() {
     .insert(schema.zeitregel)
     .values({
       einheitId: welt.einheit.jfA,
-      wochentag: 3,
+      tageVorher: 3,
       uhrzeit: "08:00",
       text: "Wegwerf",
       aktiv: false,

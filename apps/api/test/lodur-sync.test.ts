@@ -117,7 +117,6 @@ async function neueWelt(link: string | null = LINK) {
       bezirkId: bezirk!.id,
       typ: "jf",
       name: "Sync",
-      anmeldeArten: ["Übung"],
       lodurUrlVerschluesselt: link && verschluessele(link, ZWECK_LODUR_LINK),
     })
     .returning();
@@ -615,7 +614,7 @@ describe("HTML-Terminliste", () => {
     });
   });
 
-  test("Termine einer Art ohne Anmeldung: kein Push bei Absage oder Änderung", async () => {
+  test("Termine «nur Leitende»: kein Push an Eltern bei Absage oder Änderung", async () => {
     const w = await neueWelt(HTML_LINK);
     const mutter = await w.konto("mutter");
     const kind = await w.person([mutter]);
@@ -629,6 +628,10 @@ describe("HTML-Terminliste", () => {
     ];
     await w.lauf(nachJahr({ "2054": [Z1, sitzung, Z2] }));
     const { id } = await w.nachTitel("Leitersitzung");
+    await db
+      .update(schema.programm)
+      .set({ nurLeitende: true })
+      .where(eq(schema.programm.id, id));
     await db
       .insert(schema.teilnahme)
       .values({ programmId: id, teilnehmendeId: kind, status: "ja" });
