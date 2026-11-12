@@ -30,6 +30,13 @@ const gekuerzt = (titel: string) => {
     : titel;
 };
 
+// «Waldtag am Sa 6.3.» für Pushes zu einem Programm; beginnMs ist programmBeginnMs
+export const titelMitTag = (titel: string, beginnMs: string) =>
+  `${gekuerzt(titel)} am ${kurzDatum(new Date(Number(beginnMs)))}`;
+
+// Millisekunden statt Zeitstempel: Der Treiber liefert Zeitstempel als Text
+export const programmBeginnMs = roh<string>`(extract(epoch from ${programmBeginn}) * 1000)::bigint`;
+
 // Konten, die der Push erreicht: Eltern und teilnehmende Personen aktiver Teilnehmender der Einheit sowie Kommando und Leitende; aktives Konto, Schalter pushProgramme an. Mit nurAntworten nur, wer für dieses Programm schon geantwortet hat (ja oder nein)
 async function empfaenger(
   db: Db,
@@ -118,8 +125,7 @@ async function pushAnTermin(
       .select({
         einheitId: programm.einheitId,
         titel: programm.titel,
-        // Millisekunden statt Zeitstempel: Der Treiber liefert Zeitstempel als Text
-        beginnMs: roh<string>`(extract(epoch from ${programmBeginn}) * 1000)::bigint`,
+        beginnMs: programmBeginnMs,
       })
       .from(programm)
       .where(
@@ -143,7 +149,7 @@ async function pushAnTermin(
       typ: "programm",
       kanal: "termine",
       id: programmId,
-      titel: `${gekuerzt(zeile.titel)} am ${kurzDatum(new Date(Number(zeile.beginnMs)))} ${was}`,
+      titel: `${titelMitTag(zeile.titel, zeile.beginnMs)} ${was}`,
       text,
     });
   } catch (fehler) {
