@@ -4278,6 +4278,7 @@ components:
                 deaktiviert,
                 eigenes,
                 gemeinsam,
+                hatBild,
                 aktionen,
               ]
             properties:
@@ -4329,6 +4330,9 @@ components:
               gemeinsam:
                 type: boolean
                 description: Das Konto gehört auch zu einer anderen Einheit; dann ändert nur der Kantonsadmin es.
+              hatBild:
+                type: boolean
+                description: Die Person hat ein Profilbild. Ohne Bild ruft das Panel `GET /api/v1/admin/personen/{id}/bild` nicht auf und zeigt die Initialen.
               aktionen:
                 $ref: "#/components/schemas/AdminKontoAktionen"
     AdminPersonAendern:

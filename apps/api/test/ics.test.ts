@@ -224,3 +224,34 @@ describe("leseIcs", () => {
     },
   );
 });
+
+describe("Ortszeit mit TZID", () => {
+  const lese = (...zeilen: string[]) =>
+    leseIcs(kalender(ereignis(...zeilen))).termine[0];
+
+  test("Winter- und Sommerzeit werden nach UTC umgerechnet", () => {
+    const winter = lese(
+      "DTSTART;TZID=Europe/Zurich:20261214T190000",
+      "DTEND;TZID=Europe/Zurich:20261214T210000",
+      "SUMMARY:Sitzung",
+    );
+    expect(winter?.beginn?.toISOString()).toBe("2026-12-14T18:00:00.000Z");
+    expect(winter?.ende?.toISOString()).toBe("2026-12-14T20:00:00.000Z");
+    const sommer = lese(
+      "DTSTART;TZID=Europe/Zurich:20260614T190000",
+      "SUMMARY:Übung",
+    );
+    expect(sommer?.beginn?.toISOString()).toBe("2026-06-14T17:00:00.000Z");
+  });
+
+  test("schwebende Zeit und unbekannte Zone ergeben keinen Termin, die UID zählt trotzdem", () => {
+    for (const start of [
+      "DTSTART:20261214T190000",
+      "DTSTART;TZID=Mars/Olympus:20261214T190000",
+    ]) {
+      const e = leseIcs(kalender(ereignis(start, "SUMMARY:x")));
+      expect(e.termine).toEqual([]);
+      expect(e.uids.size).toBe(1);
+    }
+  });
+});
