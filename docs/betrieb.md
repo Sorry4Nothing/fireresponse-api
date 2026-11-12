@@ -101,7 +101,7 @@ Die Pushes laufen über ein eigenes Firebase-Projekt, das nur FireResponse nutzt
 2. Unter «Projekteinstellungen», «Dienstkonten» einen neuen privaten Schlüssel für das Firebase-Admin-SDK erzeugen. Die JSON-Datei liegt nur auf dem Server unter `deploy/secrets/fcm-service-account.json` (Ordner 700, Datei 400, Besitzer `1000:1000`), nie im Repo, nie im Chat, nie in einer E-Mail. Geht die Datei verloren, erzeugt man in der Konsole einen neuen Schlüssel.
 3. `docker-compose.prod.yml` setzt `FCM_SCHLUESSEL_DATEI` auf den Pfad im Container. Nach dem Ablegen der Datei die API neu starten; im Log steht beim Start nicht mehr `ohne-schluessel`.
 4. Die Apps legen die Android-Kanäle `termine` und `anmeldungen` an. Die Kanal-IDs stehen in der Android-Konfiguration des Pushes (`android.notification.channelId`).
-5. Test: Mit dem Konto des Kommandos auf einem Gerät anmelden (das Gerät registriert sein Push-Token), dann mit einem Elternkonto der Einheit ein künftiges Programm im Anmeldefenster beantworten. Das Gerät des Kommandos zeigt «Neue Anmeldung» mit dem Text «In Fire-Response».
+5. Test: Mit dem Konto des Kommandos auf einem Gerät anmelden (das Gerät registriert sein Push-Token), dann mit einem Elternkonto der Einheit ein künftiges Programm im Anmeldefenster beantworten. Das Gerät des Kommandos zeigt «Neue Anmeldung» mit Titel und Tag des Programms als Text.
 
 Push-Texte tragen nie Namen und nie den Titel eines Termins: Sie stehen je nach Handy auf dem gesperrten Bildschirm und laufen über Apple und Google. Schlüssel tauschen: siehe «Datenpanne».
 

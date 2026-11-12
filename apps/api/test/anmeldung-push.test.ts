@@ -136,12 +136,12 @@ describe("Anmelde-Push bei PUT /programme/:id/teilnahmen/:teilnehmendeId", () =>
           "Neue Anmeldung",
           { typ: "programm", id: p.id },
           "anmeldungen",
-          "In Fire-Response",
+          "Waldtag am Sa 30.10.",
         ),
       ]),
     );
     expect(JSON.stringify(fcmAttrappe.nachrichten)).not.toMatch(
-      /Kind|Waldtag|Sa 30/,
+      /Kind|Vorname|Nachname/,
     );
   });
 
@@ -157,8 +157,8 @@ describe("Anmelde-Push bei PUT /programme/:id/teilnahmen/:teilnehmendeId", () =>
     await melde(eltern, p.id, "ja");
 
     expect(fcmAttrappe.nachrichten.map((n) => n.notification)).toEqual([
-      { title: "Neue Abmeldung", body: "In Fire-Response" },
-      { title: "Neue Anmeldung", body: "In Fire-Response" },
+      { title: "Neue Abmeldung", body: "Waldtag am Sa 30.10." },
+      { title: "Neue Anmeldung", body: "Waldtag am Sa 30.10." },
     ]);
   });
 
