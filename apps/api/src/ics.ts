@@ -16,7 +16,6 @@ export type IcsTermin = {
   art: string | null;
 };
 
-// Ohne Art lässt sich ein Termin nicht anmelden (anmeldbar); die Einheit gibt diese Art in der Verwaltung frei
 export const ICS_ART = "Termin";
 
 // Auch das Ergebnis der HTML-Terminliste (lodur-html.ts) hat diese Form

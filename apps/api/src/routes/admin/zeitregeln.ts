@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { z } from "zod";
@@ -7,8 +7,8 @@ import { auditLog, zeitregel } from "../../db/schema.js";
 import { eingabe } from "../../eingabe.js";
 import { pruefeEinheit, type Person } from "../../rechte.js";
 
-// Wochentag ISO: 1 Montag bis 7 Sonntag; Uhrzeit HH:mm in Schweizer Zeit
-const wochentag = z.number().int().min(1).max(7);
+// Kalendertage vor dem Tag des Termins (0 bis 7); Uhrzeit HH:mm in Schweizer Zeit
+const tageVorher = z.number().int().min(0).max(7);
 const uhrzeit = z.string().regex(/^([01][0-9]|2[0-3]):[0-5][0-9]$/);
 // Der Push-Titel; {Programm} und {Datum} ersetzt der Server (ebenso in der Beschreibung)
 const text = z.string().trim().min(1).max(150);
@@ -17,14 +17,14 @@ const beschreibung = z.string().trim().min(1).max(300).nullable();
 
 // Ein Schema pro Route, mit keiner Nicht-Admin-Route geteilt
 const anlegenSchema = z.strictObject({
-  wochentag,
+  tageVorher,
   uhrzeit,
   text,
   beschreibung: beschreibung.optional(),
   aktiv: z.boolean(),
 });
 const aendernSchema = z.strictObject({
-  wochentag: wochentag.optional(),
+  tageVorher: tageVorher.optional(),
   uhrzeit: uhrzeit.optional(),
   text: text.optional(),
   beschreibung: beschreibung.optional(),
@@ -53,7 +53,7 @@ export function erstelleZeitregelRouten({ db }: { db: Db }) {
       const regeln = await db
         .select({
           id: zeitregel.id,
-          wochentag: zeitregel.wochentag,
+          tageVorher: zeitregel.tageVorher,
           uhrzeit: zeitregel.uhrzeit,
           text: zeitregel.text,
           beschreibung: zeitregel.beschreibung,
@@ -62,7 +62,7 @@ export function erstelleZeitregelRouten({ db }: { db: Db }) {
         .from(zeitregel)
         .where(eq(zeitregel.einheitId, einheitId))
         .orderBy(
-          asc(zeitregel.wochentag),
+          desc(zeitregel.tageVorher),
           asc(zeitregel.uhrzeit),
           asc(zeitregel.id),
         );
@@ -90,7 +90,7 @@ export function erstelleZeitregelRouten({ db }: { db: Db }) {
             zielTyp: "zeitregel",
             zielId: zeile.id,
             details: {
-              wochentag: felder.wochentag,
+              tageVorher: felder.tageVorher,
               uhrzeit: felder.uhrzeit,
               aktiv: felder.aktiv,
             },

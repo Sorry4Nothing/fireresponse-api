@@ -10,7 +10,6 @@ import {
   teilnehmendeKonto,
   user,
 } from "./db/schema.js";
-import { anmeldbar } from "./anmeldefenster.js";
 import { log } from "./log.js";
 import { type Fcm, sendePush } from "./push.js";
 import { aktivesKonto, programmBeginn } from "./rechte.js";
@@ -43,41 +42,45 @@ async function empfaenger(
   programmId: string,
   einheitId: string,
   nurAntworten: boolean,
+  nurLeitende: boolean,
 ) {
-  const eltern = await db
-    .selectDistinct({ id: user.id })
-    .from(teilnehmende)
-    .innerJoin(
-      teilnehmendeKonto,
-      eq(teilnehmendeKonto.teilnehmendeId, teilnehmende.id),
-    )
-    .innerJoin(
-      user,
-      and(
-        eq(user.id, teilnehmendeKonto.userId),
-        aktivesKonto(),
-        eq(user.pushProgramme, true),
-      ),
-    )
-    .where(
-      and(
-        eq(teilnehmende.einheitId, einheitId),
-        isNull(teilnehmende.inaktivSeit),
-        nurAntworten
-          ? exists(
-              db
-                .select({ eins: roh`1` })
-                .from(teilnahme)
-                .where(
-                  and(
-                    eq(teilnahme.teilnehmendeId, teilnehmende.id),
-                    eq(teilnahme.programmId, programmId),
-                  ),
-                ),
-            )
-          : undefined,
-      ),
-    );
+  // Bei «nur Leitende» erfahren Kinder und Eltern nichts vom Termin
+  const eltern = nurLeitende
+    ? []
+    : await db
+        .selectDistinct({ id: user.id })
+        .from(teilnehmende)
+        .innerJoin(
+          teilnehmendeKonto,
+          eq(teilnehmendeKonto.teilnehmendeId, teilnehmende.id),
+        )
+        .innerJoin(
+          user,
+          and(
+            eq(user.id, teilnehmendeKonto.userId),
+            aktivesKonto(),
+            eq(user.pushProgramme, true),
+          ),
+        )
+        .where(
+          and(
+            eq(teilnehmende.einheitId, einheitId),
+            isNull(teilnehmende.inaktivSeit),
+            nurAntworten
+              ? exists(
+                  db
+                    .select({ eins: roh`1` })
+                    .from(teilnahme)
+                    .where(
+                      and(
+                        eq(teilnahme.teilnehmendeId, teilnehmende.id),
+                        eq(teilnahme.programmId, programmId),
+                      ),
+                    ),
+                )
+              : undefined,
+          ),
+        );
   const leitende = await db
     .selectDistinct({ id: user.id })
     .from(einheitRolle)
@@ -120,18 +123,18 @@ async function pushAnTermin(
   nurAntworten: boolean,
 ) {
   try {
-    // Nur künftige Programme: Für ein begonnenes ist jede Meldung zu spät. Und nur mit Anmeldung: Wer sich nicht anmelden kann, braucht keine Meldung über eine Sitzung oder einen Anlass
+    // Nur künftige Programme: Für ein begonnenes ist jede Meldung zu spät
     const [zeile] = await db
       .select({
         einheitId: programm.einheitId,
         titel: programm.titel,
+        nurLeitende: programm.nurLeitende,
         beginnMs: programmBeginnMs,
       })
       .from(programm)
       .where(
         and(
           eq(programm.id, programmId),
-          anmeldbar,
           jetzt
             ? roh`${programmBeginn} > ${jetzt.toISOString()}::timestamptz`
             : roh`${programmBeginn} > now()`,
@@ -143,6 +146,7 @@ async function pushAnTermin(
       programmId,
       zeile.einheitId,
       nurAntworten,
+      zeile.nurLeitende,
     );
     if (konten.length === 0) return;
     await sendePush({ db, fcm, c }, konten, {

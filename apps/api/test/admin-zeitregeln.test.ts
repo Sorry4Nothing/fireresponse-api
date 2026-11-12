@@ -82,7 +82,7 @@ function anfrage(
 const basis = (einheitId = welt.einheit.jfA) =>
   `/api/v1/admin/einheiten/${einheitId}/zeitregeln`;
 const regelBody = (extra: Record<string, unknown> = {}) => ({
-  wochentag: 3,
+  tageVorher: 3,
   uhrzeit: "08:00",
   text: "{Programm} am {Datum}: bitte antworten",
   aktiv: true,
@@ -119,14 +119,14 @@ const auditZeilen = (zielId: string) =>
 describe("POST /api/v1/admin/einheiten/:einheitId/zeitregeln", () => {
   test("legt die Regel in der Einheit an, getrimmt, und schreibt das Audit-Log ohne Text", async () => {
     const id = await legeRegelAn(kommando, {
-      wochentag: 7,
+      tageVorher: 7,
       uhrzeit: "23:59",
       text: "  Erinnerung  ",
       aktiv: false,
     });
     expect(await zeile(id)).toMatchObject({
       einheitId: welt.einheit.jfA,
-      wochentag: 7,
+      tageVorher: 7,
       uhrzeit: "23:59",
       text: "Erinnerung",
       aktiv: false,
@@ -137,7 +137,7 @@ describe("POST /api/v1/admin/einheiten/:einheitId/zeitregeln", () => {
       akteurId: kommando.id,
       aktion: "zeitregel_angelegt",
       zielTyp: "zeitregel",
-      details: { wochentag: 7, uhrzeit: "23:59", aktiv: false },
+      details: { tageVorher: 7, uhrzeit: "23:59", aktiv: false },
     });
     expect(JSON.stringify(audit)).not.toContain("Erinnerung");
   });
@@ -185,9 +185,9 @@ describe("POST /api/v1/admin/einheiten/:einheitId/zeitregeln", () => {
   });
 
   test.each([
-    ["Wochentag 0", { wochentag: 0 }],
-    ["Wochentag 8", { wochentag: 8 }],
-    ["Wochentag als Text", { wochentag: "3" }],
+    ["Abstand -1", { tageVorher: -1 }],
+    ["Abstand 8", { tageVorher: 8 }],
+    ["Abstand als Text", { tageVorher: "3" }],
     ["Uhrzeit 24:00", { uhrzeit: "24:00" }],
     ["Uhrzeit 8:00", { uhrzeit: "8:00" }],
     ["Uhrzeit 08:60", { uhrzeit: "08:60" }],
@@ -202,18 +202,18 @@ describe("POST /api/v1/admin/einheiten/:einheitId/zeitregeln", () => {
 });
 
 describe("GET /api/v1/admin/einheiten/:einheitId/zeitregeln", () => {
-  test("listet nur die Regeln der eigenen Einheit, nach Wochentag und Uhrzeit", async () => {
+  test("listet nur die Regeln der eigenen Einheit, nach Abstand (grösster zuerst) und Uhrzeit", async () => {
     const spaet = await legeRegelAn(kommando, {
-      wochentag: 2,
+      tageVorher: 2,
       uhrzeit: "18:00",
     });
     const frueh = await legeRegelAn(kommando, {
-      wochentag: 2,
+      tageVorher: 2,
       uhrzeit: "07:00",
     });
     const fremd = await legeRegelAn(
       fremdesKommando,
-      { wochentag: 1 },
+      { tageVorher: 1 },
       welt.einheit.kfA,
     );
     const antwort = await anfrage(kommando, "GET", basis());
@@ -224,7 +224,7 @@ describe("GET /api/v1/admin/einheiten/:einheitId/zeitregeln", () => {
     expect(ids.indexOf(frueh)).toBeLessThan(ids.indexOf(spaet));
     expect(regeln.find((r) => r.id === frueh)).toEqual({
       id: frueh,
-      wochentag: 2,
+      tageVorher: 2,
       uhrzeit: "07:00",
       text: "{Programm} am {Datum}: bitte antworten",
       beschreibung: null,
@@ -247,7 +247,7 @@ describe("PATCH /api/v1/admin/einheiten/:einheitId/zeitregeln/:id", () => {
     });
     expect(antwort.status).toBe(204);
     expect(await zeile(id)).toMatchObject({
-      wochentag: 3,
+      tageVorher: 3,
       uhrzeit: "09:15",
       text: "Neuer Text",
       aktiv: true,

@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { eq, sql } from "drizzle-orm";
 import type { Db } from "../../src/db/client.js";
 import * as schema from "../../src/db/schema.js";
 
@@ -20,7 +19,7 @@ export async function legeProgrammAn(
     tagVon,
     tagBis,
     art = "Übung",
-    anmeldbar = true,
+    nurLeitende = false,
   }: {
     einheitId: string;
     titel?: string;
@@ -29,18 +28,9 @@ export async function legeProgrammAn(
     tagVon?: string;
     tagBis?: string;
     art?: string | null;
-    // Gibt die Art bei der Einheit für die Anmeldung frei, damit die Tests der Anmeldung nicht jeder die Auswahl setzen müssen; false lässt die Auswahl der Einheit, wie sie ist
-    anmeldbar?: boolean;
+    nurLeitende?: boolean;
   },
 ): Promise<TestProgramm> {
-  if (art !== null && anmeldbar) {
-    await db
-      .update(schema.einheit)
-      .set({
-        anmeldeArten: sql`(select array_agg(distinct a) from unnest(coalesce(${schema.einheit.anmeldeArten}, '{}') || ${art}::text) a)`,
-      })
-      .where(eq(schema.einheit.id, einheitId));
-  }
   const marke = `marke-${randomUUID()}`;
   const ganztaegig = tagVon !== undefined;
   const [zeile] = await db
@@ -50,6 +40,7 @@ export async function legeProgrammAn(
       googleEventId: `test-${randomUUID()}`,
       titel,
       art,
+      nurLeitende,
       ganztaegig,
       beginn: ganztaegig ? null : beginn,
       ende: ganztaegig

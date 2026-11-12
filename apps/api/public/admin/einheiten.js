@@ -11,7 +11,6 @@ import {
   feld,
   filterGruppe,
   geheimnisDialog,
-  gruppe,
   icon,
   knopf,
   neueId,
@@ -19,6 +18,7 @@ import {
   tabelle,
   zeit,
 } from "./dom.js";
+import { formatDe, heute, verschiebe } from "./datum.js";
 import { BENUTZERNAME_HILFE, mehrzahl } from "./konten.js";
 import { abzeichen } from "./raenge.js";
 import { istKantonsadmin, kontext, ROLLENNAME, TYPNAME } from "./kontext.js";
@@ -470,7 +470,7 @@ function logoAbschnitt(e, ctx, neu, schliesse) {
   );
 }
 
-// Terminkalender (Lodur) und Anmeldung: Link setzen, ersetzen oder entfernen, und wählen, für welche Arten von Terminen die Anmeldung angeboten wird. Die Abschnitte laden ihren Stand selbst und zeichnen sich nach jeder Änderung neu; `geaendert.wert` sagt dem Blatt, dass die Liste der Einheiten beim Schliessen neu geladen werden muss.
+// Terminkalender (Lodur) und Termine: Link setzen, ersetzen oder entfernen, und die Termine der Einheit ansehen und einzeln auf «nur Leitende» stellen. Die Abschnitte laden ihren Stand selbst und zeichnen sich nach jeder Änderung neu; `geaendert.wert` sagt dem Blatt, dass die Liste der Einheiten beim Schliessen neu geladen werden muss.
 function lodurAbschnitte(e, ctx, geaendert) {
   const basis = `/api/v1/admin/einheiten/${e.id}`;
   const linkBlock = el(
@@ -479,7 +479,7 @@ function lodurAbschnitte(e, ctx, geaendert) {
     el("h3", {}, "Terminkalender (Lodur)"),
     el("p", { class: "leise" }, "Lädt …"),
   );
-  const artenBlock = el("div", { class: "abschnitt" });
+  const terminBlock = el("div", { class: "abschnitt" });
   const neuerFehler = () =>
     el("p", {
       class: "hinweis hinweis--fehler",
@@ -488,7 +488,7 @@ function lodurAbschnitte(e, ctx, geaendert) {
       hidden: true,
     });
   const linkFehler = neuerFehler();
-  const artenFehler = neuerFehler();
+  const terminFehler = neuerFehler();
   const zeigeFehler = (feldFehler, f) => {
     feldFehler.textContent = typeof f === "string" ? f : fehlertext(f);
     feldFehler.hidden = false;
@@ -569,83 +569,116 @@ function lodurAbschnitte(e, ctx, geaendert) {
     ];
   }
 
-  function artenTeil(stand) {
-    const kopf = el("h3", {}, "Anmeldung");
-    if (stand.arten.length === 0) {
-      return [
-        kopf,
-        el(
-          "p",
-          { class: "leise" },
-          "Noch keine Termine gefunden. Sobald der Sync Termine geholt hat, erscheinen hier ihre Arten (Sitzung, Übung, Kurs …) und du wählst, für welche man sich anmelden kann.",
-        ),
-      ];
-    }
-    const wahlen = stand.arten.map((a) => ({
-      art: a.art,
-      wahl: ankreuzen({
-        label: `${a.art} (${mehrzahl(a.anzahl, "Termin", "Termine")})`,
-        gewaehlt: a.anmeldbar,
-        wert: a.art,
-      }),
-    }));
-    return [
-      kopf,
-      !stand.entschieden &&
-        el(
-          "p",
-          { class: "hinweis hinweis--warn" },
-          "Noch nicht festgelegt: Solange du nichts speicherst, kann man sich für keinen Termin anmelden. Die App zeigt alle Termine.",
-        ),
-      gruppe(
-        "In der App sichtbar für",
-        el(
-          "div",
-          {},
-          wahlen.map((w) => w.wahl.wurzel),
-        ),
-      ),
+  // Die Termine kommen aus Lodur: Titel, Zeit und Art sind hier nur zu sehen, der nächste Sync überschriebe jede Änderung. Die Verwaltung entscheidet nur, ob ein Termin «nur Leitende» ist.
+  const wann = (t) =>
+    t.ganztaegig
+      ? t.tagVon === t.tagBis
+        ? formatDe(t.tagVon)
+        : `${formatDe(t.tagVon)} – ${formatDe(t.tagBis)}`
+      : zeit(t.beginn);
+
+  function terminZeile(t) {
+    const wahl = ankreuzen({
+      label: "Nur Leitende",
+      gewaehlt: t.nurLeitende,
+      wert: t.id,
+    });
+    const schalter = wahl.eingabe;
+    schalter.setAttribute("aria-label", `Nur Leitende: ${t.titel}`);
+    schalter.addEventListener("change", async () => {
+      terminFehler.hidden = true;
+      schalter.disabled = true;
+      try {
+        await anfrage("PUT", `${basis}/termine/${t.id}`, {
+          nurLeitende: schalter.checked,
+        });
+        ctx.melde(
+          schalter.checked
+            ? "Der Termin ist nur noch für Leitende sichtbar."
+            : "Der Termin ist wieder für alle sichtbar.",
+        );
+      } catch (f) {
+        schalter.checked = !schalter.checked;
+        zeigeFehler(terminFehler, f);
+      } finally {
+        schalter.disabled = false;
+      }
+    });
+    return el(
+      "tr",
+      {},
       el(
-        "p",
-        { class: "hilfe" },
-        "Die App zeigt nur Termine der gewählten Arten; nur sie haben eine Anmeldung, Erinnerungen und eine Auswertung. Ohne Auswahl zeigt die App alle Termine, aber keiner hat eine Anmeldung. Bestehende Antworten bleiben gespeichert.",
+        "td",
+        {},
+        t.titel,
+        t.status === "abgesagt" && [" ", chip("Abgesagt", "warn")],
       ),
-      artenFehler,
-      el(
-        "div",
-        { class: "aktionen" },
-        knopf("Auswahl speichern", {
-          art: "haupt",
-          onclick: async () => {
-            artenFehler.hidden = true;
-            try {
-              await anfrage("PUT", `${basis}/anmelde-arten`, {
-                arten: wahlen
-                  .filter((w) => w.wahl.eingabe.checked)
-                  .map((w) => w.art),
-              });
-            } catch (f) {
-              // Eine Art, die es nicht mehr gibt: Liste neu laden, die Meldung bleibt stehen
-              await lade();
-              zeigeFehler(artenFehler, f);
-              return;
-            }
-            geaendert.wert = true;
-            ctx.melde("Die Auswahl ist gespeichert.");
-            lade();
-          },
-        }),
-      ),
-    ];
+      el("td", {}, wann(t)),
+      el("td", {}, t.art ?? ""),
+      el("td", {}, wahl.wurzel),
+    );
   }
 
-  async function lade() {
-    let link, arten;
+  const zeitraum = filterGruppe({
+    beschriftung: "Zeitraum der Termine",
+    eintraege: [
+      { text: "Kommende", wert: "kommend" },
+      { text: "Vergangene", wert: "vergangen" },
+    ],
+    beiAenderung: () => ladeTermine(),
+  });
+  const terminListe = el("div", {}, el("p", { class: "leise" }, "Lädt …"));
+
+  async function ladeTermine() {
+    const h = heute();
+    const fenster =
+      zeitraum.wert() === "kommend"
+        ? { von: h, bis: verschiebe(h, { jahre: 1 }) }
+        : {
+            von: verschiebe(h, { jahre: -1 }),
+            bis: verschiebe(h, { tage: -1 }),
+          };
+    terminFehler.hidden = true;
     try {
-      [link, arten] = await Promise.all([
-        anfrage("GET", `${basis}/lodur`),
-        anfrage("GET", `${basis}/anmelde-arten`),
-      ]);
+      const { termine } = await anfrage(
+        "GET",
+        `${basis}/termine?${new URLSearchParams(fenster)}`,
+      );
+      terminListe.replaceChildren(
+        termine.length === 0
+          ? el(
+              "p",
+              { class: "leise" },
+              "Keine Termine in diesem Zeitraum. Sie erscheinen, sobald der Sync sie aus dem Terminkalender geholt hat.",
+            )
+          : tabelle({
+              beschriftung: "Termine der Einheit",
+              spalten: ["Titel", "Wann", "Art", "In der App"],
+              zeilen: termine.map(terminZeile),
+            }).wurzel,
+      );
+    } catch (f) {
+      terminListe.replaceChildren();
+      zeigeFehler(terminFehler, f);
+    }
+  }
+
+  terminBlock.append(
+    el("h3", {}, "Termine"),
+    el(
+      "p",
+      { class: "hilfe" },
+      "Titel, Zeit und Art kommen aus Lodur und lassen sich nur dort ändern. «Nur Leitende» versteckt den Termin vor Eltern und Teilnehmenden: ohne Anmeldung, Erinnerung und Push für sie. Kommando, Stellvertretung und Leitende sehen ihn weiter.",
+    ),
+    zeitraum.wurzel,
+    terminFehler,
+    terminListe,
+  );
+
+  async function lade() {
+    let link;
+    try {
+      link = await anfrage("GET", `${basis}/lodur`);
     } catch (f) {
       linkBlock.replaceChildren(
         el("h3", {}, "Terminkalender (Lodur)"),
@@ -658,16 +691,15 @@ function lodurAbschnitte(e, ctx, geaendert) {
       return;
     }
     linkFehler.hidden = true;
-    artenFehler.hidden = true;
     linkBlock.replaceChildren(
       el("h3", {}, "Terminkalender (Lodur)"),
       ...linkTeil(link).filter(Boolean),
     );
-    artenBlock.replaceChildren(...artenTeil(arten).filter(Boolean));
   }
 
   lade();
-  return [linkBlock, artenBlock];
+  ladeTermine();
+  return [linkBlock, terminBlock];
 }
 
 // Nur eine leere Einheit: Das Kommando-Konto geht mit, Teilnehmende, Programme und Zeitregeln halten die Einheit zurück

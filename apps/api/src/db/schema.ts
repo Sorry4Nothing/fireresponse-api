@@ -56,8 +56,6 @@ export const einheit = pgTable(
     syncOkAm: zeitpunkt("sync_ok_am"),
     // Nur ein Fehlercode, nie eine Meldung
     syncFehler: text("sync_fehler"),
-    // Arten (Spalte «Art» in Lodur), für die ein Termin eine Anmeldung hat. null: noch nicht entschieden; null und leer heissen beide: keine Anmeldung
-    anmeldeArten: text("anmelde_arten").array(),
     // Eigenes Logo (SVG/PNG, vom Server geprüft und bereinigt); beide Spalten gehören zusammen
     logoBild: bytea("logo_bild"),
     logoBildTyp: text("logo_bild_typ"),
@@ -377,6 +375,8 @@ export const programm = pgTable(
     aufgebot: text("aufgebot"),
     // Spalte «Art» der Lodur-Tabelle (Sitzung, Übung, Kurs, Anlass …); null, solange die Quelle sie nicht liefert
     art: text("art"),
+    // Gehört der Verwaltung, nie dem Sync: true zeigt den Termin Kindern und Eltern weder in der App noch in Push und Erinnerungen
+    nurLeitende: boolean("nur_leitende").notNull().default(false),
     status: text("status", { enum: ["aktiv", "abgesagt", "pruefen"] })
       .notNull()
       .default("aktiv"),
@@ -465,7 +465,7 @@ export const pushToken = pgTable(
   ],
 );
 
-// Erinnerung an Personen ohne Antwort, pro Einheit. Wochentag ISO (1 Montag bis 7 Sonntag), Uhrzeit HH:mm Schweizer Zeit
+// Erinnerung an Personen ohne Antwort, pro Einheit. Abstand zum Termin: tageVorher Kalendertage (0 bis 7) vor dem Tag des Beginns, zur Uhrzeit HH:mm Schweizer Zeit
 export const zeitregel = pgTable(
   "zeitregel",
   {
@@ -473,7 +473,7 @@ export const zeitregel = pgTable(
     einheitId: uuid("einheit_id")
       .notNull()
       .references(() => einheit.id, { onDelete: "restrict" }),
-    wochentag: integer("wochentag").notNull(),
+    tageVorher: integer("tage_vorher").notNull(),
     uhrzeit: text("uhrzeit").notNull(),
     // Der Push-Titel; {Programm} und {Datum} ersetzt der Server
     text: text("text").notNull(),
@@ -483,7 +483,7 @@ export const zeitregel = pgTable(
     erstelltAm: zeitpunkt("erstellt_am").notNull().defaultNow(),
   },
   (t) => [
-    check("zeitregel_wochentag_check", sql`${t.wochentag} between 1 and 7`),
+    check("zeitregel_tage_vorher_check", sql`${t.tageVorher} between 0 and 7`),
     check(
       "zeitregel_uhrzeit_check",
       sql`${t.uhrzeit} ~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'`,
