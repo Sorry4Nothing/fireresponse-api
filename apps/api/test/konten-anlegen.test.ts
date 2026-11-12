@@ -1253,3 +1253,110 @@ describe("Konto-Wechsel Eltern → Kind", () => {
     ).toBe(404);
   });
 });
+
+describe("Konten suchen", () => {
+  const suche = (wer: PersonaKonto, q: string | null, fuer: string) =>
+    sende(
+      wer,
+      "GET",
+      `${einheitPfad("konten-suche")}?q=${encodeURIComponent(q!)}&fuer=${fuer}`,
+    );
+  const treffer = async (wer: PersonaKonto, q: string | null, fuer: string) => {
+    const antwort = await suche(wer, q, fuer);
+    expect(antwort.status).toBe(200);
+    return (await antwort.json()).konten as {
+      benutzername: string;
+      name: string;
+    }[];
+  };
+
+  test("Leitung: das Kommando findet nur Konten aus Einheiten, die es verwaltet; der Kantonsadmin alle; wer hier schon Rolle hat, fehlt", async () => {
+    const kfA = await legePersonaAn(welt, "kommandoKfA");
+    const jfB = await legePersonaAn(welt, "kommandoJfB");
+    const leitendeKfA = (await legePersonaAn(welt, "leitendeJfAElternKfA"))
+      .benutzername;
+    // Das Kommando von JF A verwaltet KF A und JF B nicht
+    expect(
+      await treffer(konto("kommandoJfA"), kfA.benutzername, "leitung"),
+    ).toEqual([]);
+    expect(
+      await treffer(konto("kommandoJfA"), jfB.benutzername, "leitung"),
+    ).toEqual([]);
+    // Wer in JF A schon eine Rolle hat, ist nicht mehr zuweisbar
+    expect(
+      await treffer(konto("kantonsadmin"), leitendeKfA, "leitung"),
+    ).toEqual([]);
+    // Der Kantonsadmin findet es nach Benutzername und nach Name; mehr als beides kommt nie zurück
+    const nachBenutzername = await treffer(
+      konto("kantonsadmin"),
+      kfA.benutzername!.slice(0, -1),
+      "leitung",
+    );
+    expect(nachBenutzername).toContainEqual({
+      benutzername: kfA.benutzername,
+      name: expect.any(String),
+    });
+    const nachName = await treffer(
+      konto("kantonsadmin"),
+      "KOMMANDO KF A",
+      "leitung",
+    );
+    expect(nachName.map((k) => k.benutzername)).toContain(kfA.benutzername);
+    expect(Object.keys(nachName[0]).sort()).toEqual(["benutzername", "name"]);
+    // Das Konto des Kantonsadmins lässt sich nie zuweisen
+    expect(
+      await treffer(
+        konto("kantonsadmin"),
+        konto("kantonsadmin").benutzername,
+        "leitung",
+      ),
+    ).toEqual([]);
+  });
+
+  test("Eltern: nur Elternkonten aus verwalteten Einheiten, nie ein Konto mit eigener Person", async () => {
+    const selbst = await legePersonaAn(welt, "teilnehmendeSelbstJfA");
+    expect(
+      await treffer(
+        konto("kommandoJfA"),
+        konto("elternJfA").benutzername,
+        "eltern",
+      ),
+    ).toHaveLength(1);
+    expect(
+      await treffer(
+        konto("kommandoJfA"),
+        konto("elternKfA").benutzername,
+        "eltern",
+      ),
+    ).toEqual([]);
+    expect(
+      await treffer(
+        konto("kantonsadmin"),
+        konto("elternKfA").benutzername,
+        "eltern",
+      ),
+    ).toHaveLength(1);
+    expect(
+      await treffer(konto("kantonsadmin"), selbst.benutzername, "eltern"),
+    ).toEqual([]);
+  });
+
+  test("Prüfung: mindestens 2 Zeichen, bekannte Art, Platzhalter sind Text, nur wer verwaltet", async () => {
+    expect((await suche(konto("kantonsadmin"), "a", "leitung")).status).toBe(
+      400,
+    );
+    expect((await suche(konto("kantonsadmin"), "abc", "alle")).status).toBe(
+      400,
+    );
+    expect(await treffer(konto("kantonsadmin"), "%%", "leitung")).toEqual([]);
+    expect((await suche(konto("leitendeJfA"), "abc", "leitung")).status).toBe(
+      403,
+    );
+    expect((await suche(konto("elternJfA"), "abc", "leitung")).status).toBe(
+      403,
+    );
+    expect((await suche(konto("kommandoKfA"), "abc", "leitung")).status).toBe(
+      404,
+    );
+  });
+});

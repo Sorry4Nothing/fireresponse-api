@@ -2756,6 +2756,68 @@ paths:
           $ref: "#/components/responses/AppVeraltet426"
         "429":
           $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/admin/einheiten/{einheitId}/konten-suche:
+    get:
+      operationId: sucheAdminKonten
+      summary: Bestehende Konten für die Felder «Benutzername» vorschlagen
+      tags:
+        - Verwaltung
+      description: |
+        Kommando, Stellvertretungen und Kantonsadmin (mit zweitem Faktor), nur in der Einheit im Pfad. Liefert höchstens 10 aktive Konten, deren Name oder Benutzername den Suchtext enthält (mindestens 2 Zeichen, Gross- und Kleinschreibung egal). Zurück kommen nur `benutzername` und `name`.
+        `fuer=leitung`: Konten mit einer Rolle, die hier noch keine haben (Ziel von `POST .../leitende/bestehend`). `fuer=eltern`: Elternkonten ohne eigene Person (Ziel von `bestehendesKonto`).
+        Geltungsbereich wie beim Zuweisen: Das Kommando findet nur Konten aus Einheiten, die es selbst verwaltet, der Kantonsadmin alle. Das Konto des Kantonsadmins erscheint nie.
+
+        Statuscodes: 200, 400, 401, 403, 404, 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/EinheitIdPfad"
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 64
+        - name: fuer
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [leitung, eltern]
+      responses:
+        "200":
+          description: Treffer, nach Name sortiert.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [konten]
+                properties:
+                  konten:
+                    type: array
+                    maxItems: 10
+                    items:
+                      type: object
+                      additionalProperties: false
+                      required: [benutzername, name]
+                      properties:
+                        benutzername:
+                          type: string
+                        name:
+                          type: string
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
   /api/v1/admin/einheiten/{einheitId}/teilnehmende:
     get:
       operationId: listeAdminTeilnehmende

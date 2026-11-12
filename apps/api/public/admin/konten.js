@@ -1,5 +1,5 @@
 import { anfrage, ApiFehler } from "./api.js";
-import { bestaetigen, chip, el, geheimnisDialog, tag } from "./dom.js";
+import { bestaetigen, chip, el, geheimnisDialog, neueId, tag } from "./dom.js";
 
 // Aktionen und Zustände, die für jedes Konto gleich sind: Personen (Kommando, Stellvertretungen, Leitende) und die Konten der Teilnehmenden. Welche Aktion ein Konto bekommt, sagt die API in konto.aktionen; fehlt sie dort, fehlt der Knopf.
 
@@ -173,5 +173,39 @@ export const mehrzahl = (n, einzahl, mehrfach) =>
   `${n} ${n === 1 ? einzahl : mehrfach}`;
 
 // Die Felder für ein neues Konto sind überall gleich
+// Vorschläge unter einem Benutzername-Feld: ab 2 Zeichen nach Name oder Benutzername. fuer: «leitung» oder «eltern». Die API zeigt nur, was das Kommando auch zuweisen darf; Fehler und Treffer ohne Antwort lassen das Feld einfach leer
+export function kontoVorschlaege(feld, einheit, fuer) {
+  const liste = el("datalist", { id: neueId("vorschlaege") });
+  feld.eingabe.setAttribute("list", liste.id);
+  feld.wurzel.append(liste);
+  let warte;
+  let lauf = 0;
+  feld.eingabe.addEventListener("input", () => {
+    clearTimeout(warte);
+    const q = feld.eingabe.value.trim();
+    const nr = ++lauf;
+    if (q.length < 2) {
+      liste.replaceChildren();
+      return;
+    }
+    warte = setTimeout(async () => {
+      try {
+        const antwort = await anfrage(
+          "GET",
+          `/api/v1/admin/einheiten/${einheit.id}/konten-suche?fuer=${fuer}&q=${encodeURIComponent(q)}`,
+        );
+        if (nr !== lauf) return;
+        liste.replaceChildren(
+          ...antwort.konten.map((k) =>
+            el("option", { value: k.benutzername, label: k.name }),
+          ),
+        );
+      } catch {
+        if (nr === lauf) liste.replaceChildren();
+      }
+    }, 250);
+  });
+}
+
 export const BENUTZERNAME_HILFE =
   "3 bis 64 Zeichen: Buchstaben, Ziffern, Punkt, Unterstrich und Bindestrich. Gross- und Kleinschreibung zählt nicht.";

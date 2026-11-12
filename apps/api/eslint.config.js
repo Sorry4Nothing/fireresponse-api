@@ -27,6 +27,7 @@ export default defineConfig(
         fetch: "readonly",
         location: "readonly",
         navigator: "readonly",
+        clearTimeout: "readonly",
         setTimeout: "readonly",
         setInterval: "readonly",
         clearInterval: "readonly",

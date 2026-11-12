@@ -22,6 +22,7 @@ import {
   aufgabenHinweis,
   BENUTZERNAME_HILFE,
   kontoMenueEintraege,
+  kontoVorschlaege,
   mehrzahl,
   zustandsChips,
 } from "./konten.js";
@@ -128,15 +129,16 @@ function anlegen(art, einheit, ctx, neu) {
 // Ein Konto, das schon eine Rolle in einer anderen Einheit hat, wird hier zusätzlich Leitung (ein Konto für JF und KF)
 function zuweisen(einheit, ctx, neu) {
   const benutzername = feld({
-    label: "Benutzername",
+    label: "Name oder Benutzername",
     hilfe:
-      "Das Konto muss schon eine Rolle haben. Das Kommando findet nur Konten aus den Einheiten, die es selbst verwaltet; sonst weist der Kantonsadmin zu.",
+      "Tippe mindestens 2 Zeichen und wähle die Person aus der Liste. Das Konto muss schon eine Rolle haben. Das Kommando findet nur Konten aus den Einheiten, die es selbst verwaltet; sonst weist der Kantonsadmin zu.",
     maxlength: 64,
     autocapitalize: "none",
     autocomplete: "off",
     spellcheck: "false",
     required: true,
   });
+  kontoVorschlaege(benutzername, einheit, "leitung");
   dialogFormular({
     titel: "Bestehende Person hinzufügen",
     beschreibung:

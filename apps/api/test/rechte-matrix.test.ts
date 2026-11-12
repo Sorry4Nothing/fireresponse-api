@@ -502,6 +502,12 @@ const MATRIX: Record<string, Zeile> = {
     body: () => ({ benutzername: standard.kommandoJfA.benutzername! }),
     erwartet: VERWALTEN_JF_A(409),
   },
+  // Vorschläge für die Felder «Benutzername»: Der Geltungsbereich des Kommandos prüft test/konten-anlegen.test.ts
+  "GET /api/v1/admin/einheiten/:einheitId/konten-suche": {
+    url: (w) =>
+      `/api/v1/admin/einheiten/${w.einheit.jfA}/konten-suche?q=kommando&fuer=leitung`,
+    erwartet: VERWALTEN_JF_A(200),
+  },
   // Entfernt nur die Rolle «Leitung», das Konto bleibt: Jede Anfrage verbraucht ihre Leitung
   "DELETE /api/v1/admin/einheiten/:einheitId/leitende/:userId": {
     urlJeAnfrage: async () =>

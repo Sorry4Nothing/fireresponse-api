@@ -26,6 +26,7 @@ import {
 import { erstelleAuswertungRouten } from "./routes/admin/auswertung.js";
 import { erstelleBezirkRouten } from "./routes/admin/bezirke.js";
 import { erstelleEinheitenRouten } from "./routes/admin/einheiten.js";
+import { erstelleKontenSucheRouten } from "./routes/admin/konten-suche.js";
 import { erstelleLeitendeRouten } from "./routes/admin/leitende.js";
 import { erstellePersonenRouten } from "./routes/admin/personen.js";
 import { erstelleRangRouten } from "./routes/admin/raenge.js";
@@ -226,6 +227,10 @@ export function erstelleApp({
       .route(
         "/api/v1/admin/einheiten/:einheitId/leitende",
         erstelleLeitendeRouten({ db }),
+      )
+      .route(
+        "/api/v1/admin/einheiten/:einheitId/konten-suche",
+        erstelleKontenSucheRouten({ db }),
       )
       .route(
         "/api/v1/admin/einheiten/:einheitId/teilnehmende",
