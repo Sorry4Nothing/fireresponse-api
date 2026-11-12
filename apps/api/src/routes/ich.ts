@@ -81,6 +81,9 @@ export function erstelleIchRouten({ db }: { db: Db }) {
             vorname: teilnehmende.vorname,
             nachname: teilnehmende.nachname,
             einheitId: teilnehmende.einheitId,
+            // Name und Typ der Einheit des eigenen Kindes: Die Liste einheiten oben kennt nur Einheiten mit Rolle
+            einheitName: einheit.name,
+            einheitTyp: einheit.typ,
             art: teilnehmendeKonto.art,
             ...abzeichenFelder,
           })
@@ -89,6 +92,7 @@ export function erstelleIchRouten({ db }: { db: Db }) {
             teilnehmende,
             eq(teilnehmende.id, teilnehmendeKonto.teilnehmendeId),
           )
+          .innerJoin(einheit, eq(einheit.id, teilnehmende.einheitId))
           .leftJoin(
             rang,
             and(

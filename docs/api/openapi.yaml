@@ -949,6 +949,7 @@ paths:
         Das Profil der angemeldeten Person: Anzeigename, Benutzername, Schalter, Kantonsadmin-Kennzeichen,
         Stand des zweiten Faktors und der Einwilligung, die Einheiten mit der Rolle der Person (Kommandant, Stellvertretung, Leitung)
         und die aktiven teilnehmenden Personen, für die das Konto antwortet (Eltern oder die Person selbst). Einheiten und Personen tragen ihr `abzeichen` (`null` ohne Rang).
+        Jede teilnehmende Person nennt Name und Typ ihrer Einheit (`einheitName`, `einheitTyp`), auch wenn die Liste `einheiten` leer ist (reine Eltern).
         Nie enthalten sind E-Mail, Bremsfelder, Sperrstatus, Ablauf des Startpassworts sowie Geheimnisse
         und Codes des zweiten Faktors.
 
@@ -5135,7 +5136,17 @@ components:
     IchTeilnehmende:
       type: object
       description: Eine aktive teilnehmende Person, für die das Konto antwortet.
-      required: [id, vorname, nachname, einheitId, art, abzeichen]
+      required:
+        [
+          id,
+          vorname,
+          nachname,
+          einheitId,
+          einheitName,
+          einheitTyp,
+          art,
+          abzeichen,
+        ]
       properties:
         id:
           type: string
@@ -5147,6 +5158,13 @@ components:
         einheitId:
           type: string
           format: uuid
+          description: Das Logo liegt unter `/einheiten/{einheitId}/logo`; die Person darf es abrufen (200, ohne Logo 404).
+        einheitName:
+          type: string
+          example: JF Beispielstadt
+        einheitTyp:
+          type: string
+          enum: [jf, kf]
         art:
           type: string
           enum: [eltern, selbst]
