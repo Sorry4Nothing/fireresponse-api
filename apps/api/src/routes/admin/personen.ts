@@ -99,10 +99,12 @@ export function erstellePersonenRouten({ db }: { db: Db }) {
           startpasswortGueltigBis: user.startpasswortGueltigBis,
           banned: user.banned,
           deaktiviertAm: user.deaktiviertAm,
+          hatBild: sql<boolean>`${profilbild.userId} is not null`,
         })
         .from(einheitRolle)
         .innerJoin(user, eq(user.id, einheitRolle.userId))
         .leftJoin(rang, eq(rang.id, einheitRolle.rangId))
+        .leftJoin(profilbild, eq(profilbild.userId, user.id))
         .where(eq(einheitRolle.einheitId, einheitId))
         .orderBy(rollenReihenfolge, asc(user.name), asc(user.id));
       const gemeinsam = await gemeinsameKonten(
@@ -122,6 +124,7 @@ export function erstellePersonenRouten({ db }: { db: Db }) {
           rang: z.rangId ? { id: z.rangId, name: z.rangName } : null,
           eigenes: z.id === person.id,
           gemeinsam: gemeinsam.has(z.id),
+          hatBild: z.hatBild,
           ...kontoZustand(z),
           aktionen: erlaubteAktionen(person, einheitId, {
             id: z.id,
