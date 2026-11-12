@@ -63,11 +63,37 @@ const entschluesseln = (wert: string) =>
     z === "n" || z === "N" ? "\n" : z,
   );
 
+// Datum und Zeit gehören in beginn/ende und tagVon/tagBis, nicht in den Titel; bleibt nichts übrig, gilt der Titel unverändert
+const UHR = String.raw`\d{1,2}[.:]\d{2}`;
+const DATUM_ZEIT = new RegExp(
+  [
+    String.raw`\b\d{1,2}\.\d{1,2}\.(?:\d{4}|\d{2})(?!\d)`,
+    String.raw`\b\d{1,2}\.\d{1,2}\.(?!\d)`,
+    String.raw`\b${UHR}\s*(?:[-–]|bis)\s*${UHR}(?:\s*Uhr)?`,
+    String.raw`\b${UHR}\s*Uhr\b`,
+  ].join("|"),
+  "gi",
+);
+export function titelOhneDatum(titel: string): string {
+  const rest = titel
+    .replace(DATUM_ZEIT, " ")
+    .replace(/\(\s*\)|\[\s*\]/g, " ")
+    // Übrig gebliebene Trennzeichen doppelt, am Rand oder als Verbindungswort am Ende
+    .replace(/(?:\s*[-–,:|/]\s*){2,}/g, " - ")
+    .replace(/\s+/g, " ")
+    .replace(/^[\s\-–,:|/]+|[\s\-–,:|/]+$/g, "")
+    .replace(/\s+(?:am|vom|um|ab|den|von|bis)$/i, "")
+    .trim();
+  return rest || titel;
+}
+
 // Lodur hängt dem Titel ein wörtliches «\n» an
 const titelBereinigen = (wert: string) =>
-  entschluesseln(wert)
-    .replace(/(?:\s|\\n)+$/, "")
-    .trim();
+  titelOhneDatum(
+    entschluesseln(wert)
+      .replace(/(?:\s|\\n)+$/, "")
+      .trim(),
+  );
 
 function tag(wert: string) {
   const m = /^(\d{4})(\d{2})(\d{2})$/.exec(wert);
