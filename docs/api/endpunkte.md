@@ -31,6 +31,7 @@ Je Route steht, welche Persona welchen Status bekommt. 2xx heisst erlaubt, 401 n
 | `GET /admin/raenge.js`                        | Skript der Verwaltung – Bereich Ränge                                          | **200** alle      |
 | `GET /admin/system.js`                        | Skript der Verwaltung – Bereich System                                         | **200** alle      |
 | `GET /admin/teilnehmende.js`                  | Skript der Verwaltung – Bereich Teilnehmende                                   | **200** alle      |
+| `GET /admin/termine.js`                       | Skript der Verwaltung – Bereich Termine                                        | **200** alle      |
 | `GET /admin/uebersicht.js`                    | Skript der Verwaltung – Bereich Übersicht                                      | **200** alle      |
 | `GET /admin/zeitregeln.js`                    | Skript der Verwaltung – Bereich Zeitregeln                                     | **200** alle      |
 | `GET /.well-known/apple-app-site-association` | Apple App Site Association (noch leer)                                         | **200** alle      |
