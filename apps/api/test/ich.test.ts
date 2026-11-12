@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import postgres from "postgres";
 import {
   afterAll,
@@ -112,6 +112,8 @@ describe("GET /api/v1/ich", () => {
           vorname: "Person",
           nachname: "KfA",
           einheitId: welt.einheit.kfA,
+          einheitName: "KF A",
+          einheitTyp: "kf",
           art: "eltern",
           abzeichen: null,
         },
@@ -215,6 +217,59 @@ describe("GET /api/v1/ich", () => {
     const koerper = await (await ich(konto)).json();
     expect(koerper.teilnehmende).toEqual([
       expect.objectContaining({ id: welt.teilnehmende.kfA }),
+    ]);
+  });
+
+  test("Eltern mit einem Kind in der JF und einem in der KF: je Kind Name und Typ der eigenen Einheit, das Logo abrufbar", async () => {
+    const konto = await legePersonaAn(welt, "elternKfA");
+    await db.insert(schema.teilnehmendeKonto).values({
+      userId: konto.id!,
+      teilnehmendeId: welt.teilnehmende.jfA,
+      art: "eltern",
+    });
+    try {
+      const koerper = await (await ich(konto)).json();
+      expect(koerper.einheiten).toEqual([]);
+      const nachId = (id: string) =>
+        koerper.teilnehmende.find((t: { id: string }) => t.id === id);
+      expect(nachId(welt.teilnehmende.jfA)).toMatchObject({
+        einheitId: welt.einheit.jfA,
+        einheitName: "JF A",
+        einheitTyp: "jf",
+      });
+      expect(nachId(welt.teilnehmende.kfA)).toMatchObject({
+        einheitId: welt.einheit.kfA,
+        einheitName: "KF A",
+        einheitTyp: "kf",
+      });
+      // Das Logo unter der einheitId darf das Elternteil lesen: 404 ohne Logo, nie 403
+      for (const einheitId of [welt.einheit.jfA, welt.einheit.kfA]) {
+        const logo = await app.request(`/api/v1/einheiten/${einheitId}/logo`, {
+          headers: konto.headers,
+        });
+        expect(logo.status).toBe(404);
+      }
+    } finally {
+      await db
+        .delete(schema.teilnehmendeKonto)
+        .where(
+          and(
+            eq(schema.teilnehmendeKonto.userId, konto.id!),
+            eq(schema.teilnehmendeKonto.teilnehmendeId, welt.teilnehmende.jfA),
+          ),
+        );
+    }
+  });
+
+  test("Art selbst: die Person trägt Name und Typ ihrer Einheit", async () => {
+    const konto = await legePersonaAn(welt, "teilnehmendeSelbstJfA");
+    const koerper = await (await ich(konto)).json();
+    expect(koerper.teilnehmende).toEqual([
+      expect.objectContaining({
+        art: "selbst",
+        einheitName: "JF A",
+        einheitTyp: "jf",
+      }),
     ]);
   });
 
