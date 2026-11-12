@@ -329,9 +329,7 @@ describe("Sync einer Einheit", () => {
       android: { notification: { channelId: "termine" } },
     });
     // Weder Zeit noch Info noch Name im Push
-    expect(JSON.stringify(nachrichten[0])).not.toMatch(
-      /Person|Test|17:30/,
-    );
+    expect(JSON.stringify(nachrichten[0])).not.toMatch(/Person|Test|17:30/);
   });
 
   test("vergangene Termine ändert der Sync nie, und fehlen sie im Kalender, bleiben sie aktiv", async () => {
