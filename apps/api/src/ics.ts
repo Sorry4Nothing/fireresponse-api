@@ -25,7 +25,7 @@ export type IcsErgebnis = {
 
 export class IcsFehler extends Error {}
 
-type Zeile = { name: string; parameter: string; wert: string };
+type Zeile = { name: string; parameter: string; zone?: string; wert: string };
 
 // Folding: Eine Zeile, die mit Leerzeichen oder Tab beginnt, setzt die vorige fort
 function zeilen(text: string): Zeile[] {
@@ -47,6 +47,7 @@ function zeilen(text: string): Zeile[] {
     ergebnis.push({
       name: (semikolon < 0 ? kopf : kopf.slice(0, semikolon)).toUpperCase(),
       parameter: semikolon < 0 ? "" : kopf.slice(semikolon).toUpperCase(),
+      zone: /;TZID="?([^;":]+)/i.exec(kopf)?.[1],
       wert: roh.slice(doppelpunkt + 1),
     });
   }
@@ -83,13 +84,49 @@ function tag(wert: string) {
 
 const tagText = (d: Date) => d.toISOString().slice(0, 10);
 
-function zeitpunkt(wert: string) {
-  const m = /^(\d{8})T(\d{2})(\d{2})(\d{2})Z$/.exec(wert);
+// Versatz der Zeitzone zu UTC in Millisekunden an diesem Zeitpunkt; wirft RangeError bei unbekannter Zone
+function zonenVersatz(zone: string, ms: number) {
+  const teile = Object.fromEntries(
+    new Intl.DateTimeFormat("en-US", {
+      timeZone: zone,
+      hourCycle: "h23",
+      year: "numeric",
+      month: "numeric",
+      day: "numeric",
+      hour: "numeric",
+      minute: "numeric",
+      second: "numeric",
+    })
+      .formatToParts(new Date(ms))
+      .map((p) => [p.type, Number(p.value)]),
+  );
+  const lokal = Date.UTC(
+    teile.year!,
+    teile.month! - 1,
+    teile.day!,
+    teile.hour!,
+    teile.minute!,
+    teile.second!,
+  );
+  return lokal - Math.floor(ms / 1000) * 1000;
+}
+
+// «…Z» ist UTC; «…» mit Parameter TZID (membear) ist Ortszeit dieser Zone. Ohne beides (schwebende Zeit) ist der Termin nicht lesbar
+function zeitpunkt(wert: string, zone?: string) {
+  const m = /^(\d{8})T(\d{2})(\d{2})(\d{2})(Z?)$/.exec(wert);
   const t = m && tag(m[1]!);
-  if (!m || !t) return null;
+  if (!m || !t || (!m[5] && !zone)) return null;
   const [h, min, s] = [Number(m[2]), Number(m[3]), Number(m[4])];
   if (h > 23 || min > 59 || s > 60) return null;
-  return new Date(t.getTime() + ((h * 60 + min) * 60 + Math.min(s, 59)) * 1000);
+  const wand = t.getTime() + ((h * 60 + min) * 60 + Math.min(s, 59)) * 1000;
+  if (m[5]) return new Date(wand);
+  try {
+    // Zweimal, damit der Versatz am richtigen Zeitpunkt gilt (Sommerzeitwechsel)
+    const erster = wand - zonenVersatz(zone!, wand);
+    return new Date(wand - zonenVersatz(zone!, erster));
+  } catch {
+    return null;
+  }
 }
 
 // Felder der Beschreibung; Zeilen ohne Feldnamen gehören zum davor stehenden Feld
@@ -146,8 +183,8 @@ function termin(eigenschaften: Zeile[]): IcsTermin | null {
       tagBis: tagText(letzter < anfang ? anfang : letzter),
     };
   }
-  const beginn = zeitpunkt(von.wert);
-  const ende = bis ? zeitpunkt(bis.wert) : beginn;
+  const beginn = zeitpunkt(von.wert, von.zone);
+  const ende = bis ? zeitpunkt(bis.wert, bis.zone ?? von.zone) : beginn;
   if (!beginn || !ende) return null;
   return {
     ...basis,

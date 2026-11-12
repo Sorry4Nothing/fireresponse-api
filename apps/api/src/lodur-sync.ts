@@ -7,6 +7,7 @@ import { IcsFehler, leseIcs, type IcsErgebnis, type IcsTermin } from "./ics.js";
 import { leseLodurSeite, SeitenFehler } from "./lodur-html.js";
 import {
   holeKalender,
+  icsAdresse,
   jahresLink,
   LodurFehler,
   pruefeAdresse,
@@ -185,7 +186,7 @@ export async function synchronisiereEinheit(
       erlaubteHosts,
     );
     await pruefeAdresse(url.hostname, aufloesen);
-    const text = await holeKalender(url, abruf);
+    const text = await holeKalender(icsAdresse(url), abruf);
     try {
       return /^\uFEFF?\s*BEGIN:VCALENDAR/i.test(text)
         ? leseIcs(text)

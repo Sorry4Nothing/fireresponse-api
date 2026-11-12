@@ -1,6 +1,7 @@
 import { describe, expect, test, vi } from "vitest";
 import {
   holeKalender,
+  icsAdresse,
   istNichtOeffentlich,
   LodurFehler,
   MAX_BYTES,
@@ -257,5 +258,27 @@ describe("pruefeAdresse (SR-26)", () => {
         }),
       ),
     ).toBe("netzwerk");
+  });
+});
+
+describe("icsAdresse", () => {
+  test("macht aus dem membear-Seitenlink den ICS-Link mit demselben Token", () => {
+    const seite = new URL(
+      "https://www.membear.ch/calendar/kinderfeuerwehr-bezirk-meilen?token=abc-123&lang=de",
+    );
+    expect(icsAdresse(seite).href).toBe(
+      "https://www.membear.ch/api/v1/kinderfeuerwehr-bezirk-meilen/events/calendar?token=abc-123",
+    );
+  });
+
+  test("lässt jeden anderen Link unverändert", () => {
+    for (const text of [
+      GUT,
+      "https://www.membear.ch/api/v1/x/events/calendar?token=abc",
+      "https://kalender.example.org/calendar/x?token=abc",
+    ]) {
+      const url = new URL(text);
+      expect(icsAdresse(url)).toBe(url);
+    }
   });
 });

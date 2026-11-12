@@ -121,6 +121,18 @@ export async function pruefeAdresse(
   }
 }
 
+// membear: Der Link der Kalenderseite (/calendar/<verein>?token=…) ist HTML; den ICS-Kalender liefert /api/v1/<verein>/events/calendar mit demselben Token. Host und Schema bleiben, die Prüfung mit pruefeLodurUrl gilt weiter
+export function icsAdresse(url: URL): URL {
+  const m = /^\/calendar\/([\w-]+)\/?$/.exec(url.pathname);
+  if (!m || url.hostname !== "www.membear.ch") return url;
+  const ics = new URL(url.href);
+  ics.pathname = `/api/v1/${m[1]}/events/calendar`;
+  ics.search = "";
+  const token = url.searchParams.get("token");
+  if (token) ics.searchParams.set("token", token);
+  return ics;
+}
+
 // Der Aufrufer prüft die URL vorher mit pruefeLodurUrl
 export async function holeKalender(
   url: URL,
