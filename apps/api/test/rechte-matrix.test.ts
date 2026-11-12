@@ -192,6 +192,7 @@ const MATRIX: Record<string, Zeile> = {
   "GET /admin/raenge.js": { erwartet: alle(200) },
   "GET /admin/system.js": { erwartet: alle(200) },
   "GET /admin/teilnehmende.js": { erwartet: alle(200) },
+  "GET /admin/termine.js": { erwartet: alle(200) },
   "GET /admin/uebersicht.js": { erwartet: alle(200) },
   "GET /admin/zeitregeln.js": { erwartet: alle(200) },
   "GET /.well-known/apple-app-site-association": { erwartet: alle(200) },

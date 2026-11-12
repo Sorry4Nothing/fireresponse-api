@@ -243,21 +243,17 @@ function oeffneTermin(termin) {
 }
 
 export function zeige(bereich, ctx) {
-  ctx.lade(
-    () => anfrage("GET", `${BASIS}/filter`),
-    (optionen) => zeichne(bereich, ctx, optionen),
-  );
+  zeichne(bereich, ctx);
 }
 
-function zeichne(bereich, ctx, optionen) {
+// Die Auswertung gilt immer für die gewählte Einheit; eine andere wählt man im Dock
+function zeichne(bereich, ctx) {
   const jetzt = new Date().getFullYear();
   const zustand = {
     ansicht: "quote",
     von: `${jetzt}-01-01`,
     bis: `${jetzt}-12-31`,
     jahr: String(jetzt),
-    bezirkId: "",
-    einheitId: "",
     rolle: "",
     suche: "",
     sortierung: "name",
@@ -308,49 +304,6 @@ function zeichne(bereich, ctx, optionen) {
   const zeitraumFelder = el("div", { class: "reihe" }, von.wurzel, bis.wurzel);
   const jahrFeld = el("div", { class: "reihe" }, jahrWahl.wurzel);
 
-  // Bezirk und Einheit nur dort, wo es etwas zu wählen gibt; das Kantonsadmin-Konto schaltet so zwischen Bezirken und Einheiten um
-  const bezirkWahl =
-    optionen.bezirke.length > 1
-      ? auswahl({
-          label: "Bezirk",
-          optionen: [
-            ["", "Alle Bezirke"],
-            ...optionen.bezirke.map((b) => [b.id, b.name]),
-          ],
-          wert: "",
-        })
-      : null;
-  const einheitFeld = el("div", {});
-  function baueEinheitWahl() {
-    const liste = optionen.einheiten.filter(
-      (e) => !zustand.bezirkId || e.bezirkId === zustand.bezirkId,
-    );
-    if (optionen.einheiten.length < 2) return;
-    zustand.einheitId = "";
-    const wahl = auswahl({
-      label: "Einheit",
-      optionen: [
-        ["", "Alle Einheiten", icon("einheit")],
-        ...liste.map((e) => [
-          e.id,
-          `${e.name} (${e.typ === "jf" ? "JF" : "KF"})`,
-          e.logoUrl ?? icon("einheit"),
-        ]),
-      ],
-      wert: "",
-    });
-    wahl.eingabe.addEventListener("change", () => {
-      zustand.einheitId = wahl.eingabe.value;
-      aktualisiere();
-    });
-    einheitFeld.replaceChildren(wahl.wurzel);
-  }
-  baueEinheitWahl();
-  bezirkWahl?.eingabe.addEventListener("change", () => {
-    zustand.bezirkId = bezirkWahl.eingabe.value;
-    baueEinheitWahl();
-    aktualisiere();
-  });
   jahrWahl.eingabe.addEventListener("change", () => {
     zustand.jahr = jahrWahl.eingabe.value;
     aktualisiere();
@@ -380,8 +333,7 @@ function zeichne(bereich, ctx, optionen) {
   }
 
   const filterQuery = () => ({
-    bezirkId: zustand.bezirkId,
-    einheitId: zustand.einheitId,
+    einheitId: ctx.einheit.id,
     rolle: zustand.rolle,
   });
   const zeitraum = () => ({ von: zustand.von, bis: zustand.bis });
@@ -442,14 +394,7 @@ function zeichne(bereich, ctx, optionen) {
       "Grundlage sind die Anmeldungen, keine Präsenzkontrolle. Es zählen aktive Termine, die schon begonnen haben; bei Terminen in der Zukunft sagt «Offen» noch nichts. Inaktive Personen fehlen. Es gibt keinen Export.",
     ),
     el("div", { class: "werkzeuge" }, ansichtGruppe.wurzel, rolleGruppe.wurzel),
-    el(
-      "div",
-      { class: "werkzeuge" },
-      zeitraumFelder,
-      jahrFeld,
-      bezirkWahl?.wurzel,
-      einheitFeld,
-    ),
+    el("div", { class: "werkzeuge" }, zeitraumFelder, jahrFeld),
     meldung,
     ergebnis,
   );
