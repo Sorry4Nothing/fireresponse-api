@@ -46,7 +46,7 @@ describe("leseIcs", () => {
         thema: "Schläuche kuppeln",
         info: "Handschuhe mitbringen, wir sind draussen.",
         aufgebot: "08:45 Uhr im Magazin",
-        art: null,
+        art: "Termin",
       },
     ]);
     expect([...uids]).toEqual(["uebung-1001@kalender.example.org"]);

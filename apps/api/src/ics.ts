@@ -12,9 +12,12 @@ export type IcsTermin = {
   thema: string | null;
   info: string | null;
   aufgebot: string | null;
-  // Spalte «Art» der HTML-Terminliste; der ICS-Kalender hat sie nicht
+  // Spalte «Art» der HTML-Terminliste; der ICS-Kalender hat sie nicht und bekommt ICS_ART
   art: string | null;
 };
+
+// Ohne Art lässt sich ein Termin nicht anmelden (anmeldbar); die Einheit gibt diese Art in der Verwaltung frei
+export const ICS_ART = "Termin";
 
 // Auch das Ergebnis der HTML-Terminliste (lodur-html.ts) hat diese Form
 export type IcsErgebnis = {
@@ -160,7 +163,7 @@ function termin(eigenschaften: Zeile[]): IcsTermin | null {
   const bis = finde("DTEND");
   const basis = {
     uid,
-    art: null,
+    art: ICS_ART,
     titel: titelBereinigen(finde("SUMMARY")?.wert ?? ""),
     ...beschreibung(finde("DESCRIPTION")?.wert ?? ""),
   };
