@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { IcsFehler, leseIcs } from "../src/ics.js";
+import { IcsFehler, leseIcs, titelOhneDatum } from "../src/ics.js";
 
 // Erfundene Kalender im Schema von Lodur: UTC ohne VTIMEZONE, leerer Ort, «\n» am Ende des Titels
 const kalender = (...ereignisse: string[]) =>
@@ -253,5 +253,23 @@ describe("Ortszeit mit TZID", () => {
       expect(e.termine).toEqual([]);
       expect(e.uids.size).toBe(1);
     }
+  });
+});
+
+describe("titelOhneDatum", () => {
+  test.each([
+    ["Kinderfeuerwehr-Übung 13.01.2027", "Kinderfeuerwehr-Übung"],
+    ["Übung 19.00-21.00", "Übung"],
+    ["Übung am 13.01.2027", "Übung"],
+    ["Übung (13.01.) 19:00 Uhr", "Übung"],
+    ["Übung 13.01.2027 - 15.01.2027", "Übung"],
+    ["Hauptübung 5.3.26 - Zeughaus", "Hauptübung - Zeughaus"],
+    ["Atemschutz 19.00 - 21.30 Uhr", "Atemschutz"],
+    ["Übung 2", "Übung 2"],
+    ["Version 1.2.3 Test", "Version 1.2.3 Test"],
+    // Bleibt nichts übrig, gilt der Titel unverändert
+    ["13.01.2027", "13.01.2027"],
+  ])("%s", (titel, erwartet) => {
+    expect(titelOhneDatum(titel)).toBe(erwartet);
   });
 });
