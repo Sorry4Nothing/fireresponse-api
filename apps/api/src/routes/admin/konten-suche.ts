@@ -1,9 +1,20 @@
-import { and, asc, exists, ilike, inArray, not, or, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  eq,
+  exists,
+  ilike,
+  inArray,
+  not,
+  or,
+  sql,
+} from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import type { Db } from "../../db/client.js";
 import {
   einheitRolle,
+  profilbild,
   teilnehmende,
   teilnehmendeKonto,
   user,
@@ -23,7 +34,7 @@ const MAX_TREFFER = 10;
 // LIKE-Platzhalter in der Eingabe sind Text
 const alsMuster = (q: string) => `%${q.replace(/[\\%_]/g, "\\$&")}%`;
 
-// Vorschläge für die Felder «Benutzername» in der Verwaltung. Geltungsbereich wie beim Zuweisen: Das Kommando sieht nur Konten aus Einheiten, die es selbst verwaltet, der Kantonsadmin alle. Mehr als Name und Benutzername kommt nie zurück
+// Vorschläge für die Felder «Benutzername» in der Verwaltung. Geltungsbereich wie beim Zuweisen: Das Kommando sieht nur Konten aus Einheiten, die es selbst verwaltet, der Kantonsadmin alle. Mehr als Kennung, Name, Benutzername und ob ein Profilbild vorliegt kommt nie zurück
 export function erstelleKontenSucheRouten({ db }: { db: Db }) {
   return new Hono<{ Variables: { person: Person } }>().get(
     "/",
@@ -101,8 +112,18 @@ export function erstelleKontenSucheRouten({ db }: { db: Db }) {
         bedingung = and(grundlage, exists(elternVon), not(exists(selbst)));
       }
       const konten = await db
-        .select({ benutzername: user.username, name: user.name })
+        .select({
+          id: user.id,
+          benutzername: user.username,
+          name: user.name,
+          // Eltern sieht das Kommando nie mit Bild (wie darfBildSehen); dort bleiben die Initialen
+          hatBild:
+            fuer === "leitung"
+              ? sql<boolean>`${profilbild.userId} is not null`
+              : sql<boolean>`false`,
+        })
         .from(user)
+        .leftJoin(profilbild, eq(profilbild.userId, user.id))
         .where(bedingung)
         .orderBy(asc(user.name), asc(user.id))
         .limit(MAX_TREFFER);

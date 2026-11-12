@@ -1,5 +1,13 @@
 import { anfrage, ApiFehler } from "./api.js";
-import { bestaetigen, chip, el, geheimnisDialog, neueId, tag } from "./dom.js";
+import {
+  avatar,
+  bestaetigen,
+  chip,
+  el,
+  geheimnisDialog,
+  neueId,
+  tag,
+} from "./dom.js";
 
 // Aktionen und Zustände, die für jedes Konto gleich sind: Personen (Kommando, Stellvertretungen, Leitende) und die Konten der Teilnehmenden. Welche Aktion ein Konto bekommt, sagt die API in konto.aktionen; fehlt sie dort, fehlt der Knopf.
 
@@ -217,7 +225,7 @@ export function kontoVorschlaege(feld, einheit, fuer) {
     zeige(-1);
   };
   const waehle = (li) => {
-    eingabe.value = li.textContent;
+    eingabe.value = li.dataset.name;
     eingabe.dataset.benutzername = li.dataset.benutzername;
     schliesse();
   };
@@ -244,8 +252,15 @@ export function kontoVorschlaege(feld, einheit, fuer) {
                 class: "vorschlag",
                 "aria-selected": "false",
                 "data-benutzername": k.benutzername,
+                "data-name": k.name,
               },
-              k.name,
+              avatar(k.name, {
+                hell: true,
+                bildUrl: k.hatBild
+                  ? `/api/v1/admin/personen/${k.id}/bild`
+                  : null,
+              }),
+              el("span", { class: "name" }, k.name),
             ),
           )),
     );
