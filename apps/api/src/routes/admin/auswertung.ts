@@ -23,6 +23,7 @@ import {
   user,
 } from "../../db/schema.js";
 import { eingabe } from "../../eingabe.js";
+import { adminLogoUrl } from "../../einheiten.js";
 import {
   aktivesKonto,
   einheitenFuer,
@@ -104,6 +105,7 @@ export function erstelleAuswertungRouten({ db }: { db: Db }) {
           typ: einheit.typ,
           bezirkId: bezirk.id,
           bezirkName: bezirk.name,
+          logoUrl: adminLogoUrl,
         })
         .from(einheit)
         .innerJoin(bezirk, eq(bezirk.id, einheit.bezirkId))
@@ -121,6 +123,7 @@ export function erstelleAuswertungRouten({ db }: { db: Db }) {
           name: e.name,
           typ: e.typ,
           bezirkId: e.bezirkId,
+          logoUrl: e.logoUrl,
         })),
       });
     })
