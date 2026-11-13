@@ -114,6 +114,7 @@ export function erstelleAuth(database: BetterAuthOptions["database"]) {
         telefon: { type: "string", input: false, required: false },
         pushProgramme: { type: "boolean", input: false, defaultValue: true },
         pushAnmeldungen: { type: "boolean", input: false, defaultValue: true },
+        pushInfokanal: { type: "boolean", input: false, defaultValue: true },
         einwilligungAm: { type: "date", input: false, required: false },
         einwilligungVersion: { type: "number", input: false, required: false },
       },

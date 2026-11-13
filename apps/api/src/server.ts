@@ -8,6 +8,10 @@ import { erstelleDb } from "./db/client.js";
 import * as schema from "./db/schema.js";
 import { erstelleFcm } from "./fcm.js";
 import { ladeKonfiguration } from "./konfiguration.js";
+import {
+  loescheAlteMitteilungen,
+  starteInfokanalAufraeumen,
+} from "./infokanal.js";
 import { log } from "./log.js";
 import {
   starteLodurSync,
@@ -67,6 +71,7 @@ const app = erstelleApp({
 serve({ fetch: app.fetch, port: konfiguration.PORT });
 starteSitzungenAufraeumen(() => loescheAbgelaufeneSitzungen(db));
 starteNachrichtenAufraeumen(() => loescheAlteNachrichten(db));
+starteInfokanalAufraeumen(() => loescheAlteMitteilungen(db));
 // Ohne Schlüssel gäbe es nichts zu senden, und eine Erinnerung gälte trotzdem als gesendet
 if (fcm) {
   starteZeitregelPruefer(() =>

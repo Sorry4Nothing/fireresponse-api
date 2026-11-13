@@ -110,6 +110,23 @@ const SEHEN_JF_A = {
   elternKfA: 404,
 } as const;
 
+// Infokanal von JF A: Das Kantonsadmin-Konto hat keine Einheit und sieht nichts (404); sonst sieht ihn, wer eine Rolle in JF A hat oder für aktive Teilnehmende dort antwortet
+const INFOKANAL_JF_A = {
+  ...SEHEN_JF_A,
+  kantonsadmin: 404,
+  kantonsadminOhneZweitenFaktor: 404,
+} as const;
+
+// Dieselbe Sicht, aber mit 200 ersetzt durch den Status für wen sie hat: wer den Kanal sieht, ohne das Recht zu haben, bekommt 403
+const INFOKANAL_NUR_SEHEN_JF_A = (erlaubt: Partial<Record<Persona, number>>) =>
+  ({
+    ...Object.fromEntries(
+      Object.entries(INFOKANAL_JF_A).map(([p, s]) => [p, s === 200 ? 403 : s]),
+    ),
+    ...erlaubt,
+    ...SPERREN,
+  }) as Record<Persona, number>;
+
 // Ein Satz für die Routen der Verwaltung einer Einheit (JF A): Kantonsadmin, Kommandant und Stellvertretungen dürfen. Ohne zweiten Faktor sperrt die Middleware jedes Konto mit Verwaltungsrolle (403, auch das Kommando in der App); Leitende und Eltern der Einheit sehen sie, dürfen aber nichts (403); wer die Einheit nicht sieht, bekommt 404
 const VERWALTEN_JF_A = (erlaubt: number) =>
   ({
@@ -181,6 +198,8 @@ const MATRIX: Record<string, Zeile> = {
   "GET /datenschutz": { erwartet: alle(200) },
   // Öffentlich, vor der Sitzung; der Inhalt kommt aus derselben Quelle wie die Seite (test/seiten.test.ts)
   "GET /api/v1/datenschutz": { erwartet: alle(200) },
+  // Öffentlich, vor der Sitzung und auch in Wartung; Inhalt in test/wartung.test.ts
+  "GET /api/v1/wartung": { erwartet: alle(200) },
   "GET /nutzungsbedingungen": { erwartet: alle(200) },
   "GET /konto-loeschen": { erwartet: alle(200) },
   "GET /support": { erwartet: alle(200) },
@@ -206,6 +225,7 @@ const MATRIX: Record<string, Zeile> = {
   "GET /admin/teilnehmende.js": { erwartet: alle(200) },
   "GET /admin/termine.js": { erwartet: alle(200) },
   "GET /admin/uebersicht.js": { erwartet: alle(200) },
+  "GET /admin/wartung.js": { erwartet: alle(200) },
   "GET /admin/zeitregeln.js": { erwartet: alle(200) },
   "GET /.well-known/apple-app-site-association": { erwartet: alle(200) },
   "GET /.well-known/assetlinks.json": { erwartet: alle(200) },
@@ -346,6 +366,64 @@ const MATRIX: Record<string, Zeile> = {
       ...SPERREN,
     },
   },
+  // Infokanal je Einheit (test/infokanal.test.ts): lesen alle Konten der Einheit, schreiben Kommando, Stellvertretungen und Leitende, fremde Einheiten und das Kantonsadmin-Konto sehen nichts
+  "GET /api/v1/infokanaele": {
+    erwartet: { ...alle(200), ...SPERREN },
+  },
+  "GET /api/v1/infokanaele/:einheitId/mitteilungen": {
+    url: (w) => `/api/v1/infokanaele/${w.einheit.jfA}/mitteilungen`,
+    erwartet: { ...INFOKANAL_JF_A, ...SPERREN },
+  },
+  "POST /api/v1/infokanaele/:einheitId/mitteilungen": {
+    url: (w) => `/api/v1/infokanaele/${w.einheit.jfA}/mitteilungen`,
+    body: () => ({ text: "Matrix" }),
+    erwartet: INFOKANAL_NUR_SEHEN_JF_A({
+      kommandoJfA: 201,
+      stellvertretung1JfA: 201,
+      stellvertretung2JfA: 201,
+      leitendeJfA: 201,
+      leitendeJfAElternKfA: 201,
+    }),
+  },
+  // Bearbeiten darf nur, wer schrieb: Die Mitteilung gehört dem Kommando von JF A, alle anderen mit Sicht bekommen 403
+  "PUT /api/v1/infokanaele/:einheitId/mitteilungen/:id": {
+    url: (w) =>
+      `/api/v1/infokanaele/${w.einheit.jfA}/mitteilungen/${mitteilungId}`,
+    body: () => ({ text: "Matrix" }),
+    erwartet: INFOKANAL_NUR_SEHEN_JF_A({ kommandoJfA: 200 }),
+  },
+  // Löschen darf die schreibende Person und das Kommando mit den Stellvertretungen; jede Anfrage braucht eine frische Mitteilung des Kommandos
+  "DELETE /api/v1/infokanaele/:einheitId/mitteilungen/:id": {
+    urlJeAnfrage: async () => {
+      const [zeile] = await db
+        .insert(schema.infokanalMitteilung)
+        .values({
+          einheitId: welt.einheit.jfA,
+          autorId: standard.kommandoJfA.id,
+          text: "Matrix",
+        })
+        .returning({ id: schema.infokanalMitteilung.id });
+      return `/api/v1/infokanaele/${welt.einheit.jfA}/mitteilungen/${zeile!.id}`;
+    },
+    erwartet: INFOKANAL_NUR_SEHEN_JF_A({
+      kommandoJfA: 204,
+      stellvertretung1JfA: 204,
+      stellvertretung2JfA: 204,
+    }),
+  },
+  // Den Lesestand setzt jedes Konto, das den Kanal sieht
+  "PUT /api/v1/infokanaele/:einheitId/gelesen": {
+    url: (w) => `/api/v1/infokanaele/${w.einheit.jfA}/gelesen`,
+    erwartet: {
+      ...Object.fromEntries(
+        Object.entries(INFOKANAL_JF_A).map(([p, s]) => [
+          p,
+          s === 200 ? 204 : s,
+        ]),
+      ),
+      ...SPERREN,
+    } as Record<Persona, number>,
+  },
   // Kontakt der Einheit (Kommandant/in): sichtbar für alle, die die Einheit sehen; die Nummer nur für Eltern und Teilnehmende darin (test/termine.test.ts)
   "GET /api/v1/einheiten/:einheitId/kontakt": {
     url: (w) => `/api/v1/einheiten/${w.einheit.jfA}/kontakt`,
@@ -420,6 +498,16 @@ const MATRIX: Record<string, Zeile> = {
     erwartet: {
       ...alle(403),
       kantonsadmin: 204,
+      deaktiviert: 401,
+      ohneLogin: 401,
+    },
+  },
+  // Wartung schalten: nur das Konto des Kantonsadmins. Der Body schaltet aus: Ein Einschalten sperrte die Routen für alle Testdateien; Ein und Aus prüft test/wartung.test.ts
+  "PUT /api/v1/admin/system/wartung": {
+    body: () => ({ aktiv: false }),
+    erwartet: {
+      ...alle(403),
+      kantonsadmin: 200,
       deaktiviert: 401,
       ohneLogin: 401,
     },
@@ -720,6 +808,23 @@ const MATRIX: Record<string, Zeile> = {
     body: () => ({ nurLeitende: false }),
     erwartet: VERWALTEN_JF_A(200),
   },
+  // Manuelle Termine: dieselben Rechte; JF A hat in der Matrix keinen Lodur-Link (die Zeile «PUT …/lodur» steht davor und wird entfernt). Quelle, Zeiten und Push prüft test/admin-termine.test.ts
+  "POST /api/v1/admin/einheiten/:einheitId/termine": {
+    url: (w) => `/api/v1/admin/einheiten/${w.einheit.jfA}/termine`,
+    body: () => ({
+      titel: "Matrix-Termin",
+      ganztaegig: false,
+      beginn: "2031-06-10T18:30",
+      ende: "2031-06-10T20:30",
+    }),
+    erwartet: VERWALTEN_JF_A(201),
+  },
+  "DELETE /api/v1/admin/einheiten/:einheitId/termine/:id": {
+    // Jede Anfrage verbraucht ihren Termin: ein frischer pro Persona
+    urlJeAnfrage: async () =>
+      `/api/v1/admin/einheiten/${welt.einheit.jfA}/termine/${await wegwerfTerminId()}`,
+    erwartet: VERWALTEN_JF_A(204),
+  },
   // Profilbild (#173): Jede Person mit Sitzung lädt ihr eigenes hoch und löscht es; nur die Person selbst, nie eine andere. Typ, Grösse und Rate-Limit prüft test/profilbild.test.ts
   "PUT /api/v1/ich/bild": {
     bild: true,
@@ -813,6 +918,7 @@ let offenesKontoId: string;
 let bildRangId: string;
 let milizRangId: string;
 let programmId: string;
+let mitteilungId: string;
 let offenProgrammId: string;
 let abzeichenRangId: string;
 let patchRegelId: string;
@@ -952,6 +1058,23 @@ async function wegwerfNachrichtId() {
   return zeile.id;
 }
 
+// Ein manueller Termin pro Aufruf: das Ziel einer Löschung
+async function wegwerfTerminId() {
+  const [zeile] = await welt.db
+    .insert(schema.programm)
+    .values({
+      einheitId: welt.einheit.jfA,
+      quelle: "manuell",
+      googleEventId: `manuell-${randomUUID()}`,
+      titel: "Wegwerf",
+      ganztaegig: false,
+      beginn: new Date("2031-06-10T16:30:00Z"),
+      ende: new Date("2031-06-10T18:30:00Z"),
+    })
+    .returning({ id: schema.programm.id });
+  return zeile.id;
+}
+
 // Promise.all geht: Die Fabrik teilt keinen veränderlichen Zustand (zufällige Namen, eigene Inserts)
 async function personasAnlegen(w: Welt) {
   return Object.fromEntries(
@@ -988,6 +1111,15 @@ beforeAll(async () => {
       abzeichenBildTyp: "png",
     })
     .returning({ id: schema.rang.id });
+  // Eine Mitteilung des Kommandos von JF A für die Zeile PUT
+  [{ id: mitteilungId }] = await db
+    .insert(schema.infokanalMitteilung)
+    .values({
+      einheitId: welt.einheit.jfA,
+      autorId: standard.kommandoJfA.id,
+      text: "Matrix",
+    })
+    .returning({ id: schema.infokanalMitteilung.id });
   patchRegelId = await wegwerfRegelId();
   nachrichtId = await wegwerfNachrichtId();
   leitungZielId = (await wegwerfKonto()).id;
@@ -1247,6 +1379,7 @@ describe.runIf(process.env.POSTMAN_EXPORT)("Postman-Export", () => {
         ]),
       ),
       programmId,
+      mitteilungId,
       offenProgrammId,
       abzeichenRangId,
       patchRegelId,

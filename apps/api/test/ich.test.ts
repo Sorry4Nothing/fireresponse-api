@@ -95,6 +95,7 @@ describe("GET /api/v1/ich", () => {
       bildUrl: null,
       pushProgramme: true,
       pushAnmeldungen: true,
+      pushInfokanal: true,
       einheiten: [
         {
           id: welt.einheit.jfA,
