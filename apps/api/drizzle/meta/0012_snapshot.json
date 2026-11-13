@@ -1,5 +1,5 @@
 {
-  "id": "d0b7440b-d939-4c6f-8eaa-1ab0aba77165",
+  "id": "1c54a433-27ef-4abe-ae41-6b439155b8ea",
   "prevId": "8a572acc-758f-40b3-a546-1fbb58f3a2cc",
   "version": "7",
   "dialect": "postgresql",
@@ -484,213 +484,6 @@
         "einheit_rolle_reihenfolge_check": {
           "name": "einheit_rolle_reihenfolge_check",
           "value": "(\"einheit_rolle\".\"typ\" = 'stellvertretung' and \"einheit_rolle\".\"reihenfolge\" is not null and \"einheit_rolle\".\"reihenfolge\" >= 1) or (\"einheit_rolle\".\"typ\" <> 'stellvertretung' and \"einheit_rolle\".\"reihenfolge\" is null)"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.infokanal_gelesen": {
-      "name": "infokanal_gelesen",
-      "schema": "",
-      "columns": {
-        "user_id": {
-          "name": "user_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "einheit_id": {
-          "name": "einheit_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "gelesen_bis": {
-          "name": "gelesen_bis",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "infokanal_gelesen_user_id_user_id_fk": {
-          "name": "infokanal_gelesen_user_id_user_id_fk",
-          "tableFrom": "infokanal_gelesen",
-          "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "infokanal_gelesen_einheit_id_einheit_id_fk": {
-          "name": "infokanal_gelesen_einheit_id_einheit_id_fk",
-          "tableFrom": "infokanal_gelesen",
-          "tableTo": "einheit",
-          "columnsFrom": [
-            "einheit_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "infokanal_gelesen_user_id_einheit_id_pk": {
-          "name": "infokanal_gelesen_user_id_einheit_id_pk",
-          "columns": [
-            "user_id",
-            "einheit_id"
-          ]
-        }
-      },
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.infokanal_mitteilung": {
-      "name": "infokanal_mitteilung",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "uuidv7()"
-        },
-        "einheit_id": {
-          "name": "einheit_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "autor_id": {
-          "name": "autor_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "text": {
-          "name": "text",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "bearbeitet_am": {
-          "name": "bearbeitet_am",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "geloescht_am": {
-          "name": "geloescht_am",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "erstellt_am": {
-          "name": "erstellt_am",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "infokanal_mitteilung_einheit_idx": {
-          "name": "infokanal_mitteilung_einheit_idx",
-          "columns": [
-            {
-              "expression": "einheit_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "infokanal_mitteilung_erstellt_idx": {
-          "name": "infokanal_mitteilung_erstellt_idx",
-          "columns": [
-            {
-              "expression": "erstellt_am",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "infokanal_mitteilung_autor_idx": {
-          "name": "infokanal_mitteilung_autor_idx",
-          "columns": [
-            {
-              "expression": "autor_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "infokanal_mitteilung_einheit_id_einheit_id_fk": {
-          "name": "infokanal_mitteilung_einheit_id_einheit_id_fk",
-          "tableFrom": "infokanal_mitteilung",
-          "tableTo": "einheit",
-          "columnsFrom": [
-            "einheit_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "infokanal_mitteilung_autor_id_user_id_fk": {
-          "name": "infokanal_mitteilung_autor_id_user_id_fk",
-          "tableFrom": "infokanal_mitteilung",
-          "tableTo": "user",
-          "columnsFrom": [
-            "autor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "infokanal_mitteilung_text_check": {
-          "name": "infokanal_mitteilung_text_check",
-          "value": "(\"infokanal_mitteilung\".\"geloescht_am\" is null and \"infokanal_mitteilung\".\"text\" is not null and char_length(\"infokanal_mitteilung\".\"text\") between 1 and 2000) or (\"infokanal_mitteilung\".\"geloescht_am\" is not null and \"infokanal_mitteilung\".\"text\" is null and \"infokanal_mitteilung\".\"autor_id\" is null)"
         }
       },
       "isRLSEnabled": false
@@ -1894,13 +1687,6 @@
           "notNull": true,
           "default": true
         },
-        "push_infokanal": {
-          "name": "push_infokanal",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": true
-        },
         "einwilligung_am": {
           "name": "einwilligung_am",
           "type": "timestamp with time zone",
@@ -2012,6 +1798,67 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.wartung": {
+      "name": "wartung",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "aktiv": {
+          "name": "aktiv",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "text": {
+          "name": "text",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ende": {
+          "name": "ende",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "seit": {
+          "name": "seit",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "wartung_einzeln": {
+          "name": "wartung_einzeln",
+          "value": "\"wartung\".\"id\" = '00000000-0000-4000-8000-000000000001'"
+        },
+        "wartung_text_kurz": {
+          "name": "wartung_text_kurz",
+          "value": "char_length(\"wartung\".\"text\") <= 280"
+        },
+        "wartung_aus_leer": {
+          "name": "wartung_aus_leer",
+          "value": "\"wartung\".\"aktiv\" or (\"wartung\".\"text\" is null and \"wartung\".\"ende\" is null and \"wartung\".\"seit\" is null)"
+        },
+        "wartung_an_seit": {
+          "name": "wartung_an_seit",
+          "value": "not \"wartung\".\"aktiv\" or \"wartung\".\"seit\" is not null"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.zeitregel": {

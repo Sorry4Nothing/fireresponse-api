@@ -357,6 +357,11 @@ export const programm = pgTable(
     einheitId: uuid("einheit_id")
       .notNull()
       .references(() => einheit.id, { onDelete: "restrict" }),
+    // Woher der Termin kommt: «lodur» gehört dem Sync, «manuell» legt die Verwaltung an und der Sync fasst ihn nie an. Weitere Angaben zu manuellen Terminen (z. B. eine Höchstzahl) kommen als eigene Spalten dazu
+    quelle: text("quelle", { enum: ["lodur", "manuell"] })
+      .notNull()
+      .default("lodur"),
+    // Bei manuellen Terminen «manuell-<uuid>»: nur damit die Eindeutigkeit je Einheit gilt
     googleEventId: text("google_event_id").notNull(),
     // Roher recurringEventId; der Sync (E3) kürzt den Stamm (_R…) erst beim Suchen
     googleSerie: text("google_serie"),
@@ -389,6 +394,7 @@ export const programm = pgTable(
       t.einheitId,
       t.googleEventId,
     ),
+    check("programm_quelle_check", sql`${t.quelle} in ('lodur', 'manuell')`),
     check(
       "programm_status_check",
       sql`${t.status} in ('aktiv', 'abgesagt', 'pruefen')`,
@@ -505,6 +511,30 @@ export const zeitregelGesendet = pgTable(
     gesendetAm: zeitpunkt("gesendet_am").notNull().defaultNow(),
   },
   (t) => [primaryKey({ columns: [t.regelId, t.programmId] })],
+);
+
+// Wartungsmodus: genau eine Zeile (feste ID). Aus heisst: text, ende und seit sind leer
+export const WARTUNG_ID = "00000000-0000-4000-8000-000000000001";
+export const wartung = pgTable(
+  "wartung",
+  {
+    id: uuid("id").primaryKey(),
+    aktiv: boolean("aktiv").notNull().default(false),
+    // Eigener Text für die App; leer heisst: Standardtext der App
+    text: text("text"),
+    // Voraussichtliches Ende, nur zur Anzeige: Es beendet die Wartung nicht von selbst
+    ende: zeitpunkt("ende"),
+    seit: zeitpunkt("seit"),
+  },
+  (t) => [
+    check("wartung_einzeln", sql`${t.id} = ${sql.raw(`'${WARTUNG_ID}'`)}`),
+    check("wartung_text_kurz", sql`char_length(${t.text}) <= 280`),
+    check(
+      "wartung_aus_leer",
+      sql`${t.aktiv} or (${t.text} is null and ${t.ende} is null and ${t.seit} is null)`,
+    ),
+    check("wartung_an_seit", sql`not ${t.aktiv} or ${t.seit} is not null`),
+  ],
 );
 
 // akteur_id und ziel_id ohne Fremdschlüssel, damit das Log Löschungen übersteht

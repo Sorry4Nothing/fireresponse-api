@@ -5,9 +5,17 @@ import { HTTPException } from "hono/http-exception";
 import type { Sql } from "postgres";
 import { z } from "zod";
 import type { Db } from "../../db/client.js";
-import { auditLog, bezirk, einheit, user } from "../../db/schema.js";
+import {
+  auditLog,
+  bezirk,
+  einheit,
+  user,
+  WARTUNG_ID,
+  wartung,
+} from "../../db/schema.js";
 import { eingabe } from "../../eingabe.js";
 import type { Metriken } from "../../metriken.js";
+import { protokolliere } from "../../konten.js";
 import type { Person } from "../../rechte.js";
 
 const mb = (bytes: number) => Math.round((bytes / 1024 / 1024) * 10) / 10;
@@ -17,6 +25,15 @@ const aenderungenSchema = z.strictObject({
   limit: z.coerce.number().int().min(1).max(200).default(50),
   vor: z.uuid().optional(),
 });
+
+// Aus heisst: kein Text und kein Ende. Der Text ist höchstens 280 Zeichen lang; leer zählt als kein Text
+const wartungSchema = z
+  .strictObject({
+    aktiv: z.boolean(),
+    text: z.string().trim().max(280).nullable().optional(),
+    ende: z.iso.datetime({ offset: true }).nullable().optional(),
+  })
+  .refine((w) => w.aktiv || (w.text == null && w.ende == null));
 
 // Nur das Kantonsadmin-Konto (die Middleware für /api/v1/admin/* verlangt zusätzlich den zweiten Faktor). Die Zahlen von /system und /requests enthalten nur Zahlen, Flags und feste Texte: keine Umgebungswerte, Hosts, Adressen, Namen oder IDs
 export function erstelleSystemRouten({
@@ -155,6 +172,56 @@ export function erstelleSystemRouten({
           // Die ID des letzten Eintrags, wenn es weitere gibt; als «vor» für die nächste Seite
           weiter: zeilen.length > limit ? seite[seite.length - 1].id : null,
         });
+      })
+      // Wartung ein- oder ausschalten; den Stand liest die App über GET /api/v1/wartung. Das Protokoll nennt das Ende, nie den Text
+      .put("/wartung", eingabe("json", wartungSchema), async (c) => {
+        const person = c.get("person");
+        if (!person.kantonsadmin) throw new HTTPException(403);
+        const { aktiv, text, ende } = c.req.valid("json");
+        const stand = await db.transaction(async (tx) => {
+          const [vorher] = await tx
+            .select({ aktiv: wartung.aktiv })
+            .from(wartung)
+            .where(eq(wartung.id, WARTUNG_ID))
+            .for("update");
+          const [neu] = await tx
+            .update(wartung)
+            .set(
+              aktiv
+                ? {
+                    aktiv,
+                    text: text || null,
+                    ende: ende ? new Date(ende) : null,
+                    // «seit» bleibt, solange die Wartung läuft
+                    seit: sqlText`coalesce(${wartung.seit}, now())`,
+                  }
+                : { aktiv, text: null, ende: null, seit: null },
+            )
+            .where(eq(wartung.id, WARTUNG_ID))
+            .returning({
+              aktiv: wartung.aktiv,
+              text: wartung.text,
+              ende: wartung.ende,
+              seit: wartung.seit,
+            });
+          // Aus bei schon ausgeschalteter Wartung ändert nichts
+          if (vorher!.aktiv || aktiv) {
+            await protokolliere(tx, {
+              einheitId: null,
+              akteurId: person.id,
+              aktion: aktiv
+                ? vorher!.aktiv
+                  ? "wartung_geaendert"
+                  : "wartung_eingeschaltet"
+                : "wartung_ausgeschaltet",
+              zielTyp: "wartung",
+              zielId: WARTUNG_ID,
+              details: aktiv ? { ende: neu!.ende } : undefined,
+            });
+          }
+          return neu!;
+        });
+        return c.json(stand);
       })
       // Stand des Syncs je Einheit: nur Zeitpunkt und Fehlercode, nie der Link
       .get("/sync", async (c) => {

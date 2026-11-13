@@ -23,6 +23,7 @@ import {
   personAusSitzung,
   zweiterFaktorPflicht,
 } from "./rechte.js";
+import { ladeWartung, wartungssperre } from "./wartung.js";
 import { erstelleAuswertungRouten } from "./routes/admin/auswertung.js";
 import { erstelleBezirkRouten } from "./routes/admin/bezirke.js";
 import { erstelleEinheitenRouten } from "./routes/admin/einheiten.js";
@@ -183,6 +184,8 @@ export function erstelleApp({
         }
         await next();
       })
+      // Vor den Auth-Routen und vor der Sitzung: Wartung hat Vorrang vor Anmeldung, Rolle und Einwilligung
+      .use("/api/*", wartungssperre(db))
       .route(
         "/",
         erstelleAuthRouten(auth, (userId) =>
@@ -194,6 +197,8 @@ export function erstelleApp({
         c.header("Cache-Control", "public, max-age=3600");
         return c.json(datenschutz);
       })
+      // Öffentlich und immer 200, auch in Wartung: Die App fragt hier, ob es weitergeht. Nur die allgemeine Drosselung, nicht «oeffentlich»: Eine 429 wäre keine Antwort auf die Frage, und viele Geräte hinter einer Adresse fragen in einer Störung zugleich
+      .get("/api/v1/wartung", async (c) => c.json(await ladeWartung(db)))
       // Einen Origin sendet nur ein Browser (die Verwaltung), die App nicht; erlaubt ist dieselbe Liste, die better-auth unter /api/auth prüft: BETTER_AUTH_URL und das App-Schema. Vor der Sitzung, damit eine fremde Seite keine Abfrage auslöst
       .use("/api/v1/*", async (c, next) => {
         const herkunft = c.req.header("Origin");
@@ -261,7 +266,7 @@ export function erstelleApp({
       )
       .route(
         "/api/v1/admin/einheiten/:einheitId/termine",
-        erstelleTermineRouten({ db }),
+        erstelleTermineRouten({ db, fcm }),
       )
       .route(
         "/api/v1/admin/system",

@@ -196,6 +196,7 @@ export const SPALTEN: Record<string, Partial<Record<KategorieId, string[]>>> = {
     programme: [
       "id",
       "einheit_id",
+      "quelle",
       "google_event_id",
       "google_serie",
       "titel",
@@ -325,6 +326,9 @@ export const SPALTEN: Record<string, Partial<Record<KategorieId, string[]>>> = {
       "created_at",
       "updated_at",
     ],
+  },
+  wartung: {
+    technik: ["id", "aktiv", "text", "ende", "seit"],
   },
   zeitregel: {
     benachrichtigungen: [

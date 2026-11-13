@@ -187,6 +187,8 @@ const MATRIX: Record<string, Zeile> = {
   "GET /datenschutz": { erwartet: alle(200) },
   // Öffentlich, vor der Sitzung; der Inhalt kommt aus derselben Quelle wie die Seite (test/seiten.test.ts)
   "GET /api/v1/datenschutz": { erwartet: alle(200) },
+  // Öffentlich, vor der Sitzung und auch in Wartung; Inhalt in test/wartung.test.ts
+  "GET /api/v1/wartung": { erwartet: alle(200) },
   "GET /nutzungsbedingungen": { erwartet: alle(200) },
   "GET /konto-loeschen": { erwartet: alle(200) },
   "GET /support": { erwartet: alle(200) },
@@ -211,6 +213,7 @@ const MATRIX: Record<string, Zeile> = {
   "GET /admin/teilnehmende.js": { erwartet: alle(200) },
   "GET /admin/termine.js": { erwartet: alle(200) },
   "GET /admin/uebersicht.js": { erwartet: alle(200) },
+  "GET /admin/wartung.js": { erwartet: alle(200) },
   "GET /admin/zeitregeln.js": { erwartet: alle(200) },
   "GET /.well-known/apple-app-site-association": { erwartet: alle(200) },
   "GET /.well-known/assetlinks.json": { erwartet: alle(200) },
@@ -451,6 +454,16 @@ const MATRIX: Record<string, Zeile> = {
     },
   },
   "GET /api/v1/admin/system/sync": {
+    erwartet: {
+      ...alle(403),
+      kantonsadmin: 200,
+      deaktiviert: 401,
+      ohneLogin: 401,
+    },
+  },
+  // Wartung schalten: nur das Konto des Kantonsadmins. Der Body schaltet aus: Ein Einschalten sperrte die Routen für alle Testdateien; Ein und Aus prüft test/wartung.test.ts
+  "PUT /api/v1/admin/system/wartung": {
+    body: () => ({ aktiv: false }),
     erwartet: {
       ...alle(403),
       kantonsadmin: 200,
@@ -754,6 +767,23 @@ const MATRIX: Record<string, Zeile> = {
     body: () => ({ nurLeitende: false }),
     erwartet: VERWALTEN_JF_A(200),
   },
+  // Manuelle Termine: dieselben Rechte; JF A hat in der Matrix keinen Lodur-Link (die Zeile «PUT …/lodur» steht davor und wird entfernt). Quelle, Zeiten und Push prüft test/admin-termine.test.ts
+  "POST /api/v1/admin/einheiten/:einheitId/termine": {
+    url: (w) => `/api/v1/admin/einheiten/${w.einheit.jfA}/termine`,
+    body: () => ({
+      titel: "Matrix-Termin",
+      ganztaegig: false,
+      beginn: "2031-06-10T18:30",
+      ende: "2031-06-10T20:30",
+    }),
+    erwartet: VERWALTEN_JF_A(201),
+  },
+  "DELETE /api/v1/admin/einheiten/:einheitId/termine/:id": {
+    // Jede Anfrage verbraucht ihren Termin: ein frischer pro Persona
+    urlJeAnfrage: async () =>
+      `/api/v1/admin/einheiten/${welt.einheit.jfA}/termine/${await wegwerfTerminId()}`,
+    erwartet: VERWALTEN_JF_A(204),
+  },
   // Profilbild (#173): Jede Person mit Sitzung lädt ihr eigenes hoch und löscht es; nur die Person selbst, nie eine andere. Typ, Grösse und Rate-Limit prüft test/profilbild.test.ts
   "PUT /api/v1/ich/bild": {
     bild: true,
@@ -974,6 +1004,23 @@ async function wegwerfRegelId() {
       aktiv: false,
     })
     .returning({ id: schema.zeitregel.id });
+  return zeile.id;
+}
+
+// Ein manueller Termin pro Aufruf: das Ziel einer Löschung
+async function wegwerfTerminId() {
+  const [zeile] = await welt.db
+    .insert(schema.programm)
+    .values({
+      einheitId: welt.einheit.jfA,
+      quelle: "manuell",
+      googleEventId: `manuell-${randomUUID()}`,
+      titel: "Wegwerf",
+      ganztaegig: false,
+      beginn: new Date("2031-06-10T16:30:00Z"),
+      ende: new Date("2031-06-10T18:30:00Z"),
+    })
+    .returning({ id: schema.programm.id });
   return zeile.id;
 }
 
