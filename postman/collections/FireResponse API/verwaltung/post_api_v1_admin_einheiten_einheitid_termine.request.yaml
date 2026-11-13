@@ -1,0 +1,25 @@
+$kind: http-request
+name: "POST /api/v1/admin/einheiten/:einheitId/termine"
+order: 95000
+method: POST
+url: "{{baseUrl}}/api/v1/admin/einheiten/{{einheit_jfA}}/termine"
+headers:
+  - key: "Cookie"
+    value: "{{cookie}}"
+  - key: "expo-origin"
+    value: "{{expoOrigin}}"
+  - key: "X-Forwarded-For"
+    value: "{{ip}}"
+  - key: "X-App-Version"
+    value: "{{appVersion}}"
+  - key: "Content-Type"
+    value: "application/json"
+body:
+  type: json
+  content: |-
+    {
+      "titel": "Matrix-Termin",
+      "ganztaegig": false,
+      "beginn": "2031-06-10T18:30",
+      "ende": "2031-06-10T20:30"
+    }

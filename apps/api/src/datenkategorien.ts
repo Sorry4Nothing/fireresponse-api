@@ -71,10 +71,19 @@ export const KATEGORIEN = {
     apple: ["Other Data"],
     google: ["App activity: Other actions"],
   },
+  infokanal: {
+    titel: "Mitteilungen im Infokanal",
+    zweck:
+      "Kommando und Leitung informieren die Konten ihrer Einheit in einer Richtung: Text, Autorin oder Autor mit Rolle, Zeitpunkt und Einheit. Es gibt keine Antworten, keine Reaktionen und keine Anhänge. Dazu merkt sich der Dienst je Konto und Einheit, bis wann der Infokanal gelesen ist.",
+    frist:
+      "Die Mitteilung bleibt 6 Monate, dann löscht das System sie automatisch. Löscht die Autorin oder der Autor sie oder das Kommando, ist der Text sofort weg, und nur ein Platzhalter bleibt bis zur automatischen Löschung. Wird das Konto der Autorin oder des Autors gelöscht, bleibt die Mitteilung ohne Autor bis zur automatischen Löschung. Der Lesestand geht mit dem Konto.",
+    apple: ["User Content: Other User Content"],
+    google: ["Messages: Other in-app messages"],
+  },
   benachrichtigungen: {
     titel: "Benachrichtigungen",
     zweck:
-      "Pushes zu Programmen, zu An- und Abmeldungen und zu Erinnerungen zustellen. Das Token gehört zum Gerät und zur Sitzung.",
+      "Pushes zu Programmen, zu An- und Abmeldungen, zu Erinnerungen und zu neuen Mitteilungen im Infokanal zustellen. Das Token gehört zum Gerät und zur Sitzung. Der Push zum Infokanal nennt den Namen der Einheit, nie den Text der Mitteilung.",
     frist:
       "Bis die Sitzung endet, also beim Abmelden, beim Deaktivieren und beim Löschen des Kontos.",
     apple: ["Identifiers: Device ID"],
@@ -96,6 +105,15 @@ export const KATEGORIEN = {
     frist: "Das Protokoll bleibt; es enthält keine Personendaten.",
     apple: [],
     google: [],
+  },
+  mitteilungen: {
+    titel: "Mitteilungen an die Verwaltung",
+    zweck:
+      "Die Kantonsadministration schreibt wichtige Hinweise an die Konten der Verwaltung; sie erscheinen in der Glocke der Verwaltung, nie in der App. Der Text enthält keine Personendaten. Je Konto ist nur gespeichert, ob und wann es eine Mitteilung gelesen hat; die Kantonsadministration sieht nur die Zahl der Lesenden.",
+    frist:
+      "Bis die Kantonsadministration die Mitteilung zurückzieht, spätestens 6 Monate nach ihrem Ablauf, ohne Ablauf 6 Monate nach dem Erstellen. Die Lesemarke geht mit der Mitteilung oder dem Konto.",
+    apple: ["Other Data"],
+    google: ["Personal info: Other info"],
   },
   einheiten: {
     titel: "Angaben der Bezirke und Einheiten",
@@ -166,6 +184,20 @@ export const SPALTEN: Record<string, Partial<Record<KategorieId, string[]>>> = {
       "erstellt_am",
     ],
   },
+  infokanal_gelesen: {
+    infokanal: ["user_id", "einheit_id", "gelesen_bis"],
+  },
+  infokanal_mitteilung: {
+    infokanal: [
+      "id",
+      "einheit_id",
+      "autor_id",
+      "text",
+      "bearbeitet_am",
+      "geloescht_am",
+      "erstellt_am",
+    ],
+  },
   leitung_anmeldung: {
     anmeldungen: ["programm_id", "user_id", "status"],
   },
@@ -173,6 +205,7 @@ export const SPALTEN: Record<string, Partial<Record<KategorieId, string[]>>> = {
     programme: [
       "id",
       "einheit_id",
+      "quelle",
       "google_event_id",
       "google_serie",
       "titel",
@@ -191,6 +224,12 @@ export const SPALTEN: Record<string, Partial<Record<KategorieId, string[]>>> = {
       "status",
       "inhalt_hash",
     ],
+  },
+  nachricht: {
+    mitteilungen: ["id", "titel", "text", "laeuft_ab_am", "erstellt_am"],
+  },
+  nachricht_gelesen: {
+    mitteilungen: ["nachricht_id", "user_id", "gelesen_am"],
   },
   profilbild: { profilbild: ["user_id", "inhalt", "geaendert_am"] },
   push_token: {
@@ -287,7 +326,11 @@ export const SPALTEN: Record<string, Partial<Record<KategorieId, string[]>>> = {
       "einwilligung_version",
     ],
     telefon: ["telefon"],
-    benachrichtigungen: ["push_programme", "push_anmeldungen"],
+    benachrichtigungen: [
+      "push_programme",
+      "push_anmeldungen",
+      "push_infokanal",
+    ],
   },
   verification: {
     technik: [
@@ -298,6 +341,9 @@ export const SPALTEN: Record<string, Partial<Record<KategorieId, string[]>>> = {
       "created_at",
       "updated_at",
     ],
+  },
+  wartung: {
+    technik: ["id", "aktiv", "text", "ende", "seit"],
   },
   zeitregel: {
     benachrichtigungen: [

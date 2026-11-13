@@ -268,6 +268,7 @@ describe("Zusatzfelder mit input: false", () => {
     telefon: "keine-nummer",
     pushProgramme: true,
     pushAnmeldungen: true,
+    pushInfokanal: true,
     einwilligungAm: new Date(Date.now() - 3_600_000),
     einwilligungVersion: 1,
   };
@@ -289,6 +290,7 @@ describe("Zusatzfelder mit input: false", () => {
     ["telefon", "andere-nummer"],
     ["pushProgramme", true],
     ["pushAnmeldungen", true],
+    ["pushInfokanal", true],
     ["einwilligungAm", new Date().toISOString()],
     ["einwilligungVersion", 2],
   ])(
@@ -332,6 +334,7 @@ describe("Zusatzfelder mit input: false", () => {
       telefon: null,
       pushProgramme: false,
       pushAnmeldungen: false,
+      pushInfokanal: false,
       einwilligungAm: null,
       einwilligungVersion: null,
     };

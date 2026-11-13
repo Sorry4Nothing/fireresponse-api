@@ -15,6 +15,8 @@ import {
   waehleEinheit,
   zeigeUmschalter,
 } from "./kontext.js";
+import * as mitteilungen from "./mitteilungen.js";
+import { erstelleGlocke } from "./nachrichten.js";
 import * as personen from "./personen.js";
 import * as system from "./system.js";
 import * as teilnehmende from "./teilnehmende.js";
@@ -56,7 +58,7 @@ const BEREICHE = [
     modul: termine,
     symbol: "kalender",
     untertitel:
-      "Die Termine der Einheit aus dem Terminkalender. Du bestimmst, welche nur Leitende sehen.",
+      "Die Termine der Einheit: aus dem Terminkalender oder selbst angelegt. Du bestimmst, welche nur Leitende sehen.",
     einheit: true,
   },
   {
@@ -66,6 +68,15 @@ const BEREICHE = [
     symbol: "zeitregeln",
     untertitel:
       "Erinnerungen an Personen, die auf einen Termin noch nicht geantwortet haben.",
+    einheit: true,
+  },
+  {
+    schluessel: "mitteilungen",
+    name: "Push senden",
+    modul: mitteilungen,
+    symbol: "glocke",
+    untertitel:
+      "Eine Push-Mitteilung mit eigenem Text an die Einheit oder nur an die Leitenden senden.",
     einheit: true,
   },
   {
@@ -678,7 +689,12 @@ function zeigeVerwaltung() {
       "div",
       { class: "marke" },
       el("p", { class: "ueber" }, "FireResponse"),
-      el("strong", {}, "Verwaltung"),
+      el(
+        "div",
+        { class: "marke-zeile" },
+        el("strong", {}, "Verwaltung"),
+        erstelleGlocke({ melde }).wurzel,
+      ),
       el("div", { id: "einheit-karte" }, einheitKarte()),
     ),
     bereiche,

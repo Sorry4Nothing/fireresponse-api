@@ -25,6 +25,7 @@ const profilSchema = z
   .strictObject({
     pushProgramme: z.boolean(),
     pushAnmeldungen: z.boolean(),
+    pushInfokanal: z.boolean(),
     telefon: telefonSchema,
   })
   .partial()
@@ -46,6 +47,7 @@ export function erstelleIchRouten({ db }: { db: Db }) {
             telefon: user.telefon,
             pushProgramme: user.pushProgramme,
             pushAnmeldungen: user.pushAnmeldungen,
+            pushInfokanal: user.pushInfokanal,
             bildUrl,
           })
           .from(user)
