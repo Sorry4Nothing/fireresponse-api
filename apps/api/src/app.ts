@@ -33,6 +33,7 @@ import { erstelleRangRouten } from "./routes/admin/raenge.js";
 import { erstelleLogoRouten } from "./routes/logo.js";
 import { erstelleStellvertretungsRouten } from "./routes/admin/stellvertretungen.js";
 import { erstelleTeilnehmendeRouten } from "./routes/admin/teilnehmende.js";
+import { erstelleUebertragungRouten } from "./routes/admin/uebertragung.js";
 import { erstelleKontenRouten } from "./routes/admin/konten.js";
 import { erstelleTermineRouten } from "./routes/admin/termine.js";
 import { erstelleLodurRouten } from "./routes/admin/lodur.js";
@@ -235,6 +236,10 @@ export function erstelleApp({
       .route(
         "/api/v1/admin/einheiten/:einheitId/teilnehmende",
         erstelleTeilnehmendeRouten({ db }),
+      )
+      .route(
+        "/api/v1/admin/einheiten/:einheitId/teilnehmende",
+        erstelleUebertragungRouten({ db }),
       )
       .route(
         "/api/v1/admin/einheiten/:einheitId/zeitregeln",
