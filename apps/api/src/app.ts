@@ -26,6 +26,7 @@ import {
 import { erstelleAuswertungRouten } from "./routes/admin/auswertung.js";
 import { erstelleBezirkRouten } from "./routes/admin/bezirke.js";
 import { erstelleEinheitenRouten } from "./routes/admin/einheiten.js";
+import { erstelleNachrichtenRouten } from "./routes/admin/nachrichten.js";
 import { erstelleKontenSucheRouten } from "./routes/admin/konten-suche.js";
 import { erstelleLeitendeRouten } from "./routes/admin/leitende.js";
 import { erstellePersonenRouten } from "./routes/admin/personen.js";
@@ -261,6 +262,7 @@ export function erstelleApp({
         "/api/v1/admin/einheiten/:einheitId/termine",
         erstelleTermineRouten({ db }),
       )
+      .route("/api/v1/admin/nachrichten", erstelleNachrichtenRouten({ db }))
       .route(
         "/api/v1/admin/system",
         erstelleSystemRouten({ sql, db, metriken }),
