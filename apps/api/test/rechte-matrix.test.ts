@@ -627,6 +627,22 @@ const MATRIX: Record<string, Zeile> = {
       body: (konto) => ({ benutzername: benutzerFuer(konto, "kind") }),
       erwartet: VERWALTEN_JF_A(201),
     },
+  // Die Auswahl der Zieleinheiten; sie ist je nach Einheit und Rolle leer, der Status bleibt 200
+  "GET /api/v1/admin/einheiten/:einheitId/teilnehmende/ziele": {
+    url: (w) => `/api/v1/admin/einheiten/${w.einheit.jfA}/teilnehmende/ziele`,
+    erwartet: VERWALTEN_JF_A(200),
+  },
+  // Aus einer JF überträgt nur das Konto des Kantonsadmins; das Kommando der KF in die JF des Bezirks prüft test/uebertragung.test.ts. Jede Anfrage verbraucht ihre Person: eine frische pro Persona
+  "POST /api/v1/admin/einheiten/:einheitId/teilnehmende/:teilnehmendeId/uebertragen":
+    {
+      urlJeAnfrage: async () =>
+        `/api/v1/admin/einheiten/${welt.einheit.jfA}/teilnehmende/${await wegwerfTeilnehmendeId()}/uebertragen`,
+      body: () => ({ zielEinheitId: welt.einheit.jfB }),
+      erwartet: {
+        ...VERWALTEN_JF_A(403),
+        kantonsadmin: 204,
+      },
+    },
   "GET /api/v1/admin/einheiten/:einheitId/zeitregeln": {
     url: (w) => `/api/v1/admin/einheiten/${w.einheit.jfA}/zeitregeln`,
     erwartet: VERWALTEN_JF_A(200),

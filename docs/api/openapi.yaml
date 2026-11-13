@@ -3012,6 +3012,77 @@ paths:
           $ref: "#/components/responses/AppVeraltet426"
         "429":
           $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/admin/einheiten/{einheitId}/teilnehmende/ziele:
+    get:
+      operationId: listeAdminUebertragungsziele
+      summary: Zieleinheiten für die Übertragung von Teilnehmenden
+      tags:
+        - Verwaltung
+      description: |
+        Kommando, Stellvertretungen und Kantonsadmin (mit zweitem Faktor), nur für die Einheit im Pfad. Die Einheiten, in die die Person Teilnehmende dieser Einheit übertragen darf, für die Auswahl im Panel; die Liste kann leer sein.
+        Das Kommando und die Stellvertretungen einer Kinderfeuerwehr dürfen nur in die Jugendfeuerwehr desselben Bezirks übertragen; aus einer Jugendfeuerwehr übertragen sie nie. Jede andere Übertragung (andere Einheit, anderer Bezirk) macht allein das Konto des Kantonsadmins.
+        Ziel ist nur eine in der App registrierte Einheit, also eine mit aktivem Kommando-Konto. Die eigene Einheit fehlt.
+
+        Statuscodes: 200, 401, 403, 404, 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/EinheitIdPfad"
+      responses:
+        "200":
+          description: Zieleinheiten nach Bezirk und Art.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUebertragungsziele"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/admin/einheiten/{einheitId}/teilnehmende/{teilnehmendeId}/uebertragen:
+    post:
+      operationId: uebertrageAdminTeilnehmende
+      summary: Teilnehmende in eine andere Einheit übertragen
+      tags:
+        - Verwaltung
+      description: |
+        Kommando, Stellvertretungen und Kantonsadmin (mit zweitem Faktor), nur für Personen der Einheit im Pfad; eine Person einer anderen Einheit ist 404. Die Ziele nennt `GET .../teilnehmende/ziele`:
+        Das Kommando und die Stellvertretungen einer Kinderfeuerwehr übertragen nur in die Jugendfeuerwehr desselben Bezirks, alles andere nur der Kantonsadmin, und das Ziel muss eine in der App registrierte Einheit sein (aktives Kommando-Konto). Ein Ziel, das die Person nicht wählen darf, ist für das Kommando 403, für den Kantonsadmin 400 (unbekannt, die eigene Einheit, nicht registriert).
+        Es ändert sich nur die Einheit der Person. Die Konten (Eltern oder eigenes Konto) bleiben verknüpft: Danach steht die Person bei `GET /api/v1/ich` mit der neuen Einheit (`einheitId`, `einheitName`, `einheitTyp`), und die Eltern antworten dort, auch ohne Rolle in der Einheit.
+        Alle Antworten (Anmeldungen) der Person in Programmen der alten Einheit verfallen, auch vergangene: Sie wären sonst in keiner Auswertung mehr sichtbar. Der Rang geht mit, wenn die Zieleinheit einen Rang mit gleichem Namen und gleicher Art hat, sonst ist die Person danach ohne Rang. Alles geschieht in einer Transaktion.
+        Die Übertragung steht im Audit-Log (`teilnehmende_uebertragen`) mit der abgebenden und der Zieleinheit, der ID der Person und der Zahl der gelöschten Antworten, nie mit Namen.
+
+        Statuscodes: 204, 400, 401, 403, 404, 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/EinheitIdPfad"
+        - $ref: "#/components/parameters/AdminTeilnehmendeIdPfad"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminUebertragen"
+      responses:
+        "204":
+          description: Übertragen.
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
   /api/v1/admin/system/changes:
     get:
       operationId: listeAdminAenderungen
@@ -4823,7 +4894,19 @@ components:
           items:
             type: object
             additionalProperties: false
-            required: [id, titel, art, status, ganztaegig, beginn, ende, tagVon, tagBis, nurLeitende]
+            required:
+              [
+                id,
+                titel,
+                art,
+                status,
+                ganztaegig,
+                beginn,
+                ende,
+                tagVon,
+                tagBis,
+                nurLeitende,
+              ]
             properties:
               id:
                 type: string
@@ -6018,6 +6101,35 @@ components:
           maxLength: 64
           pattern: ^[A-Za-z0-9._-]+$
           description: Benutzername des neuen Kontos der Person.
+    AdminUebertragen:
+      type: object
+      required: [zielEinheitId]
+      additionalProperties: false
+      properties:
+        zielEinheitId:
+          type: string
+          format: uuid
+          description: Die Zieleinheit, eine aus `GET .../teilnehmende/ziele`.
+    AdminUebertragungsziele:
+      type: object
+      required: [ziele]
+      properties:
+        ziele:
+          type: array
+          items:
+            type: object
+            required: [id, name, typ, bezirk]
+            properties:
+              id:
+                type: string
+                format: uuid
+              name:
+                type: string
+              typ:
+                type: string
+                enum: [jf, kf]
+              bezirk:
+                type: string
     KontoSuche:
       type: object
       description: Ein Konto für die Rückfrage vor dem Löschen.
