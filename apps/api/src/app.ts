@@ -259,7 +259,7 @@ export function erstelleApp({
       )
       .route(
         "/api/v1/admin/einheiten/:einheitId/termine",
-        erstelleTermineRouten({ db }),
+        erstelleTermineRouten({ db, fcm }),
       )
       .route(
         "/api/v1/admin/system",

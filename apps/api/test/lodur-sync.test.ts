@@ -354,6 +354,41 @@ describe("Sync einer Einheit", () => {
     expect((await w.aktuell("z1")).titel).toBe("Übung");
   });
 
+  test("manuelle Termine bleiben unberührt: nicht abgesagt, nicht geändert, auch bei leerem Kalender", async () => {
+    const w = await neueWelt();
+    await w.lauf(kalender([ZUKUNFT]));
+    await db.insert(schema.programm).values({
+      einheitId: w.einheit.id,
+      quelle: "manuell",
+      googleEventId: `manuell-${randomUUID()}`,
+      titel: "Selbst angelegt",
+      ganztaegig: false,
+      beginn: new Date("2054-11-20T18:00:00Z"),
+      ende: new Date("2054-11-20T20:00:00Z"),
+    });
+    const vorher = await w.nachTitel("Selbst angelegt");
+
+    // Ein Kalender ohne seine UID sagt ihn nicht ab
+    await w.lauf(kalender([{ uid: "z2", start: "20541121T180000Z" }]));
+    expect(await w.nachTitel("Selbst angelegt")).toEqual(vorher);
+    expect(nachrichten).toHaveLength(0);
+
+    // Ein leerer Kalender neben nur manuellen Terminen ist kein Fehler «leer»
+    const nur = await neueWelt();
+    await db.insert(schema.programm).values({
+      einheitId: nur.einheit.id,
+      quelle: "manuell",
+      googleEventId: `manuell-${randomUUID()}`,
+      titel: "Nur manuell",
+      ganztaegig: false,
+      beginn: new Date("2054-11-20T18:00:00Z"),
+      ende: new Date("2054-11-20T20:00:00Z"),
+    });
+    await nur.lauf(kalender([]));
+    expect((await nur.einheitZeile()).syncFehler).toBeNull();
+    expect((await nur.nachTitel("Nur manuell")).status).toBe("aktiv");
+  });
+
   test("fehlt die UID eines künftigen Termins, wird er abgesagt: Anmeldungen bleiben, Push an die ganze Einheit", async () => {
     const w = await neueWelt();
     const [mutter, ohneAntwort, kommando, inaktiv] = await Promise.all([

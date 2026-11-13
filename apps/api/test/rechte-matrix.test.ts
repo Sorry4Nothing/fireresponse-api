@@ -679,6 +679,23 @@ const MATRIX: Record<string, Zeile> = {
     body: () => ({ nurLeitende: false }),
     erwartet: VERWALTEN_JF_A(200),
   },
+  // Manuelle Termine: dieselben Rechte; JF A hat in der Matrix keinen Lodur-Link (die Zeile «PUT …/lodur» steht davor und wird entfernt). Quelle, Zeiten und Push prüft test/admin-termine.test.ts
+  "POST /api/v1/admin/einheiten/:einheitId/termine": {
+    url: (w) => `/api/v1/admin/einheiten/${w.einheit.jfA}/termine`,
+    body: () => ({
+      titel: "Matrix-Termin",
+      ganztaegig: false,
+      beginn: "2031-06-10T18:30",
+      ende: "2031-06-10T20:30",
+    }),
+    erwartet: VERWALTEN_JF_A(201),
+  },
+  "DELETE /api/v1/admin/einheiten/:einheitId/termine/:id": {
+    // Jede Anfrage verbraucht ihren Termin: ein frischer pro Persona
+    urlJeAnfrage: async () =>
+      `/api/v1/admin/einheiten/${welt.einheit.jfA}/termine/${await wegwerfTerminId()}`,
+    erwartet: VERWALTEN_JF_A(204),
+  },
   // Profilbild (#173): Jede Person mit Sitzung lädt ihr eigenes hoch und löscht es; nur die Person selbst, nie eine andere. Typ, Grösse und Rate-Limit prüft test/profilbild.test.ts
   "PUT /api/v1/ich/bild": {
     bild: true,
@@ -898,6 +915,23 @@ async function wegwerfRegelId() {
       aktiv: false,
     })
     .returning({ id: schema.zeitregel.id });
+  return zeile.id;
+}
+
+// Ein manueller Termin pro Aufruf: das Ziel einer Löschung
+async function wegwerfTerminId() {
+  const [zeile] = await welt.db
+    .insert(schema.programm)
+    .values({
+      einheitId: welt.einheit.jfA,
+      quelle: "manuell",
+      googleEventId: `manuell-${randomUUID()}`,
+      titel: "Wegwerf",
+      ganztaegig: false,
+      beginn: new Date("2031-06-10T16:30:00Z"),
+      ende: new Date("2031-06-10T18:30:00Z"),
+    })
+    .returning({ id: schema.programm.id });
   return zeile.id;
 }
 
