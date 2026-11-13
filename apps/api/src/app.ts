@@ -41,6 +41,7 @@ import { erstelleSystemRouten } from "./routes/admin/system.js";
 import { erstelleZeitregelRouten } from "./routes/admin/zeitregeln.js";
 import { erstelleEinwilligungRouten } from "./routes/einwilligung.js";
 import { erstelleIchRouten } from "./routes/ich.js";
+import { erstelleInfokanalRouten } from "./routes/infokanal.js";
 import { erstelleKontaktRouten } from "./routes/kontakt.js";
 import { erstelleProfilbildRouten } from "./routes/profilbild.js";
 import { erstelleProgrammRouten } from "./routes/programme.js";
@@ -219,6 +220,7 @@ export function erstelleApp({
         "/api/v1/programme",
         erstelleProgrammRouten({ db, fcm, anmeldefensterTage }),
       )
+      .route("/api/v1/infokanaele", erstelleInfokanalRouten({ db, fcm }))
       .route("/api/v1", erstelleKontaktRouten({ db }))
       .route("/api/v1", erstelleLogoRouten({ db }))
       .route("/api/v1/einwilligung", erstelleEinwilligungRouten({ db }))

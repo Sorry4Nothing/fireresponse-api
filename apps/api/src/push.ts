@@ -6,14 +6,22 @@ import { pushToken } from "./db/schema.js";
 import { log } from "./log.js";
 
 // Der Text steht unter dem Titel. Er trägt nie Inhalte oder Namen von Kindern: Der Push steht je nach Handy auf dem gesperrten Bildschirm
-// kanal ist der Android-Kanal und die Art des Pushes: «termine» (Erinnerung, Absage, Änderung) oder «anmeldungen» (Anmeldung an Kommando und Leitende)
-export type Push = {
-  typ: "programm";
-  kanal: "termine" | "anmeldungen";
-  id: string;
-  titel: string;
-  text?: string;
-};
+// kanal ist der Android-Kanal und die Art des Pushes: «termine» (Erinnerung, Absage, Änderung) oder «anmeldungen» (Anmeldung an Kommando und Leitende) zu einem Programm, «infokanal» (neue Mitteilung) mit der Einheit als id
+export type Push =
+  | {
+      typ: "programm";
+      kanal: "termine" | "anmeldungen";
+      id: string;
+      titel: string;
+      text?: string;
+    }
+  | {
+      typ: "infokanal";
+      kanal: "infokanal";
+      id: string;
+      titel: string;
+      text?: string;
+    };
 
 // Was sendePush vom Messaging-Dienst von firebase-admin braucht; im Test eine Attrappe
 export type Fcm = {

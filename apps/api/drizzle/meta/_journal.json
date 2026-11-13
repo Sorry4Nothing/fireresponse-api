@@ -99,6 +99,13 @@
       "when": 1794595703879,
       "tag": "0013_termin_quelle",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1794595839965,
+      "tag": "0014_infokanal",
+      "breakpoints": true
     }
   ]
 }
