@@ -248,7 +248,14 @@ describe("POST …/termine", () => {
   });
 
   test("ungültige Eingaben: 400, nichts gespeichert", async () => {
-    const vorher = (await db.select().from(schema.programm)).length;
+    const anzahl = async () =>
+      (
+        await db
+          .select()
+          .from(schema.programm)
+          .where(eq(schema.programm.einheitId, welt.einheit.jfA))
+      ).length;
+    const vorher = await anzahl();
     const schlecht: Record<string, unknown>[] = [
       { titel: "" },
       { titel: "   " },
@@ -277,7 +284,7 @@ describe("POST …/termine", () => {
       const res = await sende("POST", "", { ...manuell, ...abweichung });
       expect(res.status, JSON.stringify(abweichung)).toBe(400);
     }
-    expect((await db.select().from(schema.programm)).length).toBe(vorher);
+    expect(await anzahl()).toBe(vorher);
   });
 
   test("Einheit mit Lodur-Link: 409, die Termine kommen aus Lodur", async () => {
