@@ -383,6 +383,8 @@ export const programm = pgTable(
     art: text("art"),
     // Gehört der Verwaltung, nie dem Sync: true zeigt den Termin Kindern und Eltern weder in der App noch in Push und Erinnerungen
     nurLeitende: boolean("nur_leitende").notNull().default(false),
+    // Höchstzahl der Zusagen von Leitenden (Kommando, Stellvertretung, Leitung); null heisst ohne Grenze. Nur bei manuellen Terminen; weitere Zusagen kommen auf die Warteliste
+    leitungHoechstzahl: integer("leitung_hoechstzahl"),
     status: text("status", { enum: ["aktiv", "abgesagt", "pruefen"] })
       .notNull()
       .default("aktiv"),
@@ -395,6 +397,10 @@ export const programm = pgTable(
       t.googleEventId,
     ),
     check("programm_quelle_check", sql`${t.quelle} in ('lodur', 'manuell')`),
+    check(
+      "programm_leitung_hoechstzahl_check",
+      sql`${t.leitungHoechstzahl} is null or (${t.leitungHoechstzahl} >= 1 and ${t.quelle} = 'manuell')`,
+    ),
     check(
       "programm_status_check",
       sql`${t.status} in ('aktiv', 'abgesagt', 'pruefen')`,
@@ -430,7 +436,7 @@ export const teilnahme = pgTable(
   ],
 );
 
-// Keine Zeile heisst «offen»; dass die Person Kommando oder Leitung der Einheit des Programms ist, prüft die Route
+// Keine Zeile heisst «offen»; dass die Person Kommando oder Leitung der Einheit des Programms ist, prüft die Route. «warteliste»: Die Zusage fand wegen der Höchstzahl des Programms keinen Platz
 export const leitungAnmeldung = pgTable(
   "leitung_anmeldung",
   {
@@ -440,12 +446,21 @@ export const leitungAnmeldung = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    status: text("status", { enum: ["ja", "nein"] }).notNull(),
+    status: text("status", { enum: ["ja", "nein", "warteliste"] }).notNull(),
+    // Nur bei «warteliste»: Zeitpunkt der Eintragung, danach richtet sich die Reihenfolge
+    wartelisteSeit: zeitpunkt("warteliste_seit"),
   },
   (t) => [
     primaryKey({ columns: [t.programmId, t.userId] }),
     // text({ enum }) prüft nur in TypeScript, nicht in der Datenbank
-    check("leitung_anmeldung_status_check", sql`${t.status} in ('ja', 'nein')`),
+    check(
+      "leitung_anmeldung_status_check",
+      sql`${t.status} in ('ja', 'nein', 'warteliste')`,
+    ),
+    check(
+      "leitung_anmeldung_warteliste_check",
+      sql`(${t.status} = 'warteliste') = (${t.wartelisteSeit} is not null)`,
+    ),
   ],
 );
 

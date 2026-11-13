@@ -5,14 +5,28 @@ import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { z } from "zod";
 import type { Db } from "../../db/client.js";
-import { auditLog, einheit, programm } from "../../db/schema.js";
+import {
+  auditLog,
+  einheit,
+  einheitRolle,
+  leitungAnmeldung,
+  programm,
+  user,
+} from "../../db/schema.js";
 import { eingabe } from "../../eingabe.js";
 import type { Fcm } from "../../push.js";
-import { pruefeEinheit, programmBeginn, type Person } from "../../rechte.js";
+import { rueckeNach, zaehleZusagen } from "../../leiter-plaetze.js";
+import {
+  aktivesKonto,
+  pruefeEinheit,
+  programmBeginn,
+  type Person,
+} from "../../rechte.js";
 import {
   ladePushZeile,
   sendeAbsagePush,
   sendeAenderungsPush,
+  sendeNachrueckPush,
 } from "../../termin-push.js";
 
 // PostgreSQL 18 lehnt das Jahr 0000 ab (Fehler 22008), zod lässt es durch
@@ -28,6 +42,8 @@ const terminPfad = z.strictObject({ einheitId: z.uuid(), id: z.uuid() });
 const titel = z.string().trim().min(1).max(120);
 const kurz = z.string().trim().min(1).max(120).nullable();
 const lang = z.string().trim().min(1).max(2000).nullable();
+// Höchstzahl der Zusagen von Leitenden; null hebt die Grenze auf
+const hoechstzahl = z.int().min(1).max(500).nullable();
 
 type Zeit = {
   ganztaegig?: boolean;
@@ -67,6 +83,7 @@ const anlegenSchema = z
     ...zeitFelder,
     ...textFelder,
     nurLeitende: z.boolean().optional(),
+    leitungHoechstzahl: hoechstzahl.optional(),
   })
   .refine(zeitPasst);
 // Bei Terminen aus Lodur gilt nur nurLeitende; die Route lehnt jedes andere Feld mit 409 ab
@@ -77,6 +94,7 @@ const aendernSchema = z
     ...zeitFelder,
     ...textFelder,
     nurLeitende: z.boolean().optional(),
+    leitungHoechstzahl: hoechstzahl.optional(),
   })
   .refine((d) => Object.values(d).some((wert) => wert !== undefined))
   .refine(zeitPasst);
@@ -101,6 +119,7 @@ const terminSpalten = {
   info: programm.info,
   aufgebot: programm.aufgebot,
   nurLeitende: programm.nurLeitende,
+  leitungHoechstzahl: programm.leitungHoechstzahl,
 };
 // Diese Felder zeigen die Apps; ändert sich eines, bekommen die Angemeldeten einen Push. Der Ort (noch nicht in den Apps) und der Schalter lösen keinen aus
 const FUER_PUSH = [
@@ -119,6 +138,11 @@ const FUER_PUSH = [
 const AUS_LODUR = {
   code: "TERMIN_AUS_LODUR",
   message: "Dieser Termin kommt aus Lodur und lässt sich hier nicht ändern.",
+} as const;
+const ZU_KLEIN = {
+  code: "HOECHSTZAHL_ZU_KLEIN",
+  message:
+    "Die Höchstzahl liegt unter der Zahl der Zusagen. Sie lässt sich erst senken, wenn genug Leitende abgesagt haben.",
 } as const;
 const LINK_GESETZT = {
   code: "LODUR_LINK_GESETZT",
@@ -140,9 +164,19 @@ export function erstelleTermineRouten({ db, fcm }: { db: Db; fcm?: Fcm }) {
         const { einheitId } = c.req.valid("param");
         const { von, bis } = c.req.valid("query");
         await pruefeEinheit(db, c.get("person"), einheitId, "verwalten");
-        const termine = await db
-          .select(terminSpalten)
+        // Zusagen und Wartende je Termin; zählt nur Mitglieder der Einheit mit aktivem Konto, wie die App
+        const zaehle = (status: "ja" | "warteliste") =>
+          sql<number>`(select count(*) from ${leitungAnmeldung} join ${einheitRolle} on ${einheitRolle.userId} = ${leitungAnmeldung.userId} and ${einheitRolle.einheitId} = programm.einheit_id join ${user} on ${user.id} = ${leitungAnmeldung.userId} and ${aktivesKonto()} where ${leitungAnmeldung.programmId} = programm.id and ${leitungAnmeldung.status} = ${status})::int`;
+        const zeilen = await db
+          .select({
+            ...terminSpalten,
+            belegt: zaehle("ja"),
+            wartende: zaehle("warteliste"),
+            begonnen: sql<boolean>`${programmBeginn} <= now()`,
+          })
           .from(programm)
+          // Der Join lässt Drizzle die Spalten der Unterabfragen mit Tabellennamen schreiben
+          .innerJoin(einheit, eq(einheit.id, programm.einheitId))
           .where(
             and(
               eq(programm.einheitId, einheitId),
@@ -152,6 +186,20 @@ export function erstelleTermineRouten({ db, fcm }: { db: Db; fcm?: Fcm }) {
             ),
           )
           .orderBy(programmBeginn, programm.id);
+        const termine = zeilen.map(({ belegt, wartende, begonnen, ...t }) => ({
+          ...t,
+          leitungPlaetze:
+            t.leitungHoechstzahl === null
+              ? null
+              : {
+                  hoechstzahl: t.leitungHoechstzahl,
+                  belegt,
+                  frei: Math.max(t.leitungHoechstzahl - belegt, 0),
+                  voll: belegt >= t.leitungHoechstzahl,
+                  // Nach dem Beginn ist die Warteliste verfallen
+                  wartende: begonnen ? 0 : wartende,
+                },
+        }));
         return c.json({ termine });
       },
     )
@@ -192,6 +240,7 @@ export function erstelleTermineRouten({ db, fcm }: { db: Db; fcm?: Fcm }) {
               info: d.info ?? null,
               aufgebot: d.aufgebot ?? null,
               nurLeitende: d.nurLeitende ?? false,
+              leitungHoechstzahl: d.leitungHoechstzahl ?? null,
             })
             .returning(terminSpalten);
           await tx.insert(auditLog).values({
@@ -231,6 +280,13 @@ export function erstelleTermineRouten({ db, fcm }: { db: Db; fcm?: Fcm }) {
           if (!alt) throw new HTTPException(404);
           if (alt.quelle !== "manuell" && felder.length > 0) return "lodur";
           const d = inhalt;
+          // Die Zeile ist gesperrt: Gleichzeitige Zusagen warten, die Zahl ist stabil
+          if (
+            d.leitungHoechstzahl != null &&
+            d.leitungHoechstzahl < (await zaehleZusagen(tx, id, einheitId))
+          ) {
+            return "zuKlein";
+          }
           const aenderung = {
             ...(d.titel !== undefined && { titel: d.titel }),
             ...(d.ganztaegig !== undefined && {
@@ -245,11 +301,14 @@ export function erstelleTermineRouten({ db, fcm }: { db: Db; fcm?: Fcm }) {
             ...(d.thema !== undefined && { thema: d.thema }),
             ...(d.info !== undefined && { info: d.info }),
             ...(d.aufgebot !== undefined && { aufgebot: d.aufgebot }),
+            ...(d.leitungHoechstzahl !== undefined && {
+              leitungHoechstzahl: d.leitungHoechstzahl,
+            }),
             ...(nurLeitende !== undefined &&
               nurLeitende !== alt.nurLeitende && { nurLeitende }),
           };
           if (Object.keys(aenderung).length === 0) {
-            return { termin: alt, push: false };
+            return { termin: alt, push: false, nachgerueckt: [] };
           }
           const [neu] = await tx
             .update(programm)
@@ -277,14 +336,22 @@ export function erstelleTermineRouten({ db, fcm }: { db: Db; fcm?: Fcm }) {
               details: { felder },
             });
           }
+          // Eine höhere Grenze oder keine: Wartende rücken der Reihe nach nach
+          const nachgerueckt =
+            d.leitungHoechstzahl !== undefined
+              ? await rueckeNach(tx, id, einheitId, neu!.leitungHoechstzahl)
+              : [];
           const wert = (t: typeof alt) =>
             JSON.stringify(FUER_PUSH.map((f) => t[f]));
           return {
             termin: neu!,
             push: neu!.status === "aktiv" && wert(neu!) !== wert(alt),
+            nachgerueckt,
           };
         });
         if (ergebnis === "lodur") return c.json(AUS_LODUR, 409);
+        if (ergebnis === "zuKlein") return c.json(ZU_KLEIN, 409);
+        await sendeNachrueckPush(umgebung(c), id, ergebnis.nachgerueckt);
         if (ergebnis.push) await sendeAenderungsPush(umgebung(c), id);
         return c.json(ergebnis.termin);
       },

@@ -1280,6 +1280,7 @@ paths:
         Jeder Eintrag trägt `anmeldungAb`, den Schweizer Kalendertag, ab dem sich anmelden lässt (`ANMELDEFENSTER_TAGE` Tage
         vor dem Beginn, Standard 42). Spätere Programme sind sichtbar; die App zeigt dort «Anmeldung ab <Datum>».
         `teilnahmeOffen` sagt, ob sich jetzt antworten lässt (aktiv, nicht begonnen, Fenster offen).
+        Bei Terminen mit Höchstzahl für Leitende (Quelle `manuell`) tragen Kommando, Stellvertretung und Leitung der Einheit zusätzlich `leitungPlaetze` (Plätze, Zahl der Wartenden, eigene Position); für alle anderen fehlt der Schlüssel. Das Widget liest dieselbe Liste: `leitungPlaetze.voll` und `eigeneAnmeldung` `warteliste` genügen, `wartende` und `eigenePosition` stehen auch darin.
         `anmeldbar` ist immer `true` und nur noch für Apps da, die das Feld lesen. Termine, die die Verwaltung auf «nur Leitende» gestellt hat, fehlen für Eltern und Teilnehmende in Liste und Detail (404).
 
         Statuscodes: 200 Erfolg; 400 `von` oder `bis` fehlt, ist kein gültiges Datum `JJJJ-MM-TT`, beginnt mit Jahr
@@ -1331,7 +1332,7 @@ paths:
         - Programme
       description: |
         Liefert die Felder des Listeneintrags (mit `teilnehmende` samt Rang-Abzeichen) und zusätzlich `thema`, `info`, `aufgebot`,
-        die Kontaktperson des Termins (`kontakt`) und (nur für Kommando und Leitende der Einheit) `eigeneAnmeldung`, das auch der Listeneintrag trägt.
+        die Kontaktperson des Termins (`kontakt`) und (nur für Kommando und Leitende der Einheit) `eigeneAnmeldung` und, bei einer Höchstzahl, `leitungPlaetze`; beides trägt auch der Listeneintrag.
         Die Kontaktperson ist die Kommandantin oder der Kommandant, solange sie oder er nicht «nein» gesagt hat; sonst die erste
         Stellvertretung ohne «nein»; haben alle «nein» gesagt, wieder die Kommandantin oder der Kommandant. «Offen» ist keine Absage.
         Die Telefonnummer des Kontakts sehen nur Eltern und Teilnehmende mit aktiver Person in der Einheit, sonst ist `telefon` `null`.
@@ -1373,7 +1374,8 @@ paths:
       description: |
         Kommando, Leitende und das Konto des Kantonsadmins sehen alle aktiven teilnehmenden Personen der Einheit mit ihrer
         Antwort (`ja`, `nein`, `offen`) und ihrem Abzeichen und die Rollen der Einheit (Kommandant zuerst, dann Stellvertretungen nach Reihenfolge, dann Leitende)
-        mit ihrer eigenen Anmeldung und ihrem Abzeichen. Eltern und Teilnehmende sehen nur ihre eigenen Personen und keine Leitenden.
+        mit ihrer eigenen Anmeldung und ihrem Abzeichen. Eltern und Teilnehmende sehen nur ihre eigenen Personen und keine Leitenden, auch keine Zahlen zu Plätzen und Warteliste.
+        Bei einem Termin mit Höchstzahl für Leitende steht bei den Leitenden zusätzlich der Status `warteliste` mit `position`, `zahlen.leitende` trägt `warteliste`, und `leitungPlaetze` liefert Plätze und Zahl der Wartenden. Zusagen tragen `name` und `bildUrl` (Bild über `GET /api/v1/personen/{id}/bild`, erlaubt für alle Rollen der eigenen Einheit).
         Eine Person, die das Programm sieht, aber weder eine Rolle noch eine eigene teilnehmende Person in der Einheit hat, bekommt 403.
 
         Statuscodes: 200, 400, 401, 403, 404 (Programm unbekannt oder in keiner sichtbaren Einheit), 426, 429, 503.
@@ -1413,7 +1415,11 @@ paths:
 
         Reihenfolge der Prüfung: Eingabe (400); Programm nicht sichtbar (404); keine Rolle in der Einheit (403);
         Programm schon begonnen (409, Code `PROGRAMM_BEGONNEN`); Anmeldefenster noch nicht offen (409, Code
-        `ANMELDEFENSTER_NICHT_OFFEN`). Statuscodes: 204, 400, 401, 403, 404, 409, 426, 429, 503.
+        `ANMELDEFENSTER_NICHT_OFFEN`).
+
+        **Höchstzahl für Leitende.** Hat der Termin (Quelle `manuell`) eine Höchstzahl, belegen nur Zusagen Plätze. `ja` bei vollem Termin ist kein Fehler: Die Person kommt auf die Warteliste, die Antwort sagt `warteliste` mit der Position (Reihenfolge nach Zeitpunkt der Eintragung; Wiederholen behält den Platz). Prüfen und Eintragen sind unteilbar, auch bei zwei gleichzeitigen Zusagen um den letzten Platz. `nein` von der Warteliste trägt aus. `nein` von `ja` gibt den Platz frei: Die erste wartende Person rückt in derselben Transaktion nach und bekommt einen Push («Du bist nachgerückt», Text «Titel am Tag», Kanal `termine`, `data` `typ` `programm` und `id`). Das Wiederholen ist unschädlich.
+
+        Statuscodes: 200, 400, 401, 403, 404, 409, 426, 429, 503.
       parameters:
         - $ref: "#/components/parameters/AppVersion"
         - $ref: "#/components/parameters/ProgrammIdPfad"
@@ -1424,8 +1430,12 @@ paths:
             schema:
               $ref: "#/components/schemas/ProgrammAntwort"
       responses:
-        "204":
-          description: Anmeldung gespeichert. Kein Body.
+        "200":
+          description: Anmeldung gespeichert; der Stand der eigenen Anmeldung.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeitungAntwort"
         "400":
           $ref: "#/components/responses/UngueltigeEingabe400"
         "401":
@@ -2548,7 +2558,7 @@ paths:
 
         Eine Änderung steht im Audit-Log (`termin_geaendert` mit den Namen der Felder, `termin_sichtbarkeit_geaendert` für den Schalter); derselbe Wert ändert nichts.
 
-        Statuscodes: 200 mit dem Termin. 400 bei ungültigem Body, auch bei einem leeren. 403 für Leitende und Eltern. 404 bei unbekannter oder unsichtbarer Einheit und bei einem Termin einer anderen Einheit. 409 `TERMIN_AUS_LODUR` bei einem Feld ausser `nurLeitende` an einem Termin aus Lodur.
+        Statuscodes: 200 mit dem Termin. 400 bei ungültigem Body, auch bei einem leeren. 403 für Leitende und Eltern. 404 bei unbekannter oder unsichtbarer Einheit und bei einem Termin einer anderen Einheit. 409 `TERMIN_AUS_LODUR` bei einem Feld ausser `nurLeitende` an einem Termin aus Lodur; 409 `HOECHSTZAHL_ZU_KLEIN`, wenn die neue Höchstzahl unter der Zahl der Zusagen liegt.
       tags:
         - Verwaltung
       parameters:
@@ -5025,6 +5035,9 @@ components:
       type: object
       required: [ja, nein, offen]
       properties:
+        warteliste:
+          type: integer
+          description: Nur bei Leitenden eines Termins mit Höchstzahl.
         ja:
           type: integer
         nein:
@@ -5035,6 +5048,8 @@ components:
       type: object
       required: [zahlen, teilnehmende, leitende]
       properties:
+        leitungPlaetze:
+          $ref: "#/components/schemas/LeitungPlaetze"
         zahlen:
           type: object
           required: [teilnehmende, leitende]
@@ -5084,7 +5099,11 @@ components:
                 enum: [kommandant, stellvertretung, leitung]
               status:
                 type: string
-                enum: [ja, nein, offen]
+                enum: [ja, nein, offen, warteliste]
+              position:
+                type: [integer, "null"]
+                minimum: 1
+                description: Nummer auf der Warteliste; nur bei einem Termin mit Höchstzahl, sonst fehlt der Schlüssel.
               abzeichen:
                 oneOf:
                   - $ref: "#/components/schemas/Abzeichen"
@@ -5181,8 +5200,43 @@ components:
             $ref: "#/components/schemas/ProgrammTeilnehmende"
         eigeneAnmeldung:
           type: string
-          enum: [ja, nein, offen]
-          description: "Die eigene Anmeldung als Leitung. Der Schlüssel fehlt, ausser für Kommando, Stellvertretung und Leitung der Einheit des Termins; er fehlt auch bei `anmeldbar: false`. In Liste und Detail dieselbe Regel."
+          enum: [ja, nein, offen, warteliste]
+          description: "Die eigene Anmeldung als Leitung. `warteliste`: Die Zusage hat wegen der Höchstzahl keinen Platz, die Position steht in `leitungPlaetze.eigenePosition`; nach dem Beginn des Termins ist die Warteliste verfallen (`offen`). Der Schlüssel fehlt, ausser für Kommando, Stellvertretung und Leitung der Einheit des Termins; er fehlt auch bei `anmeldbar: false`. In Liste und Detail dieselbe Regel."
+        leitungPlaetze:
+          $ref: "#/components/schemas/LeitungPlaetze"
+    LeitungPlaetze:
+      type: object
+      description: |
+        Plätze der Leitenden eines Termins mit Höchstzahl. Der Schlüssel fehlt bei Terminen ohne Höchstzahl und für alle, die nicht Kommando, Stellvertretung oder Leitung der Einheit sind. Nur Zusagen (`ja`) belegen Plätze. Nach dem Beginn des Termins ist die Warteliste verfallen: `wartende` 0, `eigenePosition` `null`.
+      required: [hoechstzahl, belegt, frei, voll, wartende, eigenePosition]
+      properties:
+        hoechstzahl:
+          type: integer
+          minimum: 1
+        belegt:
+          type: integer
+        frei:
+          type: integer
+        voll:
+          type: boolean
+        wartende:
+          type: integer
+        eigenePosition:
+          type: [integer, "null"]
+          minimum: 1
+          description: Nummer auf der Warteliste (1 = als Nächste dran) oder `null`.
+    LeitungAntwort:
+      type: object
+      required: [status, position]
+      properties:
+        status:
+          type: string
+          enum: [ja, nein, warteliste]
+          description: "`warteliste`, wenn die Zusage wegen der Höchstzahl keinen Platz fand."
+        position:
+          type: [integer, "null"]
+          minimum: 1
+          description: Nummer auf der Warteliste, sonst `null`.
     ProgrammListe:
       type: object
       required:
@@ -5758,6 +5812,7 @@ components:
           info,
           aufgebot,
           nurLeitende,
+          leitungHoechstzahl,
         ]
       properties:
         id:
@@ -5801,6 +5856,25 @@ components:
           type: [string, "null"]
         nurLeitende:
           type: boolean
+        leitungHoechstzahl:
+          type: [integer, "null"]
+          minimum: 1
+          description: Höchstzahl der Zusagen von Leitenden; `null` ohne Grenze. Nur bei `manuell`.
+        leitungPlaetze:
+          type: [object, "null"]
+          description: Nur in der Liste. Zusagen und Wartende bei einer Höchstzahl, sonst `null`; nach dem Beginn ist `wartende` 0.
+          required: [hoechstzahl, belegt, frei, voll, wartende]
+          properties:
+            hoechstzahl:
+              type: integer
+            belegt:
+              type: integer
+            frei:
+              type: integer
+            voll:
+              type: boolean
+            wartende:
+              type: integer
     AdminTermine:
       type: object
       additionalProperties: false
@@ -5856,6 +5930,11 @@ components:
         nurLeitende:
           type: boolean
           default: false
+        leitungHoechstzahl:
+          type: [integer, "null"]
+          minimum: 1
+          maximum: 500
+          description: Höchstzahl der Zusagen von Leitenden; weitere kommen auf die Warteliste. Ohne Angabe oder mit `null` gibt es keine Grenze.
     AdminTerminAendern:
       type: object
       additionalProperties: false
@@ -5897,6 +5976,11 @@ components:
           maxLength: 2000
         nurLeitende:
           type: boolean
+        leitungHoechstzahl:
+          type: [integer, "null"]
+          minimum: 1
+          maximum: 500
+          description: Neue Höchstzahl der Zusagen von Leitenden, `null` hebt die Grenze auf. Nur bei selbst angelegten Terminen. Nicht unter die Zahl der Zusagen (409 `HOECHSTZAHL_ZU_KLEIN`); eine höhere oder aufgehobene Grenze lässt Wartende der Reihe nach nachrücken (mit Push).
     AdminLodurSetzen:
       type: object
       additionalProperties: false
@@ -6598,6 +6682,8 @@ components:
       properties:
         termin:
           $ref: "#/components/schemas/AuswertungTerminKopf"
+        leitungPlaetze:
+          $ref: "#/components/schemas/LeitungPlaetze"
         zahlen:
           type: object
           required: [teilnehmende, leitende]
@@ -6605,7 +6691,13 @@ components:
             teilnehmende:
               $ref: "#/components/schemas/AuswertungZahlen"
             leitende:
-              $ref: "#/components/schemas/AuswertungZahlen"
+              allOf:
+                - $ref: "#/components/schemas/AuswertungZahlen"
+                - type: object
+                  properties:
+                    warteliste:
+                      type: integer
+                      description: Nur bei einem Termin mit Höchstzahl; für die Quote zählen Wartende wie «offen», `offen` selbst zählt sie nicht.
         teilnehmende:
           type: array
           description: Aktive Teilnehmende, nach Nachname und Vorname.
@@ -6640,7 +6732,11 @@ components:
                 enum: [kommandant, stellvertretung, leitung]
               status:
                 type: string
-                enum: [ja, nein, offen]
+                enum: [ja, nein, offen, warteliste]
+              position:
+                type: [integer, "null"]
+                minimum: 1
+                description: Nummer auf der Warteliste; nur bei einem Termin mit Höchstzahl.
     AuswertungQuoten:
       type: object
       required: [von, bis, personen]

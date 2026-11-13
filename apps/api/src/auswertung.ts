@@ -64,10 +64,11 @@ const vonLeitenden = sql`from ${programm}
   join ${user} on ${user.id} = ${einheitRolle.userId} and ${aktivesKonto()}
   left join ${leitungAnmeldung} on ${leitungAnmeldung.programmId} = ${programm.id} and ${leitungAnmeldung.userId} = ${user.id}`;
 
+// Wer auf der Warteliste steht, hat keinen Platz bekommen: Für die Quote zählt das wie «offen»
 const zaehler = (status: SQL) => sql`
   count(*) filter (where ${status} = 'ja')::int as "ja",
   count(*) filter (where ${status} = 'nein')::int as "nein",
-  count(*) filter (where ${status} is null)::int as "offen"`;
+  count(*) filter (where ${status} is null or ${status} = 'warteliste')::int as "offen"`;
 
 const zaehlerTn = zaehler(sql`${teilnahme.status}`);
 const zaehlerLe = zaehler(sql`${leitungAnmeldung.status}`);

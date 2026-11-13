@@ -260,7 +260,7 @@ describe("Anmelde-Push bei PUT /programme/:id/teilnahmen/:teilnehmendeId", () =>
       { status: "ja" },
     );
 
-    expect(antwort.status).toBe(204);
+    expect(antwort.status).toBe(200);
     expect(fcmAttrappe.nachrichten).toEqual([]);
   });
 
