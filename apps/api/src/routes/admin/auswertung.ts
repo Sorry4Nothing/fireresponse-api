@@ -23,6 +23,7 @@ import {
   user,
 } from "../../db/schema.js";
 import { eingabe } from "../../eingabe.js";
+import { ladePlaetze, ohneBegonnen, wartende } from "../../leiter-plaetze.js";
 import { adminLogoUrl } from "../../einheiten.js";
 import {
   aktivesKonto,
@@ -206,6 +207,7 @@ export function erstelleAuswertungRouten({ db }: { db: Db }) {
           tagBis: programm.tagBis,
           begonnen: sql<boolean>`${programmBeginn} <= now()`,
           nurLeitende: programm.nurLeitende,
+          hoechstzahl: programm.leitungHoechstzahl,
           einheitId: einheit.id,
           einheitName: einheit.name,
           einheitTyp: einheit.typ,
@@ -255,7 +257,9 @@ export function erstelleAuswertungRouten({ db }: { db: Db }) {
             id: user.id,
             name: user.name,
             rolle: einheitRolle.typ,
-            status: sql<Antwort>`coalesce(${leitungAnmeldung.status}, 'offen')`,
+            status: sql<
+              Antwort | "warteliste"
+            >`coalesce(${leitungAnmeldung.status}, 'offen')`,
           })
           .from(einheitRolle)
           .innerJoin(
@@ -272,12 +276,34 @@ export function erstelleAuswertungRouten({ db }: { db: Db }) {
           .where(eq(einheitRolle.einheitId, zeile.einheitId))
           .orderBy(rollenReihenfolge, asc(user.name), asc(user.id)),
       ]);
-      const zaehle = (l: { status: Antwort }[]) =>
-        mitQuote({
-          ja: l.filter((e) => e.status === "ja").length,
-          nein: l.filter((e) => e.status === "nein").length,
-          offen: l.filter((e) => e.status === "offen").length,
-        });
+      // Termine mit Höchstzahl: Zusagen, Plätze und Warteliste; nach dem Beginn ist die Warteliste verfallen (wie offen)
+      const platz =
+        zeile.hoechstzahl !== null
+          ? (await ladePlaetze(db, [id], person.id)).get(id)
+          : undefined;
+      const reihe =
+        platz && !platz.begonnen ? await wartende(db, id, zeile.einheitId) : [];
+      const leitendeMitPlatz = leitende.map((l) => {
+        if (!platz) return l;
+        const status =
+          l.status === "warteliste" && platz.begonnen ? "offen" : l.status;
+        const stelle = reihe.indexOf(l.id);
+        return {
+          ...l,
+          status,
+          position: status === "warteliste" && stelle >= 0 ? stelle + 1 : null,
+        };
+      });
+      const zaehle = (l: { status: Antwort | "warteliste" }[]) => {
+        const n = (s: string) => l.filter((e) => e.status === s).length;
+        const z = { ja: n("ja"), nein: n("nein"), offen: n("offen") };
+        // Wer wartet, hat keinen Platz: für die Quote zählt es wie «offen», in der Anzeige steht es für sich
+        return {
+          ...mitQuote({ ...z, offen: z.offen + n("warteliste") }),
+          ...z,
+          ...(platz && { warteliste: n("warteliste") }),
+        };
+      };
       return c.json({
         termin: {
           id: zeile.id,
@@ -297,10 +323,11 @@ export function erstelleAuswertungRouten({ db }: { db: Db }) {
         },
         zahlen: {
           teilnehmende: zaehle(teilnehmendeListe),
-          leitende: zaehle(leitende),
+          leitende: zaehle(leitendeMitPlatz),
         },
         teilnehmende: teilnehmendeListe,
-        leitende,
+        leitende: leitendeMitPlatz,
+        leitungPlaetze: platz && ohneBegonnen(platz),
       });
     })
     .get("/quoten", eingabe("query", zeitraumSchema), async (c) => {
