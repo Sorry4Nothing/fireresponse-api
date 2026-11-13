@@ -103,7 +103,7 @@ Die Pushes laufen über ein eigenes Firebase-Projekt, das nur FireResponse nutzt
 4. Die Apps legen die Android-Kanäle `termine` und `anmeldungen` an. Die Kanal-IDs stehen in der Android-Konfiguration des Pushes (`android.notification.channelId`).
 5. Test: Mit dem Konto des Kommandos auf einem Gerät anmelden (das Gerät registriert sein Push-Token), dann mit einem Elternkonto der Einheit ein künftiges Programm im Anmeldefenster beantworten. Das Gerät des Kommandos zeigt «Neue Anmeldung» mit Titel und Tag des Programms als Text.
 
-Push-Texte tragen nie Namen und nie den Titel eines Termins: Sie stehen je nach Handy auf dem gesperrten Bildschirm und laufen über Apple und Google. Schlüssel tauschen: siehe «Datenpanne».
+Push-Texte tragen nie Namen und nie den Titel eines Termins (ausser den freien Mitteilungen aus dem Panel-Bereich «Push senden», vor denen das Formular warnt): Sie stehen je nach Handy auf dem gesperrten Bildschirm und laufen über Apple und Google. Schlüssel tauschen: siehe «Datenpanne».
 
 ### Deploy aus GitHub
 
