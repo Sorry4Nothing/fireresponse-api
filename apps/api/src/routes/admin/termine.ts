@@ -14,6 +14,7 @@ import {
   user,
 } from "../../db/schema.js";
 import { eingabe } from "../../eingabe.js";
+import type { Tx } from "../../konten.js";
 import type { Fcm } from "../../push.js";
 import { rueckeNach, zaehleZusagen } from "../../leiter-plaetze.js";
 import {
@@ -149,6 +150,23 @@ const LINK_GESETZT = {
   message:
     "Die Einheit holt ihre Termine aus Lodur. Eigene Termine gibt es erst, wenn der Link entfernt ist.",
 } as const;
+
+const MIT_LINK = {
+  code: "LODUR_LINK_GESETZT",
+  message:
+    "Die Einheit holt ihre Termine aus Lodur. Termine aus Lodur lassen sich erst löschen, wenn der Link entfernt ist.",
+} as const;
+
+// Mit Sperre auf der Einheit: Ein gleichzeitig gesetzter Link und das Löschen schliessen sich aus
+async function hatLink(tx: Tx, einheitId: string) {
+  const [e] = await tx
+    .select({ lodur: einheit.lodurUrlVerschluesselt })
+    .from(einheit)
+    .where(eq(einheit.id, einheitId))
+    .for("share");
+  if (!e) throw new HTTPException(404);
+  return e.lodur !== null;
+}
 
 // Die Termine einer Einheit für die Verwaltung. Titel, Zeit und Texte der Termine aus Lodur gehören dem Sync und sind hier nur zu sehen; der Schalter «nur Leitende» gehört der Verwaltung, der Sync überschreibt ihn nie. Termine der Quelle «manuell» legt, ändert und löscht die Verwaltung, der Sync fasst sie nie an. Wer darf, regelt pruefeEinheit «verwalten»: Kommando, Stellvertretung und Kantonsadmin
 export function erstelleTermineRouten({ db, fcm }: { db: Db; fcm?: Fcm }) {
@@ -369,7 +387,10 @@ export function erstelleTermineRouten({ db, fcm }: { db: Db; fcm?: Fcm }) {
           .where(and(eq(programm.id, id), eq(programm.einheitId, einheitId)))
           .for("update");
         if (!alt) throw new HTTPException(404);
-        if (alt.quelle !== "manuell") return null;
+        // Termine aus Lodur löscht die Verwaltung erst, wenn der Link entfernt ist: Sonst holte der Sync sie zurück
+        if (alt.quelle !== "manuell" && (await hatLink(tx, einheitId))) {
+          return null;
+        }
         await tx.delete(programm).where(eq(programm.id, id));
         await tx.insert(auditLog).values({
           einheitId,
@@ -386,5 +407,36 @@ export function erstelleTermineRouten({ db, fcm }: { db: Db; fcm?: Fcm }) {
         await sendeAbsagePush(umgebung(c), id, pushZeile);
       }
       return c.body(null, 204);
+    })
+    .delete("/", eingabe("param", einheitPfad), async (c) => {
+      const person = c.get("person");
+      const { einheitId } = c.req.valid("param");
+      await pruefeEinheit(db, person, einheitId, "verwalten");
+      const anzahl = await db.transaction(async (tx) => {
+        if (await hatLink(tx, einheitId)) return null;
+        // Nur Quelle lodur: Selbst angelegte Termine bleiben. Kein Push: Es sind Termine aus dem falschen Kalender, kein Programm
+        const weg = await tx
+          .delete(programm)
+          .where(
+            and(
+              eq(programm.einheitId, einheitId),
+              eq(programm.quelle, "lodur"),
+            ),
+          )
+          .returning({ id: programm.id });
+        if (weg.length > 0) {
+          await tx.insert(auditLog).values({
+            einheitId,
+            akteurId: person.id,
+            aktion: "termine_aus_lodur_geloescht",
+            zielTyp: "einheit",
+            zielId: einheitId,
+            details: { anzahl: weg.length },
+          });
+        }
+        return weg.length;
+      });
+      if (anzahl === null) return c.json(MIT_LINK, 409);
+      return c.json({ geloescht: anzahl });
     });
 }

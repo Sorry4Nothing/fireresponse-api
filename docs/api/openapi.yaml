@@ -2545,6 +2545,44 @@ paths:
           $ref: "#/components/responses/AppVeraltet426"
         "429":
           $ref: "#/components/responses/ZuVieleAnfragen429"
+    delete:
+      operationId: loescheAdminTermineAusLodur
+      summary: Alle Termine aus Lodur löschen
+      description: |
+        Kantonsadmin, Kommandant und Stellvertretungen der Einheit. Löscht alle Termine der Quelle `lodur` der Einheit samt den Antworten dazu, auch die vergangenen. Selbst angelegte Termine (Quelle `manuell`) bleiben. Das geht nur, solange kein Lodur-Link hinterlegt ist (sonst 409 `LODUR_LINK_GESETZT`): Sonst holte der Sync die Termine zurück. Gedacht für den Fall, dass der falsche Kalender gesynct wurde. Es geht kein Push raus. Das Audit-Log hält `termine_aus_lodur_geloescht` mit der Zahl der Termine fest, nur wenn mindestens einer gelöscht wurde.
+
+        Statuscodes: 200 mit `geloescht` (Zahl der gelöschten Termine, auch 0). 403 für Leitende und Eltern. 404 bei unbekannter oder unsichtbarer Einheit. 409 `LODUR_LINK_GESETZT`.
+      tags:
+        - Verwaltung
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/EinheitIdPfad"
+      responses:
+        "200":
+          description: Gelöscht.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [geloescht]
+                properties:
+                  geloescht:
+                    type: integer
+                    minimum: 0
+                    description: Zahl der gelöschten Termine.
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "409":
+          $ref: "#/components/responses/AdminKonflikt409"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
   /api/v1/admin/einheiten/{einheitId}/termine/{id}:
     put:
       operationId: aendereAdminTermin
@@ -2600,11 +2638,11 @@ paths:
           $ref: "#/components/responses/ZuVieleAnfragen429"
     delete:
       operationId: loescheAdminTermin
-      summary: Selbst angelegten Termin löschen
+      summary: Termin löschen
       description: |
-        Kantonsadmin, Kommandant und Stellvertretungen der Einheit. Löscht einen Termin der Quelle `manuell` samt den Antworten dazu. War der Termin aktiv und noch nicht begonnen, bekommen alle Aktiven der Einheit den Absage-Push («Titel am Tag abgesagt»), bei «nur Leitende» nur Kommando und Leitende. Das Audit-Log hält `termin_geloescht` fest.
+        Kantonsadmin, Kommandant und Stellvertretungen der Einheit. Löscht einen Termin samt den Antworten dazu. Termine der Quelle `lodur` lassen sich nur löschen, solange kein Lodur-Link hinterlegt ist. War der Termin aktiv und noch nicht begonnen, bekommen alle Aktiven der Einheit den Absage-Push («Titel am Tag abgesagt»), bei «nur Leitende» nur Kommando und Leitende. Das Audit-Log hält `termin_geloescht` fest.
 
-        Statuscodes: 204 bei Erfolg. 403 für Leitende und Eltern. 404 bei unbekannter oder unsichtbarer Einheit und bei einem Termin einer anderen Einheit. 409 `TERMIN_AUS_LODUR`: Termine aus Lodur löscht nur der Sync.
+        Statuscodes: 204 bei Erfolg. 403 für Leitende und Eltern. 404 bei unbekannter oder unsichtbarer Einheit und bei einem Termin einer anderen Einheit. 409 `TERMIN_AUS_LODUR`: Termin aus Lodur bei gesetztem Link.
       tags:
         - Verwaltung
       parameters:
@@ -2783,7 +2821,7 @@ paths:
       operationId: loescheAdminLodurLink
       summary: Lodur-Link der Einheit entfernen
       description: |
-        Kantonsadmin, Kommandant und Stellvertretungen der Einheit. Entfernt den Link und den Stand des Syncs. Die Termine bleiben; es kommen keine neuen. Das Entfernen steht im Audit-Log.
+        Kantonsadmin, Kommandant und Stellvertretungen der Einheit. Entfernt den Link und den Stand des Syncs. Die Termine bleiben; es kommen keine neuen. Die Verwaltung löscht sie danach über `DELETE …/termine`. Das Entfernen steht im Audit-Log.
 
         Statuscodes: 204 bei Erfolg (auch ohne gesetzten Link). 403 für Leitende und Eltern. 404 bei unbekannter oder unsichtbarer Einheit.
       tags:
