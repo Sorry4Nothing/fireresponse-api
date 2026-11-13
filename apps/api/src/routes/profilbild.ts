@@ -1,4 +1,4 @@
-import { and, eq, inArray, or, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { Hono, type Context } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { HTTPException } from "hono/http-exception";
@@ -9,7 +9,12 @@ import {
   type BildKodierer,
 } from "../bild.js";
 import type { Db } from "../db/client.js";
-import { einheitRolle, profilbild, user } from "../db/schema.js";
+import {
+  einheitRolle,
+  infokanalMitteilung,
+  profilbild,
+  user,
+} from "../db/schema.js";
 import { eingabe } from "../eingabe.js";
 import { aktivesKonto, type Person } from "../rechte.js";
 
@@ -55,7 +60,27 @@ async function darfBildSehen(db: Db, person: Person, zielId: string) {
       ),
     )
     .limit(1);
-  return treffer !== undefined;
+  if (treffer !== undefined) return true;
+  // Wer eine Mitteilung im Infokanal einer lesbaren Einheit schrieb, zeigt dort Namen und Bild, auch den Eltern (und auch nach dem Wechsel der Rolle)
+  const [mitteilung] = await db
+    .select({ id: infokanalMitteilung.id })
+    .from(infokanalMitteilung)
+    .innerJoin(
+      user,
+      and(eq(user.id, infokanalMitteilung.autorId), aktivesKonto()),
+    )
+    .where(
+      and(
+        eq(infokanalMitteilung.autorId, zielId),
+        isNull(infokanalMitteilung.geloeschtAm),
+        inArray(infokanalMitteilung.einheitId, [
+          ...alle,
+          ...person.teilnehmendeEinheiten,
+        ]),
+      ),
+    )
+    .limit(1);
+  return mitteilung !== undefined;
 }
 
 // Auch in den Importen ohne node:* und process: Die App prüft diese Datei über AppType; sharp kommt darum als Parameter
