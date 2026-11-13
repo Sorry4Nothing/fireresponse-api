@@ -85,6 +85,13 @@
       "when": 1794509037194,
       "tag": "0011_zeitregel_abstand",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1794592036427,
+      "tag": "0012_wartung",
+      "breakpoints": true
     }
   ]
 }
