@@ -300,6 +300,9 @@ export const SPALTEN: Record<string, Partial<Record<KategorieId, string[]>>> = {
       "updated_at",
     ],
   },
+  wartung: {
+    technik: ["id", "aktiv", "text", "ende", "seit"],
+  },
   zeitregel: {
     benachrichtigungen: [
       "id",

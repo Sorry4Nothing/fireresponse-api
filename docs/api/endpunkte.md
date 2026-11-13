@@ -33,6 +33,7 @@ Je Route steht, welche Persona welchen Status bekommt. 2xx heisst erlaubt, 401 n
 | `GET /admin/teilnehmende.js`                  | Skript der Verwaltung – Bereich Teilnehmende                                   | **200** alle      |
 | `GET /admin/termine.js`                       | Skript der Verwaltung – Bereich Termine                                        | **200** alle      |
 | `GET /admin/uebersicht.js`                    | Skript der Verwaltung – Bereich Übersicht                                      | **200** alle      |
+| `GET /admin/wartung.js`                       | Skript der Verwaltung – Wartung ein- und ausschalten                           | **200** alle      |
 | `GET /admin/zeitregeln.js`                    | Skript der Verwaltung – Bereich Zeitregeln                                     | **200** alle      |
 | `GET /.well-known/apple-app-site-association` | Apple App Site Association (noch leer)                                         | **200** alle      |
 | `GET /.well-known/assetlinks.json`            | Android Digital Asset Links (noch leer)                                        | **200** alle      |
@@ -45,6 +46,12 @@ Je Route steht, welche Persona welchen Status bekommt. 2xx heisst erlaubt, 401 n
 | Route                     | Zweck                                        | Status je Persona |
 | ------------------------- | -------------------------------------------- | ----------------- |
 | `GET /api/v1/datenschutz` | Datenschutzerklärung als strukturierter Text | **200** alle      |
+
+## App: wartung
+
+| Route                 | Zweck                   | Status je Persona |
+| --------------------- | ----------------------- | ----------------- |
+| `GET /api/v1/wartung` | Stand der Wartung lesen | **200** alle      |
 
 ## Anmeldung (better-auth)
 
@@ -106,6 +113,7 @@ Je Route steht, welche Persona welchen Status bekommt. 2xx heisst erlaubt, 401 n
 | `GET /api/v1/admin/system/requests`                                                     | Zahlen zu den Anfragen an die API                           | **200** kantonsadmin<br>**401** deaktiviert, ohneLogin<br>**403** kantonsadminOhneZweitenFaktor, kommandoJfA, kommandoKfBOhneZweitenFaktor, stellvertretung1JfA, stellvertretung2JfA, kommandoKfA, kommandoJfB, leitendeJfA, leitendeJfAElternKfA, elternJfA, elternAundB, elternKfA, teilnehmendeSelbstJfA, elternNachWechsel, ohneEinwilligung, mussPasswortAendern           |
 | `GET /api/v1/admin/system/changes`                                                      | Protokoll der Änderungen lesen                              | **200** kantonsadmin<br>**401** deaktiviert, ohneLogin<br>**403** kantonsadminOhneZweitenFaktor, kommandoJfA, kommandoKfBOhneZweitenFaktor, stellvertretung1JfA, stellvertretung2JfA, kommandoKfA, kommandoJfB, leitendeJfA, leitendeJfAElternKfA, elternJfA, elternAundB, elternKfA, teilnehmendeSelbstJfA, elternNachWechsel, ohneEinwilligung, mussPasswortAendern           |
 | `GET /api/v1/admin/system/sync`                                                         | Sync-Stand je Einheit lesen                                 | **200** kantonsadmin<br>**401** deaktiviert, ohneLogin<br>**403** kantonsadminOhneZweitenFaktor, kommandoJfA, kommandoKfBOhneZweitenFaktor, stellvertretung1JfA, stellvertretung2JfA, kommandoKfA, kommandoJfB, leitendeJfA, leitendeJfAElternKfA, elternJfA, elternAundB, elternKfA, teilnehmendeSelbstJfA, elternNachWechsel, ohneEinwilligung, mussPasswortAendern           |
+| `PUT /api/v1/admin/system/wartung`                                                      | Wartung ein- oder ausschalten                               | **200** kantonsadmin<br>**401** deaktiviert, ohneLogin<br>**403** kantonsadminOhneZweitenFaktor, kommandoJfA, kommandoKfBOhneZweitenFaktor, stellvertretung1JfA, stellvertretung2JfA, kommandoKfA, kommandoJfB, leitendeJfA, leitendeJfAElternKfA, elternJfA, elternAundB, elternKfA, teilnehmendeSelbstJfA, elternNachWechsel, ohneEinwilligung, mussPasswortAendern           |
 | `POST /api/v1/admin/einheiten/:einheitId/kommando`                                      | Das Kommando einer Einheit übergeben                        | **401** deaktiviert, ohneLogin<br>**403** kantonsadminOhneZweitenFaktor, kommandoJfA, kommandoKfBOhneZweitenFaktor, stellvertretung1JfA, stellvertretung2JfA, leitendeJfA, leitendeJfAElternKfA, elternJfA, elternAundB, teilnehmendeSelbstJfA, elternNachWechsel, ohneEinwilligung, mussPasswortAendern<br>**404** kommandoKfA, kommandoJfB, elternKfA<br>**409** kantonsadmin |
 | `GET /api/v1/admin/bezirke`                                                             | Bezirke auflisten                                           | **200** kantonsadmin<br>**401** deaktiviert, ohneLogin<br>**403** kantonsadminOhneZweitenFaktor, kommandoJfA, kommandoKfBOhneZweitenFaktor, stellvertretung1JfA, stellvertretung2JfA, kommandoKfA, kommandoJfB, leitendeJfA, leitendeJfAElternKfA, elternJfA, elternAundB, elternKfA, teilnehmendeSelbstJfA, elternNachWechsel, ohneEinwilligung, mussPasswortAendern           |
 | `POST /api/v1/admin/bezirke`                                                            | Bezirk anlegen                                              | **201** kantonsadmin<br>**401** deaktiviert, ohneLogin<br>**403** kantonsadminOhneZweitenFaktor, kommandoJfA, kommandoKfBOhneZweitenFaktor, stellvertretung1JfA, stellvertretung2JfA, kommandoKfA, kommandoJfB, leitendeJfA, leitendeJfAElternKfA, elternJfA, elternAundB, elternKfA, teilnehmendeSelbstJfA, elternNachWechsel, ohneEinwilligung, mussPasswortAendern           |

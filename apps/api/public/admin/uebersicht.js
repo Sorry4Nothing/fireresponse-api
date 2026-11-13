@@ -1,4 +1,5 @@
 import { el } from "./dom.js";
+import { wartungPanel } from "./wartung.js";
 import {
   diagramm,
   fehlerTabelle,
@@ -13,7 +14,7 @@ import {
 } from "./system.js";
 
 export function zeige(bereich, ctx) {
-  ctx.lade(ladeBetrieb, (daten) => zeichneSeite(bereich, daten));
+  ctx.lade(ladeBetrieb, (daten) => zeichneSeite(bereich, daten, ctx));
 }
 
 // Eine Zeile zur Lage; der Zustand steht im Wort, die Farbe und das Symbol (aus dem CSS) verstärken nur
@@ -27,7 +28,7 @@ function lage(s) {
   return [art, probleme.map(([, text]) => text).join(" ")];
 }
 
-function zeichneSeite(bereich, daten) {
+function zeichneSeite(bereich, daten, ctx) {
   const offen = { wert: false };
   const fehlerFeld = el("p", { class: "meta fehlerzeile", role: "status" });
   const stand = el("p", { class: "meta stand" });
@@ -83,6 +84,7 @@ function zeichneSeite(bereich, daten) {
     hinweis,
     el("div", { class: "stand-zeile" }, stand, fehlerFeld),
     kacheln,
+    wartungPanel(ctx),
     el(
       "div",
       { class: "raster raster--3" },

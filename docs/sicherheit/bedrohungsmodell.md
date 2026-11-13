@@ -21,6 +21,7 @@ Methode: Assets und Vertrauensgrenzen benennen, pro Grenze die Bedrohungen nach 
 | Rollen und Rechte (Kantonsadmin, Kommando, Leitung, Eltern)         | Integrität der Zugriffsregeln                                                  |
 | Lodur-Link einer Einheit                                            | Geheimnis: Wer ihn kennt, liest den Kalender                                   |
 | Auswertung der Anmeldungen                                          | Zeigt Teilnahmeverhalten einzelner Personen                                    |
+| Mitteilungen im Infokanal (geplant)                                 | Freitext von Kommando und Leitung an eine ganze Einheit                        |
 | Audit-Log                                                           | Spur der Verwaltungsaktionen; darf nicht veränderbar sein                      |
 | Geheimnisse: `BETTER_AUTH_SECRET`, Schlüssel für FCM, DB-Passwörter | Wer sie hat, fälscht Sitzungen, sendet Pushes oder liest die Daten             |
 | Sicherungen und Logs                                                | Enthalten dieselben Daten wie die Produktion                                   |
@@ -42,6 +43,7 @@ Methode: Assets und Vertrauensgrenzen benennen, pro Grenze die Bedrohungen nach 
 - **Gestohlenes oder verlorenes Gerät** mit offener Sitzung.
 - **Versehen von innen:** ein Geheimnis im Commit, Personendaten im Log, ein Kommando, das zu viele Konten löscht.
 - **Berechtigte Person mit Zweckentfremdung:** Das Kommando oder die Kantonsadministration nutzt die Auswertung gegen einzelne Kinder.
+- **Schreibende im Infokanal (geplant):** Kommando oder Leitung missbraucht den Kanal für Beleidigungen, Namen von Kindern, Spam oder Links auf Fremdseiten; ein übernommenes Schreib-Konto tut dasselbe.
 
 ## Bedrohungen nach STRIDE
 
@@ -105,23 +107,45 @@ Nur im Admin-Panel, also nur mit zweitem Faktor. Die App zeigt keine Auswertung.
 | Aus kleinen Gruppen lassen sich Einzelne erkennen                         | Hingenommen: Das Kommando kennt seine Teilnehmenden; die Auswertung zeigt nichts, was die Anmeldungen nicht schon zeigen |
 | Die Kantonsadministration sieht alle Bezirke                              | Steht in den Nutzungsbedingungen; zweiter Faktor; Audit-Log der Verwaltungsaktionen                                      |
 
+## Infokanal, Push aus dem Backend, Übertragung zwischen Einheiten (geplant)
+
+Diese Funktionen sind beschlossen, aber noch nicht gebaut (Issues #207, #208, #210, #212). Alle Massnahmen sind deshalb Vorgaben, keine Eigenschaft des Codes. Sie ändern bisherige Nicht-Ziele («kein Chat», «Pushes tragen nie Inhalte») und stehen in der DSFA als Risiken 13 bis 16.
+
+**Infokanal.** Ein Einwegkanal je Einheit: Kommando (mit Stellvertretung) und Leitung schreiben Text an die ganze Einheit, alle anderen Konten der Einheit lesen nur. Keine Antworten, keine Reaktionen, keine Anhänge; Schreiben nur in der App.
+
+**Push aus dem Backend.** Die Verwaltung sendet Push-Mitteilungen mit frei gewähltem Text über den Push-Dienst. Die Apps ändern sich dafür nicht.
+
+| Bedrohung                                                                                                          | Massnahme                                                                                                                                                                                                                                                                                                                                 | SR                         |
+| ------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------- |
+| **E** Missbrauch durch Schreibende: unpassende Texte, Namen von Kindern, Spam, Links auf Fremdseiten               | Schreiben nur für Kommando, Stellvertretung und Leitung der jeweiligen Einheit, geprüft im Backend; nur Text, Länge begrenzt, keine Anhänge, kein Markup; Bearbeiten nur die schreibende Person, Löschen auch durch das Kommando; Rate-Limit auf dem Schreiben (Vorgabe). Offen: Meldeweg und Umgang mit einem übernommenen Schreib-Konto | SR-10, SR-13, SR-20, SR-71 |
+| **E** Eine schreibende Person ändert oder löscht fremde Mitteilungen                                               | Bearbeiten nur der eigenen Mitteilung; Löschen fremder Mitteilungen nur durch das Kommando; jede Route verlangt die Rolle in dieser Einheit, eine Zeile je Route in der Rechte-Matrix                                                                                                                                                     | SR-10, SR-11, SR-12        |
+| **I** Zugriff auf Mitteilungen fremder Einheiten (Lesen, Schreiben, Zähler, Push)                                  | Einheit aus der Sitzung und der URL gegen die Rollen des Kontos geprüft, nie aus dem Body; fremde Einheit ist 404, fehlendes Recht 403; Mandantentest in der Rechte-Matrix; der Push geht nur an Konten der Einheit                                                                                                                       | SR-11, SR-13, SR-74        |
+| **I** Inhalt der Mitteilung auf dem Sperrbildschirm und bei Google und Apple                                       | Der Push des Infokanals nennt nur «Neue Mitteilung» mit dem Namen der Einheit, nie den Text; die Daten des Push enthalten nur Typ und ID                                                                                                                                                                                                  | SR-41                      |
+| **I** Gelöschter oder abgelaufener Text bleibt in der Datenbank                                                    | Löschen entfernt den Text sofort (nur ein Platzhalter bleibt); Mitteilungen werden nach 6 Monaten automatisch gelöscht. Sicherungen behalten sie bis zum Ablauf ihrer Aufbewahrung                                                                                                                                                        | SR-41, SR-42               |
+| **I** Frei formulierter Push-Text aus der Verwaltung steht auf dem Sperrbildschirm und läuft über Google und Apple | Anders als alle anderen Pushes trägt er Inhalt. Offen, vor dem Bau zu entscheiden: Länge und Inhalt des Textes, Hinweis im Formular, keine Namen von Kindern, Empfängerwahl (ganze Einheit, nur Leitende, Gruppen)                                                                                                                        | SR-41                      |
+| **S/E** Missbrauch des Push-Versands aus dem Backend: Massenversand, falsche Empfänger, gestohlenes Konto          | Nur aus der Verwaltung mit zweitem Faktor, Audit-Log mit Akteur und Ziel, ohne Text, und Rate-Limit (Vorgaben). Offen: wer senden darf, welche Empfänger zulässig sind, Grenzen je Konto und Tag                                                                                                                                          | SR-10, SR-52, SR-71        |
+| **I** Datenabfluss bei der Übertragung von Teilnehmenden zwischen Einheiten                                        | Nur in der Verwaltung; Zieleinheit nur, wenn sie in der App registriert ist; gewählt wird sie beim Übertragen; Rechteprüfung für abgebende und annehmende Einheit und Audit-Log (Vorgaben). Offen: wer auslösen darf, ob die Zieleinheit bestätigt, ob die Eltern informiert werden oder zustimmen                                        | SR-10, SR-11, SR-41, SR-52 |
+| **I** Nach der Übertragung bleiben Anmeldungen oder Rechte in der alten Einheit sichtbar                           | Offene Anmeldungen und Antworten in der alten Einheit verfallen. Offen: wie lange die alte Einheit die Anmeldungen der Vergangenheit sieht                                                                                                                                                                                                | SR-11, SR-41               |
+| **I** Angemeldete Leitende und die Warteliste werden Teilnehmenden, Eltern oder Fremden sichtbar (#212)            | Namen, Bilder und Zahlen liefert das Backend nur nach Rollenprüfung (angemeldete Leitende, Kommando der eigenen Einheit); die Schlüssel fehlen für alle anderen; das Bild nur über die Route mit Rechteprüfung                                                                                                                            | SR-11, SR-12, SR-74        |
+
 ## Konto löschen
 
 Die Person löscht ihr Konto nicht selbst: Konten entstehen durch das Kommando, und die App enthält keine Verwaltungsfunktionen. Mit einer gestohlenen Sitzung liessen sich so auch keine Daten vernichten. Das Kommando oder die Kantonsadministration löscht in der Verwaltung (`DELETE /api/v1/admin/konten/{userId}`). Dagegen stehen die Bedrohungen «Fremdes Konto gelöscht» (Rechte-Matrix, 404 und 403 wie bei jeder Route) und «Einheit ohne Kommando» (409, zuerst übergeben). Das Löschen entfernt alles, was am Konto hängt; das Audit-Log behält nur die IDs. Die Sicherungen behalten das Konto bis zum Ablauf ihrer Aufbewahrung.
 
 ## Restrisiken (akzeptiert)
 
-| Risiko                                                                 | Begründung                                                                                                    |
-| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| Push-Anbieter (Google, Apple) sehen Token und Zeitpunkt der Mitteilung | Ohne Push wäre der Dienst für Eltern wenig nützlich; Inhalt und Namen gehen nicht hinaus                      |
-| Jemand mit Zugriff auf den Server liest die Datenbank                  | Der Betrieb ist klein; Zugriff nur für zwei Personen mit Schlüssel; Hoster und Region sind noch zu prüfen     |
-| Konten ohne zweiten Faktor in der App                                  | Nur die Verwaltung braucht ihn; die App enthält keine Verwaltungsfunktionen                                   |
-| Der Audit-Eintrag nennt die ID eines gelöschten Kontos weiter          | Eine ID allein identifiziert niemanden; sie ist nötig, um die Spur zu halten                                  |
-| Sicherungen enthalten gelöschte Konten bis zu rund vier Monate         | Sicherungen sind nur für den Ausfall da; nach einer Wiederherstellung sind gelöschte Konten erneut zu löschen |
+| Risiko                                                                 | Begründung                                                                                                                                                             |
+| ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Push-Anbieter (Google, Apple) sehen Token und Zeitpunkt der Mitteilung | Ohne Push wäre der Dienst für Eltern wenig nützlich; Inhalt und Namen gehen nicht hinaus, ausser bei frei formulierten Pushes aus der Verwaltung (geplant, siehe oben) |
+| Jemand mit Zugriff auf den Server liest die Datenbank                  | Der Betrieb ist klein; Zugriff nur für zwei Personen mit Schlüssel; Hoster und Region sind noch zu prüfen                                                              |
+| Konten ohne zweiten Faktor in der App                                  | Nur die Verwaltung braucht ihn; die App enthält keine Verwaltungsfunktionen                                                                                            |
+| Der Audit-Eintrag nennt die ID eines gelöschten Kontos weiter          | Eine ID allein identifiziert niemanden; sie ist nötig, um die Spur zu halten                                                                                           |
+| Sicherungen enthalten gelöschte Konten bis zu rund vier Monate         | Sicherungen sind nur für den Ausfall da; nach einer Wiederherstellung sind gelöschte Konten erneut zu löschen                                                          |
 
 ## Offene Punkte
 
 - Aufbewahrungsfrist für Termine und Anmeldungen festlegen (siehe Auswertung).
 - Hoster, Standort und Auftragsverhältnis mit dem Hoster klären.
 - Nach einer Wiederherstellung aus der Sicherung gelöschte Konten erneut löschen: Verfahren in `docs/betrieb.md` ergänzen (E9).
+- Infokanal, Push aus dem Backend und Übertragung zwischen Einheiten: die offenen Punkte in der Tabelle oben entscheiden, bevor die Funktionen gebaut werden; danach die Massnahmen als gebaut markieren.
 - Dieses Modell mitführen: bei jeder neuen Route, jedem neuen Datenfeld und jeder neuen Auswertung die Tabelle durchgehen.
