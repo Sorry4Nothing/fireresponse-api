@@ -988,6 +988,8 @@ paths:
 
         **Anmelde-Push.** `pushAnmeldungen` (Push an Kommando und Leitende bei An- und Abmeldung für ein Programm) ist ein Boolean und standardmässig an. `GET /api/v1/ich` gibt den Schalter nur Personen mit einer Rolle in einer Einheit zurück; setzen lässt er sich von jeder Person, ohne Wirkung ohne Rolle.
 
+        **Infokanal-Push.** `pushInfokanal` (Push bei einer neuen Mitteilung im Infokanal einer Einheit) ist ein Boolean und standardmässig an; `GET /api/v1/ich` liefert ihn für alle Konten. Der Push heisst «Neue Mitteilung im Infokanal <Einheitsname>», trägt nie den Text, hat die Daten `typ` `infokanal` und `id` (Einheit) und den Android-Kanal `infokanal`. Er geht nie an die schreibende Person.
+
         **Telefonnummer.** Freiwillig, nur für Kommandant und Stellvertretungen (sie sind die Kontakte). `telefon` ist ein Text mit Ziffern und den Zeichen
         `+ ( ) / . -` sowie Leerzeichen (6 bis 30 Zeichen, nach dem Trimmen); sonst 400. Ein leerer Text oder `null`
         entfernt die Nummer. Eine Nummer speichern darf nur, wer Kommandant oder Stellvertretung ist (sonst 403); entfernen darf sie
@@ -1502,6 +1504,233 @@ paths:
                   value:
                     code: ANMELDEFENSTER_NICHT_OFFEN
                     message: Die Anmeldung öffnet am 23.01.2027.
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/infokanaele:
+    get:
+      operationId: infokanaeleListe
+      summary: Infokanäle der Person (eine Zeile je Einheit)
+      tags:
+        - Infokanal
+      description: |
+        Der Infokanal ist ein Einwegkanal je Einheit: Kommando (mit Stellvertretungen) und Leitende schreiben, alle anderen Konten der Einheit lesen.
+        Die Liste hat eine Zeile für jede Einheit, in der die Person eine Rolle hat oder für aktive Teilnehmende antwortet; sie kann leer sein.
+        Das Konto des Kantonsadmins hat keine Einheit und bekommt eine leere Liste. Die Rechte gelten je Einheit und werden im Backend geprüft.
+
+        `ungelesen` zählt Mitteilungen nach dem Lesestand des Kontos (`PUT …/gelesen`), ohne eigene und ohne gelöschte; ohne Lesestand ist alles ungelesen. `letzteMitteilungAm` ist die jüngste nicht gelöschte Mitteilung oder `null`.
+        Der Zähler am Reiter der App ist die Summe von `ungelesen`.
+
+        Statuscodes: 200, 401, 403 (Pflichtwechsel des Passworts oder fehlende Einwilligung), 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+      responses:
+        "200":
+          description: Die Infokanäle, nach Einheitsname geordnet.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InfokanalListe"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/infokanaele/{einheitId}/mitteilungen:
+    get:
+      operationId: infokanalVerlauf
+      summary: Verlauf eines Infokanals lesen
+      tags:
+        - Infokanal
+      description: |
+        Die Mitteilungen der Einheit, die neueste zuerst, seitenweise. `vor` ist die ID der letzten Mitteilung der vorigen Seite
+        (die Antwort nennt sie als `naechste`), `limit` 1 bis 100 (Standard 50). `naechste` ist `null` am Ende.
+
+        Eine gelöschte Mitteilung hat `geloescht: true`, `text: null` und `autor: null` und bleibt als Platzhalter «Nachricht gelöscht» im Verlauf.
+        `autor.rolle` ist `kommando` (auch für Stellvertretungen), `leitung` oder `null`, wenn die Person die Rolle in der Einheit nicht mehr hat.
+        `autor` ist auch `null`, wenn das Konto der schreibenden Person gelöscht ist; dann bleibt der Text. `bearbeitet` meint den Hinweis «bearbeitet» (ohne Zeit).
+        Die App zeigt Bearbeiten und Löschen nur, wo `darfBearbeiten` und `darfLoeschen` es sagen.
+
+        Wer die Einheit nicht kennt, auch das Konto des Kantonsadmins, bekommt 404.
+        Statuscodes: 200, 400, 401, 403 (Pflichtwechsel oder fehlende Einwilligung), 404, 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/InfokanalEinheitIdPfad"
+        - name: vor
+          in: query
+          required: false
+          description: ID der Mitteilung, vor der die Seite beginnt.
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          required: false
+          description: Mitteilungen je Seite.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        "200":
+          description: Eine Seite des Verlaufs.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InfokanalVerlauf"
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+    post:
+      operationId: infokanalSchreiben
+      summary: Mitteilung in den Infokanal schreiben
+      tags:
+        - Infokanal
+      description: |
+        Schreiben dürfen Kommando, Stellvertretungen und Leitende der Einheit. Alle anderen Konten der Einheit bekommen 403, wer die Einheit nicht kennt 404.
+        `text` hat 1 bis 2000 Zeichen nach dem Trimmen, nur Text (kein Markup, keine Anhänge; Links im Text bleiben Text). Der Body ist strikt.
+
+        **Push.** Nach dem Speichern geht ein Push «Neue Mitteilung im Infokanal <Einheitsname>» an alle Konten der Einheit ausser der schreibenden Person,
+        nie mit dem Text. Daten: `typ` `infokanal`, `id` die Einheit; Android-Kanal `infokanal`. Der Schalter `pushInfokanal` am Konto (siehe `PATCH /api/v1/ich`) schaltet ihn ab.
+        Deaktivierte Konten und Konten ohne aktive Teilnehmende oder Rolle in der Einheit bekommen ihn nicht.
+
+        Ein Konto schreibt höchstens 20 Mitteilungen in 10 Minuten (429), damit der Push nicht zum Spam wird.
+        Statuscodes: 201, 400, 401, 403, 404, 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/InfokanalEinheitIdPfad"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InfokanalText"
+      responses:
+        "201":
+          description: Die neue Mitteilung.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InfokanalMitteilung"
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/infokanaele/{einheitId}/mitteilungen/{id}:
+    put:
+      operationId: infokanalBearbeiten
+      summary: Eigene Mitteilung bearbeiten
+      tags:
+        - Infokanal
+      description: |
+        Bearbeiten darf nur, wer die Mitteilung schrieb, und nur solange sie Kommando, Stellvertretung oder Leitung der Einheit ist (sonst 403).
+        Der Text gilt wie beim Schreiben; die Mitteilung trägt danach `bearbeitet: true`. Bearbeiten löst keinen Push aus.
+        Eine gelöschte oder unbekannte Mitteilung, auch eine einer anderen Einheit, ist 404.
+        Statuscodes: 200, 400, 401, 403, 404, 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/InfokanalEinheitIdPfad"
+        - $ref: "#/components/parameters/InfokanalMitteilungIdPfad"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InfokanalText"
+      responses:
+        "200":
+          description: Die geänderte Mitteilung.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InfokanalMitteilung"
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+    delete:
+      operationId: infokanalLoeschen
+      summary: Mitteilung löschen
+      tags:
+        - Infokanal
+      description: |
+        Löschen darf die schreibende Person (auch wenn sie die Rolle verloren hat) und das Kommando mit den Stellvertretungen; fremde Mitteilungen löscht die Leitung nicht (403).
+        Das Löschen entfernt Text und Autor in der Datenbank; nur ein Platzhalter bleibt, bis das System die Mitteilung nach 6 Monaten ganz löscht.
+        Eine schon gelöschte oder unbekannte Mitteilung ist 404.
+        Statuscodes: 204, 400, 401, 403, 404, 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/InfokanalEinheitIdPfad"
+        - $ref: "#/components/parameters/InfokanalMitteilungIdPfad"
+      responses:
+        "204":
+          description: Gelöscht; kein Body.
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/infokanaele/{einheitId}/gelesen:
+    put:
+      operationId: infokanalGelesen
+      summary: Infokanal als gelesen markieren
+      tags:
+        - Infokanal
+      description: |
+        Setzt den Lesestand des Kontos für diese Einheit auf jetzt, ohne Body. Die App ruft es, wenn der Verlauf offen ist und die neueste Mitteilung gesehen wurde.
+        Alle Konten, die den Infokanal sehen, dürfen; wer die Einheit nicht kennt, auch das Konto des Kantonsadmins, bekommt 404.
+        Statuscodes: 204, 400, 401, 403, 404, 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/InfokanalEinheitIdPfad"
+      responses:
+        "204":
+          description: Gespeichert; kein Body.
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
         "426":
           $ref: "#/components/responses/AppVeraltet426"
         "429":
@@ -4041,6 +4270,7 @@ components:
         - telefon
         - bildUrl
         - pushProgramme
+        - pushInfokanal
         - einheiten
         - teilnehmende
       properties:
@@ -4074,6 +4304,9 @@ components:
           type: boolean
         pushAnmeldungen:
           type: boolean
+        pushInfokanal:
+          type: boolean
+          description: Push bei neuen Mitteilungen im Infokanal; für alle Konten, standardmässig an.
         einheiten:
           type: array
           items:
@@ -4092,12 +4325,130 @@ components:
           type: boolean
         pushAnmeldungen:
           type: boolean
+        pushInfokanal:
+          type: boolean
         telefon:
           type:
             - string
             - "null"
           maxLength: 30
           description: Eigene Telefonnummer, nur für SL; leerer Text oder `null` entfernt sie.
+    InfokanalListe:
+      type: object
+      required: [infokanaele]
+      properties:
+        infokanaele:
+          type: array
+          items:
+            $ref: "#/components/schemas/Infokanal"
+    Infokanal:
+      type: object
+      required:
+        - einheit
+        - name
+        - darfSchreiben
+        - ungelesen
+        - letzteMitteilungAm
+      properties:
+        einheit:
+          $ref: "#/components/schemas/ProgrammEinheit"
+        name:
+          type: string
+          description: «Infokanal» und Einheitsname.
+          example: Infokanal Jugendfeuerwehr Meilen
+        darfSchreiben:
+          type: boolean
+          description: Kommando, Stellvertretung und Leitung der Einheit.
+        ungelesen:
+          type: integer
+          minimum: 0
+        letzteMitteilungAm:
+          type:
+            - string
+            - "null"
+          format: date-time
+    InfokanalVerlauf:
+      type: object
+      required: [darfSchreiben, mitteilungen, naechste]
+      properties:
+        darfSchreiben:
+          type: boolean
+        mitteilungen:
+          type: array
+          items:
+            $ref: "#/components/schemas/InfokanalMitteilung"
+        naechste:
+          type:
+            - string
+            - "null"
+          format: uuid
+          description: Das `vor` der nächsten Seite; `null` am Ende.
+    InfokanalMitteilung:
+      type: object
+      required:
+        - id
+        - text
+        - geloescht
+        - bearbeitet
+        - erstelltAm
+        - autor
+        - eigene
+        - darfBearbeiten
+        - darfLoeschen
+      properties:
+        id:
+          type: string
+          format: uuid
+        text:
+          type:
+            - string
+            - "null"
+          description: "`null` bei einer gelöschten Mitteilung."
+        geloescht:
+          type: boolean
+        bearbeitet:
+          type: boolean
+        erstelltAm:
+          type: string
+          format: date-time
+        autor:
+          oneOf:
+            - $ref: "#/components/schemas/InfokanalAutor"
+            - type: "null"
+          description: "`null` bei einer gelöschten Mitteilung und bei einem gelöschten Konto."
+        eigene:
+          type: boolean
+        darfBearbeiten:
+          type: boolean
+        darfLoeschen:
+          type: boolean
+    InfokanalAutor:
+      type: object
+      required: [name, rolle, bildUrl]
+      properties:
+        name:
+          type: string
+        rolle:
+          type:
+            - string
+            - "null"
+          enum: [kommando, leitung, null]
+          description: Stellvertretung zählt als `kommando`; `null`, wenn die Person die Rolle in der Einheit nicht mehr hat.
+        bildUrl:
+          type:
+            - string
+            - "null"
+          description: Pfad zum Profilbild oder `null`.
+    InfokanalText:
+      type: object
+      additionalProperties: false
+      required: [text]
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          description: Nur Text, 1 bis 2000 Zeichen nach dem Trimmen.
     TeilnahmenZahlen:
       type: object
       required: [ja, nein, offen]
@@ -4823,7 +5174,19 @@ components:
           items:
             type: object
             additionalProperties: false
-            required: [id, titel, art, status, ganztaegig, beginn, ende, tagVon, tagBis, nurLeitende]
+            required:
+              [
+                id,
+                titel,
+                art,
+                status,
+                ganztaegig,
+                beginn,
+                ende,
+                tagVon,
+                tagBis,
+                nurLeitende,
+              ]
             properties:
               id:
                 type: string
@@ -6103,6 +6466,22 @@ components:
       in: path
       required: true
       description: ID der Erinnerungsregel (UUID).
+      schema:
+        type: string
+        format: uuid
+    InfokanalEinheitIdPfad:
+      name: einheitId
+      in: path
+      required: true
+      description: ID der Einheit (UUID); sie kommt aus `GET /api/v1/infokanaele`.
+      schema:
+        type: string
+        format: uuid
+    InfokanalMitteilungIdPfad:
+      name: id
+      in: path
+      required: true
+      description: ID der Mitteilung (UUID).
       schema:
         type: string
         format: uuid
