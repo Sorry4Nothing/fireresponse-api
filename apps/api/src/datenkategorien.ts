@@ -71,10 +71,19 @@ export const KATEGORIEN = {
     apple: ["Other Data"],
     google: ["App activity: Other actions"],
   },
+  infokanal: {
+    titel: "Mitteilungen im Infokanal",
+    zweck:
+      "Kommando und Leitung informieren die Konten ihrer Einheit in einer Richtung: Text, Autorin oder Autor mit Rolle, Zeitpunkt und Einheit. Es gibt keine Antworten, keine Reaktionen und keine Anhänge. Dazu merkt sich der Dienst je Konto und Einheit, bis wann der Infokanal gelesen ist.",
+    frist:
+      "Die Mitteilung bleibt 6 Monate, dann löscht das System sie automatisch. Löscht die Autorin oder der Autor sie oder das Kommando, ist der Text sofort weg, und nur ein Platzhalter bleibt bis zur automatischen Löschung. Wird das Konto der Autorin oder des Autors gelöscht, bleibt die Mitteilung ohne Autor bis zur automatischen Löschung. Der Lesestand geht mit dem Konto.",
+    apple: ["User Content: Other User Content"],
+    google: ["Messages: Other in-app messages"],
+  },
   benachrichtigungen: {
     titel: "Benachrichtigungen",
     zweck:
-      "Pushes zu Programmen, zu An- und Abmeldungen und zu Erinnerungen zustellen. Das Token gehört zum Gerät und zur Sitzung.",
+      "Pushes zu Programmen, zu An- und Abmeldungen, zu Erinnerungen und zu neuen Mitteilungen im Infokanal zustellen. Das Token gehört zum Gerät und zur Sitzung. Der Push zum Infokanal nennt den Namen der Einheit, nie den Text der Mitteilung.",
     frist:
       "Bis die Sitzung endet, also beim Abmelden, beim Deaktivieren und beim Löschen des Kontos.",
     apple: ["Identifiers: Device ID"],
@@ -163,6 +172,20 @@ export const SPALTEN: Record<string, Partial<Record<KategorieId, string[]>>> = {
       "typ",
       "reihenfolge",
       "rang_id",
+      "erstellt_am",
+    ],
+  },
+  infokanal_gelesen: {
+    infokanal: ["user_id", "einheit_id", "gelesen_bis"],
+  },
+  infokanal_mitteilung: {
+    infokanal: [
+      "id",
+      "einheit_id",
+      "autor_id",
+      "text",
+      "bearbeitet_am",
+      "geloescht_am",
       "erstellt_am",
     ],
   },
@@ -287,7 +310,11 @@ export const SPALTEN: Record<string, Partial<Record<KategorieId, string[]>>> = {
       "einwilligung_version",
     ],
     telefon: ["telefon"],
-    benachrichtigungen: ["push_programme", "push_anmeldungen"],
+    benachrichtigungen: [
+      "push_programme",
+      "push_anmeldungen",
+      "push_infokanal",
+    ],
   },
   verification: {
     technik: [
