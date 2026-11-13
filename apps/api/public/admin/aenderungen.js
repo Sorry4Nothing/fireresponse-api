@@ -28,6 +28,7 @@ const AKTIONEN = {
   teilnehmende_geaendert: "Person geändert",
   eltern_verknuepft: "Eltern verknüpft",
   konto_gewechselt: "Konto aufs Kind übertragen",
+  teilnehmende_uebertragen: "Person in andere Einheit übertragen",
   rang_angelegt: "Rang angelegt",
   rang_geaendert: "Rang geändert",
   rang_geloescht: "Rang gelöscht",
