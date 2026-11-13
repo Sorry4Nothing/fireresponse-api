@@ -18,6 +18,10 @@ import {
   synchronisiereEinheit,
   syncLodur,
 } from "./lodur-sync.js";
+import {
+  loescheAlteNachrichten,
+  starteNachrichtenAufraeumen,
+} from "./nachrichten-aufraeumen.js";
 import { ladeSeiten } from "./seiten.js";
 import {
   loescheAbgelaufeneSitzungen,
@@ -66,6 +70,7 @@ const app = erstelleApp({
 // Ohne hostname auf allen Schnittstellen: Der Dev-Build auf dem Handy erreicht die API im LAN; in Produktion öffnet nur Caddy Ports
 serve({ fetch: app.fetch, port: konfiguration.PORT });
 starteSitzungenAufraeumen(() => loescheAbgelaufeneSitzungen(db));
+starteNachrichtenAufraeumen(() => loescheAlteNachrichten(db));
 starteInfokanalAufraeumen(() => loescheAlteMitteilungen(db));
 // Ohne Schlüssel gäbe es nichts zu senden, und eine Erinnerung gälte trotzdem als gesendet
 if (fcm) {

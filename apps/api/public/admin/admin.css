@@ -258,6 +258,52 @@ main:focus {
   padding: 4px 12px 20px;
 }
 
+.marke-zeile {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.glocke-zahl {
+  font-weight: 800;
+}
+
+/* Glocke: Liste im Seitenblatt; Titel, Zustand mit Wort, Text mit Zeilenumbrüchen */
+.nachrichten {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.nachrichten-liste {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.nachricht {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--rand-leise);
+}
+
+.nachricht h3 {
+  font-size: 1.125rem;
+  line-height: 1.5rem;
+}
+
+.nachricht-text {
+  margin: 0;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
 .marke strong {
   font-size: 1.375rem;
   line-height: 1.75rem;

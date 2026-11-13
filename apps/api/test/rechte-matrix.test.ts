@@ -175,6 +175,17 @@ const AUSWERTEN = {
   deaktiviert: 401,
   ohneLogin: 401,
 } as Record<Persona, number>;
+// Als gelesen markieren: die Konten der Verwaltung mit Kommando oder Stellvertretung (204); der Kantonsadmin ist kein Empfänger und bekommt 403
+const GELESEN_MARKIEREN = {
+  ...alle(403),
+  kommandoJfA: 204,
+  stellvertretung1JfA: 204,
+  stellvertretung2JfA: 204,
+  kommandoKfA: 204,
+  kommandoJfB: 204,
+  deaktiviert: 401,
+  ohneLogin: 401,
+} as Record<Persona, number>;
 const JAHR_2025 = "von=2025-01-01&bis=2025-12-31";
 
 // Eindeutiger Benutzername je Persona und Zeile; ohneLogin hat keinen
@@ -206,6 +217,7 @@ const MATRIX: Record<string, Zeile> = {
   "GET /admin/konten.js": { erwartet: alle(200) },
   "GET /admin/konto-loeschen.js": { erwartet: alle(200) },
   "GET /admin/kontext.js": { erwartet: alle(200) },
+  "GET /admin/nachrichten.js": { erwartet: alle(200) },
   "GET /admin/personen.js": { erwartet: alle(200) },
   "GET /admin/qrcode.js": { erwartet: alle(200) },
   "GET /admin/raenge.js": { erwartet: alle(200) },
@@ -457,6 +469,35 @@ const MATRIX: Record<string, Zeile> = {
     erwartet: {
       ...alle(403),
       kantonsadmin: 200,
+      deaktiviert: 401,
+      ohneLogin: 401,
+    },
+  },
+  // Glocke der Verwaltung: Lesen und als gelesen markieren alle Konten der Verwaltung mit zweitem Faktor (Kommando, Stellvertretung), Senden und Zurückziehen nur der Kantonsadmin, der selbst nichts als gelesen markiert; keine Einheit im Pfad (Inhalt in test/admin-nachrichten.test.ts)
+  "GET /api/v1/admin/nachrichten": { erwartet: MIT_VERWALTUNG },
+  "POST /api/v1/admin/nachrichten": {
+    body: () => ({ titel: "Hinweis", text: "Bitte lesen." }),
+    erwartet: {
+      ...alle(403),
+      kantonsadmin: 201,
+      deaktiviert: 401,
+      ohneLogin: 401,
+    },
+  },
+  "POST /api/v1/admin/nachrichten/gelesen": {
+    erwartet: GELESEN_MARKIEREN,
+  },
+  "PUT /api/v1/admin/nachrichten/:id/gelesen": {
+    url: () => `/api/v1/admin/nachrichten/${nachrichtId}/gelesen`,
+    erwartet: GELESEN_MARKIEREN,
+  },
+  "DELETE /api/v1/admin/nachrichten/:id": {
+    // Jede Anfrage verbraucht ihre Mitteilung: eine frische pro Persona
+    urlJeAnfrage: async () =>
+      `/api/v1/admin/nachrichten/${await wegwerfNachrichtId()}`,
+    erwartet: {
+      ...alle(403),
+      kantonsadmin: 204,
       deaktiviert: 401,
       ohneLogin: 401,
     },
@@ -881,6 +922,7 @@ let mitteilungId: string;
 let offenProgrammId: string;
 let abzeichenRangId: string;
 let patchRegelId: string;
+let nachrichtId: string;
 let bildZielId: string;
 let leererBezirkId: string;
 let naechstePosition = 30;
@@ -1007,6 +1049,15 @@ async function wegwerfRegelId() {
   return zeile.id;
 }
 
+// Eine Mitteilung pro Aufruf: das Ziel einer Rücknahme
+async function wegwerfNachrichtId() {
+  const [zeile] = await welt.db
+    .insert(schema.nachricht)
+    .values({ titel: "Wegwerf", text: "Wegwerf" })
+    .returning({ id: schema.nachricht.id });
+  return zeile.id;
+}
+
 // Ein manueller Termin pro Aufruf: das Ziel einer Löschung
 async function wegwerfTerminId() {
   const [zeile] = await welt.db
@@ -1070,6 +1121,7 @@ beforeAll(async () => {
     })
     .returning({ id: schema.infokanalMitteilung.id });
   patchRegelId = await wegwerfRegelId();
+  nachrichtId = await wegwerfNachrichtId();
   leitungZielId = (await wegwerfKonto()).id;
   offenesKontoId = (await wegwerfKonto({ startpasswort: "ABCD-EFGH-JKMN" })).id;
   kontoZiel = (await wegwerfKonto()).benutzername;
@@ -1181,6 +1233,8 @@ describe("Vollständigkeit", () => {
       expect(zeile.url ?? zeile.urlJeAnfrage, schluessel).toBeDefined();
       // Routen der eigenen Person und der Verwaltung ohne Objekt der Einheit ausgenommen
       if (schluessel.includes("/admin/system")) continue;
+      // Mitteilungen gehören keiner Einheit: Die Konten der Verwaltung sehen sie alle
+      if (schluessel.includes("/admin/nachrichten/")) continue;
       // Ein Bezirk gehört keiner Einheit: Wer nicht Kantonsadmin ist, bekommt 403
       if (schluessel.includes("/admin/bezirke/")) continue;
       for (const persona of [

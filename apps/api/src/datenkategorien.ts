@@ -106,6 +106,15 @@ export const KATEGORIEN = {
     apple: [],
     google: [],
   },
+  mitteilungen: {
+    titel: "Mitteilungen an die Verwaltung",
+    zweck:
+      "Die Kantonsadministration schreibt wichtige Hinweise an die Konten der Verwaltung; sie erscheinen in der Glocke der Verwaltung, nie in der App. Der Text enthält keine Personendaten. Je Konto ist nur gespeichert, ob und wann es eine Mitteilung gelesen hat; die Kantonsadministration sieht nur die Zahl der Lesenden.",
+    frist:
+      "Bis die Kantonsadministration die Mitteilung zurückzieht, spätestens 6 Monate nach ihrem Ablauf, ohne Ablauf 6 Monate nach dem Erstellen. Die Lesemarke geht mit der Mitteilung oder dem Konto.",
+    apple: ["Other Data"],
+    google: ["Personal info: Other info"],
+  },
   einheiten: {
     titel: "Angaben der Bezirke und Einheiten",
     zweck:
@@ -215,6 +224,12 @@ export const SPALTEN: Record<string, Partial<Record<KategorieId, string[]>>> = {
       "status",
       "inhalt_hash",
     ],
+  },
+  nachricht: {
+    mitteilungen: ["id", "titel", "text", "laeuft_ab_am", "erstellt_am"],
+  },
+  nachricht_gelesen: {
+    mitteilungen: ["nachricht_id", "user_id", "gelesen_am"],
   },
   profilbild: { profilbild: ["user_id", "inhalt", "geaendert_am"] },
   push_token: {

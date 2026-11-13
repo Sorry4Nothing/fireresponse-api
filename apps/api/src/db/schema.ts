@@ -612,3 +612,40 @@ export const infokanalGelesen = pgTable(
   },
   (t) => [primaryKey({ columns: [t.userId, t.einheitId] })],
 );
+
+// Eine Mitteilung des Kantonsadmins an die Konten der Verwaltung (Glocke im Panel), nur Text und ohne Personendaten. Sie läuft nach laeuft_ab_am aus der Glocke; die API löscht sie 6 Monate danach, ohne Ablauf 6 Monate nach dem Erstellen
+export const nachricht = pgTable(
+  "nachricht",
+  {
+    id: id(),
+    titel: text("titel").notNull(),
+    text: text("text").notNull(),
+    laeuftAbAm: zeitpunkt("laeuft_ab_am"),
+    erstelltAm: zeitpunkt("erstellt_am").notNull().defaultNow(),
+  },
+  (t) => [
+    check(
+      "nachricht_titel_check",
+      sql`char_length(${t.titel}) between 1 and 80`,
+    ),
+    check(
+      "nachricht_text_check",
+      sql`char_length(${t.text}) between 1 and 1000`,
+    ),
+  ],
+);
+
+// Wer eine Mitteilung gelesen hat; der Kantonsadmin sieht nur die Zahl, nie die Konten
+export const nachrichtGelesen = pgTable(
+  "nachricht_gelesen",
+  {
+    nachrichtId: uuid("nachricht_id")
+      .notNull()
+      .references(() => nachricht.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    gelesenAm: zeitpunkt("gelesen_am").notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.nachrichtId, t.userId] })],
+);
