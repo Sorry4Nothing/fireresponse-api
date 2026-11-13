@@ -15,6 +15,7 @@ import {
   waehleEinheit,
   zeigeUmschalter,
 } from "./kontext.js";
+import * as mitteilungen from "./mitteilungen.js";
 import * as personen from "./personen.js";
 import * as system from "./system.js";
 import * as teilnehmende from "./teilnehmende.js";
@@ -66,6 +67,15 @@ const BEREICHE = [
     symbol: "zeitregeln",
     untertitel:
       "Erinnerungen an Personen, die auf einen Termin noch nicht geantwortet haben.",
+    einheit: true,
+  },
+  {
+    schluessel: "mitteilungen",
+    name: "Push senden",
+    modul: mitteilungen,
+    symbol: "glocke",
+    untertitel:
+      "Eine Push-Mitteilung mit eigenem Text an die Einheit oder nur an die Leitenden senden.",
     einheit: true,
   },
   {
