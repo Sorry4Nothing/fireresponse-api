@@ -199,6 +199,19 @@ export const rollenReihenfolge = sql`case ${einheitRolle.typ} when 'kommandant' 
 export const hatRolleIn = (person: Person, einheitId: string) =>
   person.einheiten.some((r) => r.einheitId === einheitId);
 
+// Infokanal: Er gehört den Konten der Einheit (Rolle dort oder aktive Teilnehmende, für die das Konto antwortet). Das Kantonsadmin-Konto hat keine Einheit und sieht nichts; es gibt keine Ausnahme wie bei einheitenFuer
+export const darfInfokanalLesen = (person: Person, einheitId: string) =>
+  hatRolleIn(person, einheitId) ||
+  person.teilnehmendeEinheiten.includes(einheitId);
+
+// Schreiben dürfen Kommando, Stellvertretung und Leitung der Einheit (hatRolleIn); fremde Mitteilungen löscht nur das Kommando
+export const istKommandoIn = (person: Person, einheitId: string) =>
+  person.einheiten.some(
+    (r) =>
+      r.einheitId === einheitId &&
+      (r.typ === "kommandant" || r.typ === "stellvertretung"),
+  );
+
 // Spalten bewusst als Text «programm.…»: In der Feldliste eines Selects liesse Drizzle den Tabellennamen weg
 export function programmSichtbar(einheitIds: string[]): SQL {
   // inArray mit leerer Liste wird zu «false»: Ohne Einheit bleibt alles verborgen

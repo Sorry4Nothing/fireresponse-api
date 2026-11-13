@@ -1,5 +1,5 @@
 {
-  "id": "20ec5b96-3817-40f2-bff4-12b714603a5f",
+  "id": "e8f65fdc-ead5-4a18-8543-16714dbbadc1",
   "prevId": "28b854ef-f6e7-44c5-a80b-3f4fbb17f189",
   "version": "7",
   "dialect": "postgresql",
@@ -488,6 +488,213 @@
       },
       "isRLSEnabled": false
     },
+    "public.infokanal_gelesen": {
+      "name": "infokanal_gelesen",
+      "schema": "",
+      "columns": {
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "einheit_id": {
+          "name": "einheit_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "gelesen_bis": {
+          "name": "gelesen_bis",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "infokanal_gelesen_user_id_user_id_fk": {
+          "name": "infokanal_gelesen_user_id_user_id_fk",
+          "tableFrom": "infokanal_gelesen",
+          "tableTo": "user",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "infokanal_gelesen_einheit_id_einheit_id_fk": {
+          "name": "infokanal_gelesen_einheit_id_einheit_id_fk",
+          "tableFrom": "infokanal_gelesen",
+          "tableTo": "einheit",
+          "columnsFrom": [
+            "einheit_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "infokanal_gelesen_user_id_einheit_id_pk": {
+          "name": "infokanal_gelesen_user_id_einheit_id_pk",
+          "columns": [
+            "user_id",
+            "einheit_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.infokanal_mitteilung": {
+      "name": "infokanal_mitteilung",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "uuidv7()"
+        },
+        "einheit_id": {
+          "name": "einheit_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "autor_id": {
+          "name": "autor_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "text": {
+          "name": "text",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "bearbeitet_am": {
+          "name": "bearbeitet_am",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "geloescht_am": {
+          "name": "geloescht_am",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "erstellt_am": {
+          "name": "erstellt_am",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "infokanal_mitteilung_einheit_idx": {
+          "name": "infokanal_mitteilung_einheit_idx",
+          "columns": [
+            {
+              "expression": "einheit_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "infokanal_mitteilung_erstellt_idx": {
+          "name": "infokanal_mitteilung_erstellt_idx",
+          "columns": [
+            {
+              "expression": "erstellt_am",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "infokanal_mitteilung_autor_idx": {
+          "name": "infokanal_mitteilung_autor_idx",
+          "columns": [
+            {
+              "expression": "autor_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "infokanal_mitteilung_einheit_id_einheit_id_fk": {
+          "name": "infokanal_mitteilung_einheit_id_einheit_id_fk",
+          "tableFrom": "infokanal_mitteilung",
+          "tableTo": "einheit",
+          "columnsFrom": [
+            "einheit_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "infokanal_mitteilung_autor_id_user_id_fk": {
+          "name": "infokanal_mitteilung_autor_id_user_id_fk",
+          "tableFrom": "infokanal_mitteilung",
+          "tableTo": "user",
+          "columnsFrom": [
+            "autor_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "infokanal_mitteilung_text_check": {
+          "name": "infokanal_mitteilung_text_check",
+          "value": "(\"infokanal_mitteilung\".\"geloescht_am\" is null and \"infokanal_mitteilung\".\"text\" is not null and char_length(\"infokanal_mitteilung\".\"text\") between 1 and 2000) or (\"infokanal_mitteilung\".\"geloescht_am\" is not null and \"infokanal_mitteilung\".\"text\" is null and \"infokanal_mitteilung\".\"autor_id\" is null)"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "public.leitung_anmeldung": {
       "name": "leitung_anmeldung",
       "schema": "",
@@ -509,12 +716,6 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
-        },
-        "warteliste_seit": {
-          "name": "warteliste_seit",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
         }
       },
       "indexes": {},
@@ -560,11 +761,7 @@
       "checkConstraints": {
         "leitung_anmeldung_status_check": {
           "name": "leitung_anmeldung_status_check",
-          "value": "\"leitung_anmeldung\".\"status\" in ('ja', 'nein', 'warteliste')"
-        },
-        "leitung_anmeldung_warteliste_check": {
-          "name": "leitung_anmeldung_warteliste_check",
-          "value": "(\"leitung_anmeldung\".\"status\" = 'warteliste') = (\"leitung_anmeldung\".\"warteliste_seit\" is not null)"
+          "value": "\"leitung_anmeldung\".\"status\" in ('ja', 'nein')"
         }
       },
       "isRLSEnabled": false
@@ -735,12 +932,6 @@
           "notNull": true,
           "default": false
         },
-        "leitung_hoechstzahl": {
-          "name": "leitung_hoechstzahl",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
         "status": {
           "name": "status",
           "type": "text",
@@ -787,10 +978,6 @@
         "programm_quelle_check": {
           "name": "programm_quelle_check",
           "value": "\"programm\".\"quelle\" in ('lodur', 'manuell')"
-        },
-        "programm_leitung_hoechstzahl_check": {
-          "name": "programm_leitung_hoechstzahl_check",
-          "value": "\"programm\".\"leitung_hoechstzahl\" is null or (\"programm\".\"leitung_hoechstzahl\" >= 1 and \"programm\".\"quelle\" = 'manuell')"
         },
         "programm_status_check": {
           "name": "programm_status_check",
@@ -1713,6 +1900,13 @@
         },
         "push_anmeldungen": {
           "name": "push_anmeldungen",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "push_infokanal": {
+          "name": "push_infokanal",
           "type": "boolean",
           "primaryKey": false,
           "notNull": true,

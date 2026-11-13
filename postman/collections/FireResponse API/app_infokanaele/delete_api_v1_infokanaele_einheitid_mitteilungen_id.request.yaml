@@ -1,0 +1,14 @@
+$kind: http-request
+name: "DELETE /api/v1/infokanaele/:einheitId/mitteilungen/:id"
+order: 51000
+method: DELETE
+url: "{{baseUrl}}/api/v1/infokanaele/{{einheit_jfA}}/mitteilungen/{{ziel_50}}"
+headers:
+  - key: "Cookie"
+    value: "{{cookie}}"
+  - key: "expo-origin"
+    value: "{{expoOrigin}}"
+  - key: "X-Forwarded-For"
+    value: "{{ip}}"
+  - key: "X-App-Version"
+    value: "{{appVersion}}"

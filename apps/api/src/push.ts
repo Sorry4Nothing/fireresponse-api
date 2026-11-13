@@ -6,14 +6,13 @@ import { pushToken } from "./db/schema.js";
 import { log } from "./log.js";
 
 // Der Text steht unter dem Titel. Er trägt nie Inhalte oder Namen von Kindern: Der Push steht je nach Handy auf dem gesperrten Bildschirm
-// kanal ist der Android-Kanal und die Art des Pushes: «termine» (Erinnerung, Absage, Änderung) oder «anmeldungen» (Anmeldung an Kommando und Leitende)
-export type Push = {
-  typ: "programm";
-  kanal: "termine" | "anmeldungen";
-  id: string;
-  titel: string;
-  text?: string;
-};
+// kanal ist der Android-Kanal und die Art des Pushes: «termine» (Erinnerung, Absage, Änderung) oder «anmeldungen» (Anmeldung an Kommando und Leitende) zu einem Programm, «infokanal» (neue Mitteilung) mit der Einheit als id
+// «mitteilung» ist der freie Text aus der Verwaltung und hat kein Ziel in der App: Die Daten tragen nur den Typ, keine id
+export type Push = { titel: string; text?: string } & (
+  | { typ: "programm"; kanal: "termine" | "anmeldungen"; id: string }
+  | { typ: "infokanal"; kanal: "infokanal"; id: string }
+  | { typ: "mitteilung"; kanal: "termine" | "anmeldungen" }
+);
 
 // Was sendePush vom Messaging-Dienst von firebase-admin braucht; im Test eine Attrappe
 export type Fcm = {
@@ -48,9 +47,12 @@ function meldeFehler(c: Context | undefined, fehler: unknown) {
 export async function sendePush(
   { db, fcm, c }: { db: Db; fcm?: Fcm; c?: Context },
   empfaenger: string[],
-  { typ, kanal, id, titel, text }: Push,
+  push: Push,
 ): Promise<void> {
   if (!fcm) return;
+  const { kanal, titel, text } = push;
+  const data: Record<string, string> =
+    "id" in push ? { typ: push.typ, id: push.id } : { typ: push.typ };
   let tokens: string[];
   try {
     const zeilen = await db
@@ -71,7 +73,7 @@ export async function sendePush(
         block.map((token): TokenMessage => ({
           token,
           notification: { title: titel, ...(text && { body: text }) },
-          data: { typ, id },
+          data,
           android: {
             priority: "high",
             notification: {

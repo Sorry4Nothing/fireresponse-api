@@ -367,6 +367,36 @@ paths:
             text/javascript:
               schema:
                 type: string
+  /admin/mitteilungen.js:
+    get:
+      operationId: getAdminMitteilungenSkript
+      summary: Skript der Verwaltung – Bereich Push senden
+      tags:
+        - Allgemein
+      security: []
+      description: Statische Datei der Verwaltung (siehe `GET /admin`), ohne Anmeldung.
+      responses:
+        "200":
+          description: Datei (`text/javascript; charset=UTF-8`).
+          content:
+            text/javascript:
+              schema:
+                type: string
+  /admin/nachrichten.js:
+    get:
+      operationId: getAdminNachrichtenSkript
+      summary: Skript der Verwaltung – Glocke mit den Nachrichten
+      tags:
+        - Allgemein
+      security: []
+      description: Statische Datei der Verwaltung (siehe `GET /admin`), ohne Anmeldung.
+      responses:
+        "200":
+          description: Datei (`text/javascript; charset=UTF-8`).
+          content:
+            text/javascript:
+              schema:
+                type: string
   /admin/personen.js:
     get:
       operationId: getAdminPersonenSkript
@@ -1012,6 +1042,8 @@ paths:
 
         **Anmelde-Push.** `pushAnmeldungen` (Push an Kommando und Leitende bei An- und Abmeldung für ein Programm) ist ein Boolean und standardmässig an. `GET /api/v1/ich` gibt den Schalter nur Personen mit einer Rolle in einer Einheit zurück; setzen lässt er sich von jeder Person, ohne Wirkung ohne Rolle.
 
+        **Infokanal-Push.** `pushInfokanal` (Push bei einer neuen Mitteilung im Infokanal einer Einheit) ist ein Boolean und standardmässig an; `GET /api/v1/ich` liefert ihn für alle Konten. Der Push heisst «Neue Mitteilung im Infokanal <Einheitsname>», trägt nie den Text, hat die Daten `typ` `infokanal` und `id` (Einheit) und den Android-Kanal `infokanal`. Er geht nie an die schreibende Person.
+
         **Telefonnummer.** Freiwillig, nur für Kommandant und Stellvertretungen (sie sind die Kontakte). `telefon` ist ein Text mit Ziffern und den Zeichen
         `+ ( ) / . -` sowie Leerzeichen (6 bis 30 Zeichen, nach dem Trimmen); sonst 400. Ein leerer Text oder `null`
         entfernt die Nummer. Eine Nummer speichern darf nur, wer Kommandant oder Stellvertretung ist (sonst 403); entfernen darf sie
@@ -1435,6 +1467,150 @@ paths:
           $ref: "#/components/responses/ZuVieleAnfragen429"
         "503":
           $ref: "#/components/responses/Wartung503"
+  /api/v1/admin/nachrichten:
+    get:
+      operationId: listeAdminNachrichten
+      summary: Nachrichten der Glocke
+      description: |
+        Die Glocke der Verwaltung: wichtige Hinweise der Kantonsadministration an die Konten der Verwaltung (Kommando und Stellvertretungen). Nie in der App, nie als Push. Liefert höchstens die 100 jüngsten, neueste zuerst.
+
+        Kommando und Stellvertretungen (mit zweitem Faktor) sehen die Nachrichten, die noch nicht abgelaufen sind, je mit `gelesen` für das eigene Konto. Der Kantonsadmin sieht alle, auch abgelaufene, je mit `abgelaufen` und der Zahl der `lesende` Konten; die Zahl der `empfaenger` steht einmal in der Antwort. Welche Konten gelesen haben, steht nirgends.
+
+        Statuscodes: 200 bei Erfolg. 403 für Leitende, Eltern und ohne zweiten Faktor (Code `ZWEITER_FAKTOR_FEHLT`).
+      tags:
+        - Verwaltung
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+      responses:
+        "200":
+          description: Die Nachrichten.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminNachrichtListe"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+    post:
+      operationId: sendeAdminNachricht
+      summary: Nachricht an die Verwaltung senden
+      description: |
+        Nur das Konto des Kantonsadmins. Die Nachricht geht an alle aktiven Konten mit Kommando oder Stellvertretung (keine Wahl je Rolle oder Einheit) und erscheint in deren Glocke. Nur Text, keine Personendaten. Mit `laeuftAbAm` verschwindet sie danach aus der Glocke. Die API löscht sie 6 Monate nach dem Ablauf, ohne Ablauf 6 Monate nach dem Erstellen.
+
+        Je Adresse höchstens 5 Nachrichten pro Minute (429). Das Senden steht im Audit-Log (`nachricht_gesendet`), nie mit Titel oder Text.
+
+        Statuscodes: 201 bei Erfolg. 400 bei ungültiger Eingabe. 403 für alle anderen. 429 bei zu vielen Nachrichten.
+      tags:
+        - Verwaltung
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminNachrichtAnlegen"
+      responses:
+        "201":
+          description: Gesendet.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminNachrichtAngelegt"
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/admin/nachrichten/gelesen:
+    post:
+      operationId: markiereAlleAdminNachrichtenGelesen
+      summary: Alle Nachrichten als gelesen markieren
+      description: |
+        Kommando und Stellvertretungen markieren alle ihre sichtbaren (nicht abgelaufenen) Nachrichten als gelesen. Harmlos, wenn nichts offen ist. Der Kantonsadmin ist kein Empfänger (403).
+
+        Statuscodes: 204 bei Erfolg. 403 für alle anderen.
+      tags:
+        - Verwaltung
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+      responses:
+        "204":
+          description: Markiert.
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/admin/nachrichten/{id}/gelesen:
+    put:
+      operationId: markiereAdminNachrichtGelesen
+      summary: Eine Nachricht als gelesen markieren
+      description: |
+        Kommando und Stellvertretungen markieren eine Nachricht für das eigene Konto; jedes Konto für sich. Ein zweites Mal ist harmlos. Der Kantonsadmin ist kein Empfänger (403).
+
+        Statuscodes: 204 bei Erfolg. 400 bei ungültiger ID. 403 für alle anderen. 404, wenn die Nachricht unbekannt, zurückgezogen oder abgelaufen ist.
+      tags:
+        - Verwaltung
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/AdminNachrichtId"
+      responses:
+        "204":
+          description: Markiert.
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/admin/nachrichten/{id}:
+    delete:
+      operationId: ziehAdminNachrichtZurueck
+      summary: Nachricht zurückziehen
+      description: |
+        Nur das Konto des Kantonsadmins. Löscht die Nachricht samt allen Lesemarken, auch eine abgelaufene. Das Zurückziehen steht im Audit-Log (`nachricht_zurueckgezogen`), ohne Text.
+
+        Statuscodes: 204 bei Erfolg. 400 bei ungültiger ID. 403 für alle anderen. 404, wenn die Nachricht unbekannt ist.
+      tags:
+        - Verwaltung
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/AdminNachrichtId"
+      responses:
+        "204":
+          description: Zurückgezogen.
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
   /api/v1/admin/system:
     get:
       operationId: holeAdminSystem
@@ -1599,6 +1775,233 @@ paths:
           $ref: "#/components/responses/ZuVieleAnfragen429"
         "503":
           $ref: "#/components/responses/Wartung503"
+  /api/v1/infokanaele:
+    get:
+      operationId: infokanaeleListe
+      summary: Infokanäle der Person (eine Zeile je Einheit)
+      tags:
+        - Infokanal
+      description: |
+        Der Infokanal ist ein Einwegkanal je Einheit: Kommando (mit Stellvertretungen) und Leitende schreiben, alle anderen Konten der Einheit lesen.
+        Die Liste hat eine Zeile für jede Einheit, in der die Person eine Rolle hat oder für aktive Teilnehmende antwortet; sie kann leer sein.
+        Das Konto des Kantonsadmins hat keine Einheit und bekommt eine leere Liste. Die Rechte gelten je Einheit und werden im Backend geprüft.
+
+        `ungelesen` zählt Mitteilungen nach dem Lesestand des Kontos (`PUT …/gelesen`), ohne eigene und ohne gelöschte; ohne Lesestand ist alles ungelesen. `letzteMitteilungAm` ist die jüngste nicht gelöschte Mitteilung oder `null`.
+        Der Zähler am Reiter der App ist die Summe von `ungelesen`.
+
+        Statuscodes: 200, 401, 403 (Pflichtwechsel des Passworts oder fehlende Einwilligung), 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+      responses:
+        "200":
+          description: Die Infokanäle, nach Einheitsname geordnet.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InfokanalListe"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/infokanaele/{einheitId}/mitteilungen:
+    get:
+      operationId: infokanalVerlauf
+      summary: Verlauf eines Infokanals lesen
+      tags:
+        - Infokanal
+      description: |
+        Die Mitteilungen der Einheit, die neueste zuerst, seitenweise. `vor` ist die ID der letzten Mitteilung der vorigen Seite
+        (die Antwort nennt sie als `naechste`), `limit` 1 bis 100 (Standard 50). `naechste` ist `null` am Ende.
+
+        Eine gelöschte Mitteilung hat `geloescht: true`, `text: null` und `autor: null` und bleibt als Platzhalter «Nachricht gelöscht» im Verlauf.
+        `autor.rolle` ist `kommando` (auch für Stellvertretungen), `leitung` oder `null`, wenn die Person die Rolle in der Einheit nicht mehr hat.
+        `autor` ist auch `null`, wenn das Konto der schreibenden Person gelöscht ist; dann bleibt der Text. `bearbeitet` meint den Hinweis «bearbeitet» (ohne Zeit).
+        Die App zeigt Bearbeiten und Löschen nur, wo `darfBearbeiten` und `darfLoeschen` es sagen.
+
+        Wer die Einheit nicht kennt, auch das Konto des Kantonsadmins, bekommt 404.
+        Statuscodes: 200, 400, 401, 403 (Pflichtwechsel oder fehlende Einwilligung), 404, 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/InfokanalEinheitIdPfad"
+        - name: vor
+          in: query
+          required: false
+          description: ID der Mitteilung, vor der die Seite beginnt.
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          required: false
+          description: Mitteilungen je Seite.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        "200":
+          description: Eine Seite des Verlaufs.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InfokanalVerlauf"
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+    post:
+      operationId: infokanalSchreiben
+      summary: Mitteilung in den Infokanal schreiben
+      tags:
+        - Infokanal
+      description: |
+        Schreiben dürfen Kommando, Stellvertretungen und Leitende der Einheit. Alle anderen Konten der Einheit bekommen 403, wer die Einheit nicht kennt 404.
+        `text` hat 1 bis 2000 Zeichen nach dem Trimmen, nur Text (kein Markup, keine Anhänge; Links im Text bleiben Text). Der Body ist strikt.
+
+        **Push.** Nach dem Speichern geht ein Push «Neue Mitteilung im Infokanal <Einheitsname>» an alle Konten der Einheit ausser der schreibenden Person,
+        nie mit dem Text. Daten: `typ` `infokanal`, `id` die Einheit; Android-Kanal `infokanal`. Der Schalter `pushInfokanal` am Konto (siehe `PATCH /api/v1/ich`) schaltet ihn ab.
+        Deaktivierte Konten und Konten ohne aktive Teilnehmende oder Rolle in der Einheit bekommen ihn nicht.
+
+        Ein Konto schreibt höchstens 20 Mitteilungen in 10 Minuten (429), damit der Push nicht zum Spam wird.
+        Statuscodes: 201, 400, 401, 403, 404, 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/InfokanalEinheitIdPfad"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InfokanalText"
+      responses:
+        "201":
+          description: Die neue Mitteilung.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InfokanalMitteilung"
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/infokanaele/{einheitId}/mitteilungen/{id}:
+    put:
+      operationId: infokanalBearbeiten
+      summary: Eigene Mitteilung bearbeiten
+      tags:
+        - Infokanal
+      description: |
+        Bearbeiten darf nur, wer die Mitteilung schrieb, und nur solange sie Kommando, Stellvertretung oder Leitung der Einheit ist (sonst 403).
+        Der Text gilt wie beim Schreiben; die Mitteilung trägt danach `bearbeitet: true`. Bearbeiten löst keinen Push aus.
+        Eine gelöschte oder unbekannte Mitteilung, auch eine einer anderen Einheit, ist 404.
+        Statuscodes: 200, 400, 401, 403, 404, 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/InfokanalEinheitIdPfad"
+        - $ref: "#/components/parameters/InfokanalMitteilungIdPfad"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InfokanalText"
+      responses:
+        "200":
+          description: Die geänderte Mitteilung.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InfokanalMitteilung"
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+    delete:
+      operationId: infokanalLoeschen
+      summary: Mitteilung löschen
+      tags:
+        - Infokanal
+      description: |
+        Löschen darf die schreibende Person (auch wenn sie die Rolle verloren hat) und das Kommando mit den Stellvertretungen; fremde Mitteilungen löscht die Leitung nicht (403).
+        Das Löschen entfernt Text und Autor in der Datenbank; nur ein Platzhalter bleibt, bis das System die Mitteilung nach 6 Monaten ganz löscht.
+        Eine schon gelöschte oder unbekannte Mitteilung ist 404.
+        Statuscodes: 204, 400, 401, 403, 404, 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/InfokanalEinheitIdPfad"
+        - $ref: "#/components/parameters/InfokanalMitteilungIdPfad"
+      responses:
+        "204":
+          description: Gelöscht; kein Body.
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/infokanaele/{einheitId}/gelesen:
+    put:
+      operationId: infokanalGelesen
+      summary: Infokanal als gelesen markieren
+      tags:
+        - Infokanal
+      description: |
+        Setzt den Lesestand des Kontos für diese Einheit auf jetzt, ohne Body. Die App ruft es, wenn der Verlauf offen ist und die neueste Mitteilung gesehen wurde.
+        Alle Konten, die den Infokanal sehen, dürfen; wer die Einheit nicht kennt, auch das Konto des Kantonsadmins, bekommt 404.
+        Statuscodes: 204, 400, 401, 403, 404, 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/InfokanalEinheitIdPfad"
+      responses:
+        "204":
+          description: Gespeichert; kein Body.
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
   /api/v1/einheiten/{einheitId}/kontakt:
     get:
       operationId: einheitKontaktLesen
@@ -2229,6 +2632,76 @@ paths:
           $ref: "#/components/responses/AppVeraltet426"
         "429":
           $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/admin/einheiten/{einheitId}/mitteilungen:
+    post:
+      operationId: sendeAdminMitteilung
+      summary: Push-Mitteilung an die Einheit senden
+      description: |
+        Kantonsadmin, Kommandant und Stellvertretungen der Einheit. Sendet sofort eine Push-Mitteilung mit freiem Text an die aktiven Konten der Einheit, die mindestens ein Push-Token haben: `gruppe: alle` an Kommando, Stellvertretungen, Leitende sowie Eltern und teilnehmende Personen aktiver Teilnehmender; `gruppe: leitende` nur an Kommando, Stellvertretungen und Leitende. Einzelne Personen und Gruppen darunter gibt es nicht; eine Planung oder Wiederholung auch nicht. Die Schalter der Konten (`pushProgramme` und andere) gelten nicht für diese Mitteilung.
+
+        Der Push trägt `data: { typ: "mitteilung" }` ohne `id` und läuft im Android-Kanal `termine`; die Apps öffnen nur die App. Der Text steht auf dem Sperrbildschirm und läuft über Google und Apple: kein Name eines Kindes, keine Personendaten. Titel höchstens 60, Text höchstens 200 Unicode-Zeichen (nach dem Kürzen von Leerraum), nur Text; im Titel keine Steuerzeichen, im Text nur Zeilenumbrüche als Steuerzeichen.
+
+        Jeder Versand steht im Audit-Log (`push_mitteilung_gesendet` mit Gruppe und Zahl der Konten, nie der Text). Pro Konto gelten höchstens 5 Mitteilungen je Stunde und 20 je Tag (gezählt im Audit-Log, 429); wer 0 Konten erreicht, verbraucht nichts. Fehlt dem Server der Schlüssel des Push-Dienstes, antwortet er 503 `PUSH_NICHT_EINGERICHTET` und sendet und protokolliert nichts. Der Dienst meldet Fehler beim Zustellen nicht zurück: 200 heisst, dass der Versand angestossen ist.
+
+        Statuscodes: 200 bei Erfolg (`empfaenger`: Zahl der Konten, 0 heisst: nichts gesendet). 400 bei ungültigem Body. 403 für Leitende und Eltern der Einheit (und ohne zweiten Faktor, Code `ZWEITER_FAKTOR_FEHLT`). 404, wenn die Einheit unbekannt oder unsichtbar ist. 429 beim Limit. 503 ohne Push-Dienst.
+      tags:
+        - Verwaltung
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/EinheitIdPfad"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [gruppe, titel, text]
+              properties:
+                gruppe:
+                  type: string
+                  enum: [alle, leitende]
+                titel:
+                  type: string
+                  minLength: 1
+                  maxLength: 60
+                  description: Die fette Zeile des Pushs, eine Zeile.
+                text:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                  description: Der Text unter dem Titel.
+      responses:
+        "200":
+          description: Versand angestossen.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [empfaenger]
+                properties:
+                  empfaenger:
+                    type: integer
+                    minimum: 0
+                    description: Zahl der Konten mit Push-Token, die die Mitteilung bekommen.
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+        "503":
+          description: Der Server hat keinen Schlüssel für den Push-Dienst (code PUSH_NICHT_EINGERICHTET).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Fehler"
   /api/v1/admin/einheiten/{einheitId}/lodur:
     get:
       operationId: holeAdminLodurLink
@@ -3209,6 +3682,77 @@ paths:
           $ref: "#/components/responses/NichtGefunden404"
         "409":
           $ref: "#/components/responses/AdminKonflikt409"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/admin/einheiten/{einheitId}/teilnehmende/ziele:
+    get:
+      operationId: listeAdminUebertragungsziele
+      summary: Zieleinheiten für die Übertragung von Teilnehmenden
+      tags:
+        - Verwaltung
+      description: |
+        Kommando, Stellvertretungen und Kantonsadmin (mit zweitem Faktor), nur für die Einheit im Pfad. Die Einheiten, in die die Person Teilnehmende dieser Einheit übertragen darf, für die Auswahl im Panel; die Liste kann leer sein.
+        Das Kommando und die Stellvertretungen einer Kinderfeuerwehr dürfen nur in die Jugendfeuerwehr desselben Bezirks übertragen; aus einer Jugendfeuerwehr übertragen sie nie. Jede andere Übertragung (andere Einheit, anderer Bezirk) macht allein das Konto des Kantonsadmins.
+        Ziel ist nur eine in der App registrierte Einheit, also eine mit aktivem Kommando-Konto. Die eigene Einheit fehlt.
+
+        Statuscodes: 200, 401, 403, 404, 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/EinheitIdPfad"
+      responses:
+        "200":
+          description: Zieleinheiten nach Bezirk und Art.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUebertragungsziele"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/admin/einheiten/{einheitId}/teilnehmende/{teilnehmendeId}/uebertragen:
+    post:
+      operationId: uebertrageAdminTeilnehmende
+      summary: Teilnehmende in eine andere Einheit übertragen
+      tags:
+        - Verwaltung
+      description: |
+        Kommando, Stellvertretungen und Kantonsadmin (mit zweitem Faktor), nur für Personen der Einheit im Pfad; eine Person einer anderen Einheit ist 404. Die Ziele nennt `GET .../teilnehmende/ziele`:
+        Das Kommando und die Stellvertretungen einer Kinderfeuerwehr übertragen nur in die Jugendfeuerwehr desselben Bezirks, alles andere nur der Kantonsadmin, und das Ziel muss eine in der App registrierte Einheit sein (aktives Kommando-Konto). Ein Ziel, das die Person nicht wählen darf, ist für das Kommando 403, für den Kantonsadmin 400 (unbekannt, die eigene Einheit, nicht registriert).
+        Es ändert sich nur die Einheit der Person. Die Konten (Eltern oder eigenes Konto) bleiben verknüpft: Danach steht die Person bei `GET /api/v1/ich` mit der neuen Einheit (`einheitId`, `einheitName`, `einheitTyp`), und die Eltern antworten dort, auch ohne Rolle in der Einheit.
+        Alle Antworten (Anmeldungen) der Person in Programmen der alten Einheit verfallen, auch vergangene: Sie wären sonst in keiner Auswertung mehr sichtbar. Der Rang geht mit, wenn die Zieleinheit einen Rang mit gleichem Namen und gleicher Art hat, sonst ist die Person danach ohne Rang. Alles geschieht in einer Transaktion.
+        Die Übertragung steht im Audit-Log (`teilnehmende_uebertragen`) mit der abgebenden und der Zieleinheit, der ID der Person und der Zahl der gelöschten Antworten, nie mit Namen.
+
+        Statuscodes: 204, 400, 401, 403, 404, 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/EinheitIdPfad"
+        - $ref: "#/components/parameters/AdminTeilnehmendeIdPfad"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminUebertragen"
+      responses:
+        "204":
+          description: Übertragen.
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
         "426":
           $ref: "#/components/responses/AppVeraltet426"
         "429":
@@ -4308,6 +4852,7 @@ components:
         - telefon
         - bildUrl
         - pushProgramme
+        - pushInfokanal
         - einheiten
         - teilnehmende
       properties:
@@ -4341,6 +4886,9 @@ components:
           type: boolean
         pushAnmeldungen:
           type: boolean
+        pushInfokanal:
+          type: boolean
+          description: Push bei neuen Mitteilungen im Infokanal; für alle Konten, standardmässig an.
         einheiten:
           type: array
           items:
@@ -4359,12 +4907,130 @@ components:
           type: boolean
         pushAnmeldungen:
           type: boolean
+        pushInfokanal:
+          type: boolean
         telefon:
           type:
             - string
             - "null"
           maxLength: 30
           description: Eigene Telefonnummer, nur für SL; leerer Text oder `null` entfernt sie.
+    InfokanalListe:
+      type: object
+      required: [infokanaele]
+      properties:
+        infokanaele:
+          type: array
+          items:
+            $ref: "#/components/schemas/Infokanal"
+    Infokanal:
+      type: object
+      required:
+        - einheit
+        - name
+        - darfSchreiben
+        - ungelesen
+        - letzteMitteilungAm
+      properties:
+        einheit:
+          $ref: "#/components/schemas/ProgrammEinheit"
+        name:
+          type: string
+          description: «Infokanal» und Einheitsname.
+          example: Infokanal Jugendfeuerwehr Meilen
+        darfSchreiben:
+          type: boolean
+          description: Kommando, Stellvertretung und Leitung der Einheit.
+        ungelesen:
+          type: integer
+          minimum: 0
+        letzteMitteilungAm:
+          type:
+            - string
+            - "null"
+          format: date-time
+    InfokanalVerlauf:
+      type: object
+      required: [darfSchreiben, mitteilungen, naechste]
+      properties:
+        darfSchreiben:
+          type: boolean
+        mitteilungen:
+          type: array
+          items:
+            $ref: "#/components/schemas/InfokanalMitteilung"
+        naechste:
+          type:
+            - string
+            - "null"
+          format: uuid
+          description: Das `vor` der nächsten Seite; `null` am Ende.
+    InfokanalMitteilung:
+      type: object
+      required:
+        - id
+        - text
+        - geloescht
+        - bearbeitet
+        - erstelltAm
+        - autor
+        - eigene
+        - darfBearbeiten
+        - darfLoeschen
+      properties:
+        id:
+          type: string
+          format: uuid
+        text:
+          type:
+            - string
+            - "null"
+          description: "`null` bei einer gelöschten Mitteilung."
+        geloescht:
+          type: boolean
+        bearbeitet:
+          type: boolean
+        erstelltAm:
+          type: string
+          format: date-time
+        autor:
+          oneOf:
+            - $ref: "#/components/schemas/InfokanalAutor"
+            - type: "null"
+          description: "`null` bei einer gelöschten Mitteilung und bei einem gelöschten Konto."
+        eigene:
+          type: boolean
+        darfBearbeiten:
+          type: boolean
+        darfLoeschen:
+          type: boolean
+    InfokanalAutor:
+      type: object
+      required: [name, rolle, bildUrl]
+      properties:
+        name:
+          type: string
+        rolle:
+          type:
+            - string
+            - "null"
+          enum: [kommando, leitung, null]
+          description: Stellvertretung zählt als `kommando`; `null`, wenn die Person die Rolle in der Einheit nicht mehr hat.
+        bildUrl:
+          type:
+            - string
+            - "null"
+          description: Pfad zum Profilbild oder `null`.
+    InfokanalText:
+      type: object
+      additionalProperties: false
+      required: [text]
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          description: Nur Text, 1 bis 2000 Zeichen nach dem Trimmen.
     TeilnahmenZahlen:
       type: object
       required: [ja, nein, offen]
@@ -5362,6 +6028,77 @@ components:
           enum: [LODUR_LINK_UNGUELTIG]
         message:
           type: string
+    AdminNachrichtAnlegen:
+      type: object
+      required: [titel, text]
+      additionalProperties: false
+      properties:
+        titel:
+          type: string
+          minLength: 1
+          maxLength: 80
+          description: Eine Zeile, ohne Steuerzeichen. Leerraum am Rand wird entfernt.
+        text:
+          type: string
+          minLength: 1
+          maxLength: 1000
+          description: "Nur Text; Zeilenumbrüche sind erlaubt, Links bleiben Text. Keine Namen und keine Personendaten. Leerraum am Rand wird entfernt."
+        laeuftAbAm:
+          type: [string, "null"]
+          format: date-time
+          description: Ab diesem Zeitpunkt (mit Zeitzone, in der Zukunft) zeigt die Glocke die Nachricht nicht mehr. Ohne Angabe bleibt sie sichtbar.
+    AdminNachrichtAngelegt:
+      type: object
+      required: [id, erstelltAm, laeuftAbAm]
+      properties:
+        id:
+          type: string
+          format: uuid
+        erstelltAm:
+          type: string
+          format: date-time
+        laeuftAbAm:
+          type: [string, "null"]
+          format: date-time
+    AdminNachricht:
+      type: object
+      required: [id, titel, text, erstelltAm, laeuftAbAm]
+      properties:
+        id:
+          type: string
+          format: uuid
+        titel:
+          type: string
+        text:
+          type: string
+        erstelltAm:
+          type: string
+          format: date-time
+        laeuftAbAm:
+          type: [string, "null"]
+          format: date-time
+        gelesen:
+          type: boolean
+          description: "Nur für Kommando und Stellvertretungen: Hat das eigene Konto die Nachricht gelesen?"
+        abgelaufen:
+          type: boolean
+          description: Nur für den Kantonsadmin.
+        lesende:
+          type: integer
+          minimum: 0
+          description: "Nur für den Kantonsadmin: Wie viele der heutigen Empfänger-Konten die Nachricht gelesen haben. Welche, steht nirgends."
+    AdminNachrichtListe:
+      type: object
+      required: [nachrichten]
+      properties:
+        nachrichten:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminNachricht"
+        empfaenger:
+          type: integer
+          minimum: 0
+          description: "Nur für den Kantonsadmin: Zahl der aktiven Konten mit Kommando oder Stellvertretung."
     AdminAngelegt:
       type: object
       required:
@@ -6492,6 +7229,35 @@ components:
           maxLength: 64
           pattern: ^[A-Za-z0-9._-]+$
           description: Benutzername des neuen Kontos der Person.
+    AdminUebertragen:
+      type: object
+      required: [zielEinheitId]
+      additionalProperties: false
+      properties:
+        zielEinheitId:
+          type: string
+          format: uuid
+          description: Die Zieleinheit, eine aus `GET .../teilnehmende/ziele`.
+    AdminUebertragungsziele:
+      type: object
+      required: [ziele]
+      properties:
+        ziele:
+          type: array
+          items:
+            type: object
+            required: [id, name, typ, bezirk]
+            properties:
+              id:
+                type: string
+                format: uuid
+              name:
+                type: string
+              typ:
+                type: string
+                enum: [jf, kf]
+              bezirk:
+                type: string
     KontoSuche:
       type: object
       description: Ein Konto für die Rückfrage vor dem Löschen.
@@ -6577,6 +7343,30 @@ components:
       in: path
       required: true
       description: ID der Erinnerungsregel (UUID).
+      schema:
+        type: string
+        format: uuid
+    InfokanalEinheitIdPfad:
+      name: einheitId
+      in: path
+      required: true
+      description: ID der Einheit (UUID); sie kommt aus `GET /api/v1/infokanaele`.
+      schema:
+        type: string
+        format: uuid
+    InfokanalMitteilungIdPfad:
+      name: id
+      in: path
+      required: true
+      description: ID der Mitteilung (UUID).
+      schema:
+        type: string
+        format: uuid
+    AdminNachrichtId:
+      name: id
+      in: path
+      required: true
+      description: ID der Nachricht (UUID).
       schema:
         type: string
         format: uuid
