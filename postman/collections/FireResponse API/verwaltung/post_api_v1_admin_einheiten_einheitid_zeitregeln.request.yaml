@@ -1,6 +1,6 @@
 $kind: http-request
 name: "POST /api/v1/admin/einheiten/:einheitId/zeitregeln"
-order: 85000
+order: 87000
 method: POST
 url: "{{baseUrl}}/api/v1/admin/einheiten/{{einheit_jfA}}/zeitregeln"
 headers:
@@ -18,7 +18,7 @@ body:
   type: json
   content: |-
     {
-      "wochentag": 3,
+      "tageVorher": 3,
       "uhrzeit": "08:00",
       "text": "Matrix",
       "aktiv": false
