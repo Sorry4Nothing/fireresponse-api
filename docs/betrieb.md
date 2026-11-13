@@ -235,6 +235,12 @@ Bei Alarm:
 3. Platz und Speicher: `df -h`, `free -h`, `docker inspect` des Containers auf `OOMKilled` (siehe «Server»).
 4. Ist die Datenbank beschädigt oder leer: «Ernstfall: leere Datenbank» unter «Backups».
 
+## Wartung
+
+Das Konto des Kantonsadmins schaltet die Wartung in der Verwaltung (Übersicht, Kachel «Wartung») mit einem Text von höchstens 280 Zeichen und einem Ende, beides optional. Solange sie läuft, antworten alle App-Routen unter `/api/v1/` mit 503 `WARTUNG`, auch ohne Sitzung; die Apps zeigen den Wartungsbildschirm. Offen bleiben die Verwaltung (`/api/v1/admin/*`), `GET /api/v1/wartung`, `GET /api/v1/datenschutz`, `/health` und die Seiten. Die Anmeldung der Apps (mit `X-App-Version`) ist gesperrt, die der Verwaltung im Browser nicht. Das Ende ist nur eine Anzeige: Die Wartung läuft, bis jemand sie ausschaltet. Jedes Ein- und Ausschalten steht im Protokoll der Änderungen.
+
+Kommt niemand mehr in die Verwaltung (zweiter Faktor verloren), schaltet, wer den Server betreibt, mit SQL aus. Alle drei Felder müssen leer werden, sonst weist die Datenbank die Änderung ab: `update wartung set aktiv = false, text = null, ende = null, seit = null;` (in `deploy/`: `docker compose -f docker-compose.prod.yml exec postgres psql -U postgres -d fireresponse`). Den zweiten Faktor setzt die CLI aus «Zweiter Faktor» zurück; das ist der bessere Weg, weil er im Protokoll steht.
+
 ## Logs
 
 Alle Dienste aus `deploy/docker-compose.prod.yml` und der Edge-Caddy loggen über den journald-Treiber von Docker. journald löscht nach Alter statt nach Grösse: Server-Logs und Container-Logs, auch die des Edge-Caddys, bleiben so 14 Tage.

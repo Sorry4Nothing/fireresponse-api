@@ -2,7 +2,10 @@ openapi: 3.1.0
 info:
   title: FireResponse API
   version: 1.0.0
-  description: Schnittstelle des Backends für die nativen Apps (Android, iOS). Sie beschreibt, was der Code in apps/api tatsächlich liefert; test/openapi.test.ts vergleicht Pfade und Methoden mit den Routen der App.
+  description: |
+    Schnittstelle des Backends für die nativen Apps (Android, iOS). Sie beschreibt, was der Code in apps/api tatsächlich liefert; test/openapi.test.ts vergleicht Pfade und Methoden mit den Routen der App.
+
+    **Wartung.** Solange die Wartung läuft, antwortet jede Route unter `/api/v1/` mit 503 `WARTUNG` (Schema `WartungFehler`, Header `Retry-After`), und zwar vor der Prüfung von Sitzung, Rolle und Einwilligung. Ausgenommen sind `GET /api/v1/wartung`, `GET /api/v1/datenschutz`, `/api/v1/admin/*` und `/health`. Darum steht die 503 als Antwort (`Wartung503`) bei den Operationen der App, nicht bei denen der Verwaltung. Auch `POST /api/auth/sign-in/username` antwortet mit 503, aber nur mit `X-App-Version`. Das Kantonsadmin-Konto schaltet die Wartung mit `PUT /api/v1/admin/system/wartung`.
 servers:
   - url: https://api.example.org
     description: Platzhalter; die echte Adresse steht in der Konfiguration der App
@@ -439,6 +442,21 @@ paths:
             text/javascript:
               schema:
                 type: string
+  /admin/wartung.js:
+    get:
+      operationId: getAdminWartungSkript
+      summary: Skript der Verwaltung – Wartung ein- und ausschalten
+      tags:
+        - Allgemein
+      security: []
+      description: Statische Datei der Verwaltung (siehe `GET /admin`), ohne Anmeldung.
+      responses:
+        "200":
+          description: Datei (`text/javascript; charset=UTF-8`).
+          content:
+            text/javascript:
+              schema:
+                type: string
   /admin/zeitregeln.js:
     get:
       operationId: getAdminZeitregelnSkript
@@ -532,8 +550,10 @@ paths:
         Zusätzlich gilt ein Limit von 30 Anfragen je 15 Minuten und Client-IP (429 `ZU_VIELE_ANFRAGEN`, Header
         `X-Retry-After` in Sekunden).
 
+        **Wartung.** Solange die Wartung läuft, antwortet die Route mit `X-App-Version` mit 503 `WARTUNG` und prüft nichts. Ohne den Header (die Verwaltung im Browser) geht die Anmeldung durch, damit das Kantonsadmin-Konto die Wartung beenden kann.
+
         **Rollen.** Alle Personen mit Konto; deaktivierte Konten und unbekannte Namen bekommen 401.
-        Statuscodes: 200, 401, 426, 429.
+        Statuscodes: 200, 401, 426, 429, 503 (Wartung, nur mit `X-App-Version`).
       requestBody:
         required: true
         content:
@@ -568,6 +588,8 @@ paths:
           $ref: "#/components/responses/AppVeraltet426"
         "429":
           $ref: "#/components/responses/ZuVieleAnfragen429"
+        "503":
+          $ref: "#/components/responses/Wartung503"
   /api/auth/sign-out:
     post:
       operationId: abmelden
@@ -960,7 +982,7 @@ paths:
         antworten dann mit 403.
 
         **Rollen.** Alle angemeldeten Personen, auch ohne zweiten Faktor.
-        Statuscodes: 200, 401 (ohne Sitzung, deaktiviert, Konto gelöscht), 426.
+        Statuscodes: 200, 401 (ohne Sitzung, deaktiviert, Konto gelöscht), 426, 503.
       responses:
         "200":
           description: Das eigene Profil.
@@ -972,6 +994,8 @@ paths:
           $ref: "#/components/responses/NichtAngemeldet401"
         "426":
           $ref: "#/components/responses/AppVeraltet426"
+        "503":
+          $ref: "#/components/responses/Wartung503"
     patch:
       operationId: ichAendern
       summary: Eigene Push-Schalter und Telefonnummer ändern
@@ -994,7 +1018,7 @@ paths:
         jede Person, auch eine, die die Rolle verloren hat.
 
         **Rollen.** Alle angemeldeten Personen ausser bei offenem Pflichtwechsel des Passworts oder fehlender Einwilligung (403); die Nummer nur
-        Kommandant und Stellvertretungen. Statuscodes: 204, 400, 401, 403, 426.
+        Kommandant und Stellvertretungen. Statuscodes: 204, 400, 401, 403, 426, 503.
       requestBody:
         required: true
         content:
@@ -1012,6 +1036,8 @@ paths:
           $ref: "#/components/responses/KeineBerechtigung403"
         "426":
           $ref: "#/components/responses/AppVeraltet426"
+        "503":
+          $ref: "#/components/responses/Wartung503"
   /api/v1/ich/bild:
     put:
       operationId: ichBildSetzen
@@ -1042,7 +1068,7 @@ paths:
         Alternativtext) und nennt in der Bedienung nur den Namen; ein Bild darf nie allein die Information tragen.
 
         **Rollen.** Alle angemeldeten Personen ausser bei offenem Pflichtwechsel des Passworts (403).
-        Statuscodes: 204, 401, 403, 413, 415, 426, 429.
+        Statuscodes: 204, 401, 403, 413, 415, 426, 429, 503.
       requestBody:
         required: true
         content:
@@ -1081,6 +1107,8 @@ paths:
           $ref: "#/components/responses/AppVeraltet426"
         "429":
           $ref: "#/components/responses/ZuVieleAnfragen429"
+        "503":
+          $ref: "#/components/responses/Wartung503"
     delete:
       operationId: ichBildLoeschen
       summary: Eigenes Profilbild löschen
@@ -1095,7 +1123,7 @@ paths:
         zurück, die Person lädt dann ein neues hoch.
 
         **Rollen.** Alle angemeldeten Personen ausser bei offenem Pflichtwechsel des Passworts (403).
-        Statuscodes: 204, 401, 403, 426.
+        Statuscodes: 204, 401, 403, 426, 503.
       responses:
         "204":
           description: Gelöscht oder nie vorhanden; kein Body.
@@ -1105,6 +1133,8 @@ paths:
           $ref: "#/components/responses/KeineBerechtigung403"
         "426":
           $ref: "#/components/responses/AppVeraltet426"
+        "503":
+          $ref: "#/components/responses/Wartung503"
   /api/v1/personen/{id}/bild:
     get:
       operationId: personBildLesen
@@ -1132,7 +1162,7 @@ paths:
         **Rollen.** Wer eine Person mit Namen sieht, sieht auch ihr Bild, sonst niemand: die Person selbst, das Konto des Kantonsadmins für alle,
         Kommando und Leitende für alle Rollen ihrer Einheiten, Eltern und Teilnehmende für Kommandant und Stellvertretungen ihrer Einheiten
         (die Kontakte). Für alle anderen, für Personen ohne Bild und für unbekannte Personen ist die Antwort 404, ohne Unterschied.
-        Statuscodes: 200, 400, 401, 403, 404, 426.
+        Statuscodes: 200, 400, 401, 403, 404, 426, 503.
       responses:
         "200":
           description: Das Bild.
@@ -1157,6 +1187,8 @@ paths:
           $ref: "#/components/responses/NichtGefunden404"
         "426":
           $ref: "#/components/responses/AppVeraltet426"
+        "503":
+          $ref: "#/components/responses/Wartung503"
   /api/v1/push-token:
     put:
       operationId: pushTokenRegistrieren
@@ -1176,7 +1208,7 @@ paths:
         und `_ : . -`. Die Form `ExponentPushToken[…]` aus der früheren Expo-Anbindung ergibt 400.
 
         **Rollen.** Alle angemeldeten Personen ausser bei offenem Pflichtwechsel des Passworts (403).
-        Statuscodes: 204, 400, 401, 403, 426.
+        Statuscodes: 204, 400, 401, 403, 426, 503.
       requestBody:
         required: true
         content:
@@ -1194,6 +1226,8 @@ paths:
           $ref: "#/components/responses/KeineBerechtigung403"
         "426":
           $ref: "#/components/responses/AppVeraltet426"
+        "503":
+          $ref: "#/components/responses/Wartung503"
   /api/v1/programme:
     get:
       operationId: programmeAuflisten
@@ -1219,7 +1253,7 @@ paths:
         Statuscodes: 200 Erfolg; 400 `von` oder `bis` fehlt, ist kein gültiges Datum `JJJJ-MM-TT`, beginnt mit Jahr
         0000 oder es gibt unbekannte Query-Parameter; 401 keine gültige Sitzung (auch deaktiviertes Konto);
         403 das Konto muss zuerst das Passwort ändern oder der Einwilligung zustimmen;
-        426 App-Version zu alt; 429 zu viele Anfragen.
+        426 App-Version zu alt; 429 zu viele Anfragen; 503 Wartung (`WARTUNG`).
       parameters:
         - $ref: "#/components/parameters/AppVersion"
         - name: von
@@ -1255,6 +1289,8 @@ paths:
           $ref: "#/components/responses/AppVeraltet426"
         "429":
           $ref: "#/components/responses/ZuVieleAnfragen429"
+        "503":
+          $ref: "#/components/responses/Wartung503"
   /api/v1/programme/{id}:
     get:
       operationId: programmLesen
@@ -1271,7 +1307,7 @@ paths:
         Wer aufrufen darf: jede angemeldete Person, für die das Programm sichtbar ist (Regeln wie bei der Liste).
         Ein Programm, das die Person nicht sieht oder das es nicht gibt, ist 404.
 
-        Statuscodes: 200, 400 (`id` keine UUID), 401, 403 (Pflichtwechsel des Passworts oder Einwilligung offen), 404, 426, 429.
+        Statuscodes: 200, 400 (`id` keine UUID), 401, 403 (Pflichtwechsel des Passworts oder Einwilligung offen), 404, 426, 429, 503.
       parameters:
         - $ref: "#/components/parameters/AppVersion"
         - $ref: "#/components/parameters/ProgrammIdPfad"
@@ -1294,6 +1330,8 @@ paths:
           $ref: "#/components/responses/AppVeraltet426"
         "429":
           $ref: "#/components/responses/ZuVieleAnfragen429"
+        "503":
+          $ref: "#/components/responses/Wartung503"
   /api/v1/programme/{id}/teilnahmen:
     get:
       operationId: teilnahmenUebersicht
@@ -1306,7 +1344,7 @@ paths:
         mit ihrer eigenen Anmeldung und ihrem Abzeichen. Eltern und Teilnehmende sehen nur ihre eigenen Personen und keine Leitenden.
         Eine Person, die das Programm sieht, aber weder eine Rolle noch eine eigene teilnehmende Person in der Einheit hat, bekommt 403.
 
-        Statuscodes: 200, 400, 401, 403, 404 (Programm unbekannt oder in keiner sichtbaren Einheit), 426, 429.
+        Statuscodes: 200, 400, 401, 403, 404 (Programm unbekannt oder in keiner sichtbaren Einheit), 426, 429, 503.
       parameters:
         - $ref: "#/components/parameters/AppVersion"
         - $ref: "#/components/parameters/ProgrammIdPfad"
@@ -1329,6 +1367,8 @@ paths:
           $ref: "#/components/responses/AppVeraltet426"
         "429":
           $ref: "#/components/responses/ZuVieleAnfragen429"
+        "503":
+          $ref: "#/components/responses/Wartung503"
   /api/v1/programme/{id}/leitung:
     put:
       operationId: leitungAnmelden
@@ -1341,7 +1381,7 @@ paths:
 
         Reihenfolge der Prüfung: Eingabe (400); Programm nicht sichtbar (404); keine Rolle in der Einheit (403);
         Programm schon begonnen (409, Code `PROGRAMM_BEGONNEN`); Anmeldefenster noch nicht offen (409, Code
-        `ANMELDEFENSTER_NICHT_OFFEN`). Statuscodes: 204, 400, 401, 403, 404, 409, 426, 429.
+        `ANMELDEFENSTER_NICHT_OFFEN`). Statuscodes: 204, 400, 401, 403, 404, 409, 426, 429, 503.
       parameters:
         - $ref: "#/components/parameters/AppVersion"
         - $ref: "#/components/parameters/ProgrammIdPfad"
@@ -1383,6 +1423,8 @@ paths:
           $ref: "#/components/responses/AppVeraltet426"
         "429":
           $ref: "#/components/responses/ZuVieleAnfragen429"
+        "503":
+          $ref: "#/components/responses/Wartung503"
   /api/v1/admin/system:
     get:
       operationId: holeAdminSystem
@@ -1404,6 +1446,45 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminSystem"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/admin/system/wartung:
+    put:
+      operationId: schalteAdminWartung
+      summary: Wartung ein- oder ausschalten
+      description: |
+        Nur das Konto des Kantonsadmins (mit zweitem Faktor). Schaltet die Wartung für das ganze System. Solange sie läuft, antworten alle App-Routen unter `/api/v1/` mit 503 `WARTUNG`; die Verwaltung (`/api/v1/admin/*`) und `GET /api/v1/wartung` bleiben benutzbar.
+
+        `aktiv: true` schaltet ein oder ändert Text und Ende einer laufenden Wartung (`seit` bleibt). `text` (getrimmt, höchstens 280 Zeichen, leer zählt als kein Text) und `ende` (ISO 8601 mit Zeitzone) sind optional. `aktiv: false` schaltet aus und leert alle Felder; `text` und `ende` sind dann nicht erlaubt (400). Die Antwort hat dieselbe Form wie `GET /api/v1/wartung`.
+
+        Jede Änderung steht im Protokoll (`wartung_eingeschaltet`, `wartung_geaendert`, `wartung_ausgeschaltet`); es nennt das Ende, nie den Text. Aus bei schon ausgeschalteter Wartung ändert nichts und schreibt nichts.
+
+        Statuscodes: 200, 400, 401, 403, 426, 429.
+      tags:
+        - Verwaltung
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WartungSchalten"
+      responses:
+        "200":
+          description: Neuer Stand.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WartungStand"
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
         "401":
           $ref: "#/components/responses/NichtAngemeldet401"
         "403":
@@ -1506,6 +1587,8 @@ paths:
           $ref: "#/components/responses/AppVeraltet426"
         "429":
           $ref: "#/components/responses/ZuVieleAnfragen429"
+        "503":
+          $ref: "#/components/responses/Wartung503"
   /api/v1/einheiten/{einheitId}/kontakt:
     get:
       operationId: einheitKontaktLesen
@@ -1519,7 +1602,7 @@ paths:
         dieser Einheit, sonst ist `telefon` `null`.
 
         Wer aufrufen darf: jede Person, die die Einheit sieht (Rolle in der Einheit, aktive teilnehmende Person darin oder
-        Kantonsadmin-Konto); sonst 404. Statuscodes: 200, 400, 401, 403, 404, 426.
+        Kantonsadmin-Konto); sonst 404. Statuscodes: 200, 400, 401, 403, 404, 426, 503.
       parameters:
         - $ref: "#/components/parameters/AppVersion"
         - $ref: "#/components/parameters/EinheitIdPfad"
@@ -1546,6 +1629,8 @@ paths:
           $ref: "#/components/responses/NichtGefunden404"
         "426":
           $ref: "#/components/responses/AppVeraltet426"
+        "503":
+          $ref: "#/components/responses/Wartung503"
   /api/v1/einheiten/{einheitId}/logo:
     get:
       operationId: einheitLogoLesen
@@ -1555,7 +1640,7 @@ paths:
       description: |
         Das gespeicherte, bereinigte Logo der Einheit (PNG oder SVG). Die Adresse steht als `logoUrl` in `/ich` und in der Liste der Einheiten der Verwaltung. Die Antwort trägt `Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; sandbox` und `X-Content-Type-Options: nosniff`, damit auch ein SVG nie als Seite läuft.
 
-        Wer aufrufen darf: jede Person, die die Einheit sieht (Rolle in der Einheit, aktive teilnehmende Person darin oder Kantonsadmin-Konto); sonst 404, ebenso ohne Logo. Statuscodes: 200, 400, 401, 403, 404, 426.
+        Wer aufrufen darf: jede Person, die die Einheit sieht (Rolle in der Einheit, aktive teilnehmende Person darin oder Kantonsadmin-Konto); sonst 404, ebenso ohne Logo. Statuscodes: 200, 400, 401, 403, 404, 426, 503.
       parameters:
         - $ref: "#/components/parameters/AppVersion"
         - $ref: "#/components/parameters/EinheitIdPfad"
@@ -1581,6 +1666,8 @@ paths:
           $ref: "#/components/responses/NichtGefunden404"
         "426":
           $ref: "#/components/responses/AppVeraltet426"
+        "503":
+          $ref: "#/components/responses/Wartung503"
   /api/v1/raenge/{id}/abzeichen:
     get:
       operationId: abzeichenBildLesen
@@ -1593,7 +1680,7 @@ paths:
 
         Die Antwort trägt `Cache-Control: private, no-store`, `X-Content-Type-Options: nosniff` und eine CSP, die Skripte und
         Nachladen sperrt. Wer die Einheit des Rangs nicht sieht, ein Rang ohne Bild und ein unbekannter Rang sind 404, ohne Unterschied.
-        Statuscodes: 200, 400, 401, 403, 404, 426.
+        Statuscodes: 200, 400, 401, 403, 404, 426, 503.
       parameters:
         - $ref: "#/components/parameters/AppVersion"
         - name: id
@@ -1625,6 +1712,8 @@ paths:
           $ref: "#/components/responses/NichtGefunden404"
         "426":
           $ref: "#/components/responses/AppVeraltet426"
+        "503":
+          $ref: "#/components/responses/Wartung503"
   /api/v1/datenschutz:
     get:
       operationId: datenschutzLesen
@@ -1660,6 +1749,33 @@ paths:
           $ref: "#/components/responses/ZuVieleAnfragen429"
         "426":
           $ref: "#/components/responses/AppVeraltet426"
+  /api/v1/wartung:
+    get:
+      operationId: holeWartung
+      summary: Stand der Wartung lesen
+      tags:
+        - Allgemein
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+      description: |
+        Öffentlich, ohne Anmeldung und ausserhalb der Wartungssperre: Die Route antwortet immer mit 200, auch während der Wartung. Die App ruft sie auf, wenn eine Antwort 503 `WARTUNG` war und die Person «Erneut prüfen» wählt; bei `aktiv: false` geht die App weiter. Keine Dauerabfrage.
+
+        `text` ist `null`, wenn die Verwaltung keinen eigenen Text gesetzt hat; die App zeigt dann ihren Standardtext. `text` hat höchstens 280 Zeichen. `ende` ist das voraussichtliche Ende, nur zur Anzeige: Die Wartung endet erst, wenn das Kantonsadmin-Konto sie ausschaltet. Ist die Wartung aus, sind alle Felder ausser `aktiv` `null`.
+        Drosselung wie alle Routen unter `/api/v1/` (600 je Minute und Adresse), nicht die strengere der Seiten. `Cache-Control: no-store`.
+
+        Statuscodes: 200, 426, 429.
+      responses:
+        "200":
+          description: Stand der Wartung.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WartungStand"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
   /api/v1/einwilligung:
     get:
       operationId: einwilligungLesen
@@ -1674,7 +1790,7 @@ paths:
         Routen unter `/api/v1` ausser `GET /api/v1/ich`, dieser Route und `/api/v1/admin/*` mit 403 `EINWILLIGUNG_FEHLT`;
         Passwortwechsel und Abmelden laufen über `/api/auth/*` und bleiben offen.
 
-        Statuscodes: 200, 401, 403 (Pflichtwechsel des Passworts offen), 426.
+        Statuscodes: 200, 401, 403 (Pflichtwechsel des Passworts offen), 426, 503.
       responses:
         "200":
           description: Fassung und Stand.
@@ -1688,6 +1804,8 @@ paths:
           $ref: "#/components/responses/KeineBerechtigung403"
         "426":
           $ref: "#/components/responses/AppVeraltet426"
+        "503":
+          $ref: "#/components/responses/Wartung503"
     put:
       operationId: einwilligungGeben
       summary: Der aktuellen Fassung zustimmen
@@ -1699,7 +1817,7 @@ paths:
         Speichert Zeitpunkt und aktuelle Version der Einwilligung am eigenen Konto. Kein Body: Die Fassung setzt der Server,
         nicht die App. Ein zweiter Aufruf schreibt Zeitpunkt und Version neu.
 
-        Statuscodes: 204, 401, 403 (Pflichtwechsel des Passworts offen), 426.
+        Statuscodes: 204, 401, 403 (Pflichtwechsel des Passworts offen), 426, 503.
       responses:
         "204":
           description: Gespeichert; kein Body.
@@ -1709,6 +1827,8 @@ paths:
           $ref: "#/components/responses/KeineBerechtigung403"
         "426":
           $ref: "#/components/responses/AppVeraltet426"
+        "503":
+          $ref: "#/components/responses/Wartung503"
   /api/v1/admin/einheiten/{einheitId}:
     delete:
       operationId: loescheAdminEinheit
@@ -3774,6 +3894,72 @@ paths:
                 type: string
 components:
   schemas:
+    WartungStand:
+      type: object
+      required:
+        - aktiv
+        - text
+        - ende
+        - seit
+      properties:
+        aktiv:
+          type: boolean
+        text:
+          type:
+            - string
+            - "null"
+          maxLength: 280
+          description: Text der Verwaltung für die App; `null` heisst Standardtext der App.
+        ende:
+          type:
+            - string
+            - "null"
+          format: date-time
+          description: Voraussichtliches Ende, nur zur Anzeige.
+        seit:
+          type:
+            - string
+            - "null"
+          format: date-time
+    WartungSchalten:
+      type: object
+      additionalProperties: false
+      required:
+        - aktiv
+      properties:
+        aktiv:
+          type: boolean
+        text:
+          type:
+            - string
+            - "null"
+          maxLength: 280
+        ende:
+          type:
+            - string
+            - "null"
+          format: date-time
+          description: ISO 8601 mit Zeitzone (`Z` oder Abstand zu UTC).
+    WartungFehler:
+      type: object
+      required:
+        - code
+        - message
+        - ende
+      properties:
+        code:
+          type: string
+          enum:
+            - WARTUNG
+        message:
+          type: string
+          examples:
+            - FireResponse wird gerade gewartet. Bitte versuche es später noch einmal.
+        ende:
+          type:
+            - string
+            - "null"
+          format: date-time
     Fehler:
       type: object
       required:
@@ -4823,7 +5009,19 @@ components:
           items:
             type: object
             additionalProperties: false
-            required: [id, titel, art, status, ganztaegig, beginn, ende, tagVon, tagBis, nurLeitende]
+            required:
+              [
+                id,
+                titel,
+                art,
+                status,
+                ganztaegig,
+                beginn,
+                ende,
+                tagVon,
+                tagBis,
+                nurLeitende,
+              ]
             properties:
               id:
                 type: string
@@ -6254,6 +6452,18 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/Fehler"
+    Wartung503:
+      description: |
+        Wartung (code `WARTUNG`), vor der Prüfung von Sitzung, Rolle und Einwilligung. `message` ist der Text der Verwaltung oder der Standardtext, `ende` das voraussichtliche Ende oder `null`. `Retry-After` nennt die Sekunden bis zum Ende, höchstens 3600, ohne Ende oder nach seinem Ablauf 300. Die App zeigt den Wartungsbildschirm; eine 503 ohne den Code `WARTUNG` ist ein gewöhnlicher Fehler.
+      headers:
+        Retry-After:
+          description: Sekunden bis zum nächsten Versuch.
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/WartungFehler"
     AppVeraltet426:
       description: App-Version unter dem Minimum (code APP_VERALTET)
       content:
