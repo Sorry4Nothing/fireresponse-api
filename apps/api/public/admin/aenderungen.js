@@ -39,6 +39,8 @@ const AKTIONEN = {
   zeitregel_angelegt: "Erinnerung angelegt",
   zeitregel_geaendert: "Erinnerung geändert",
   zeitregel_geloescht: "Erinnerung gelöscht",
+  nachricht_gesendet: "Nachricht an die Verwaltung gesendet",
+  nachricht_zurueckgezogen: "Nachricht zurückgezogen",
 };
 
 // «rolle: leitung, felder: name, telefon»; die Werte sind feste Wörter, IDs und Zahlen

@@ -15,6 +15,7 @@ import {
   waehleEinheit,
   zeigeUmschalter,
 } from "./kontext.js";
+import { erstelleGlocke } from "./nachrichten.js";
 import * as personen from "./personen.js";
 import * as system from "./system.js";
 import * as teilnehmende from "./teilnehmende.js";
@@ -678,7 +679,12 @@ function zeigeVerwaltung() {
       "div",
       { class: "marke" },
       el("p", { class: "ueber" }, "FireResponse"),
-      el("strong", {}, "Verwaltung"),
+      el(
+        "div",
+        { class: "marke-zeile" },
+        el("strong", {}, "Verwaltung"),
+        erstelleGlocke({ melde }).wurzel,
+      ),
       el("div", { id: "einheit-karte" }, einheitKarte()),
     ),
     bereiche,
