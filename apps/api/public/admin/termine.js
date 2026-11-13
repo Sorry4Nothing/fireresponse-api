@@ -134,6 +134,17 @@ export function zeige(bereich, ctx) {
       label: "Nur Leitende (für Eltern und Teilnehmende unsichtbar)",
       gewaehlt: termin?.nurLeitende ?? false,
     });
+    const hoechstzahl = feld({
+      label: "Höchstzahl Leitende (optional)",
+      typ: "number",
+      wert: termin?.leitungHoechstzahl ?? "",
+      min: 1,
+      max: 500,
+      step: 1,
+      inputmode: "numeric",
+      hilfe:
+        "Wie viele Kommando, Stellvertretungen und Leitende sich höchstens anmelden können. Weitere kommen auf eine Warteliste und rücken nach, sobald ein Platz frei wird. Leer lassen: keine Grenze.",
+    });
 
     // Ganztägig: Datum bis statt Uhrzeiten
     const zeigeZeiten = () => {
@@ -160,6 +171,7 @@ export function zeige(bereich, ctx) {
         info.wurzel,
         aufgebot.wurzel,
         nurLeitende.wurzel,
+        hoechstzahl.wurzel,
       ],
       ok: termin ? "Speichern" : "Anlegen",
       fehlertext: formularFehler,
@@ -186,6 +198,16 @@ export function zeige(bereich, ctx) {
           }
           zeitpunkte = { ganztaegig: false, beginn, ende };
         }
+        const roh = hoechstzahl.eingabe.value.trim();
+        const grenze = roh === "" ? null : Number(roh);
+        if (
+          grenze !== null &&
+          !(Number.isInteger(grenze) && grenze >= 1 && grenze <= 500)
+        ) {
+          throw new Eingabefehler(
+            "Die Höchstzahl ist eine ganze Zahl von 1 bis 500.",
+          );
+        }
         const body = {
           titel: titel.eingabe.value.trim(),
           ...zeitpunkte,
@@ -195,6 +217,7 @@ export function zeige(bereich, ctx) {
           info: leerAlsNull(info.eingabe),
           aufgebot: leerAlsNull(aufgebot.eingabe),
           nurLeitende: nurLeitende.eingabe.checked,
+          leitungHoechstzahl: grenze,
         };
         return termin
           ? anfrage("PUT", `${basis}/termine/${termin.id}`, body)
@@ -218,6 +241,30 @@ export function zeige(bereich, ctx) {
         ladeTermine();
       },
     });
+  }
+
+  // Belegte Plätze der Leitenden; «Voll» trägt ein Symbol, nie nur Farbe
+  function platzZelle(t) {
+    const p = t.leitungPlaetze;
+    if (!p) {
+      return el(
+        "td",
+        {},
+        t.quelle === "manuell"
+          ? "Keine Grenze"
+          : [
+              el("span", { "aria-hidden": "true" }, "–"),
+              el("span", { class: "nur-leser" }, "Nicht begrenzt"),
+            ],
+      );
+    }
+    return el(
+      "td",
+      {},
+      `${p.belegt} von ${p.hoechstzahl} belegt`,
+      p.wartende > 0 && `, ${p.wartende} auf der Warteliste`,
+      p.voll && el("ul", { class: "chips" }, chip("Voll", "warn")),
+    );
   }
 
   function terminZeile(t) {
@@ -261,6 +308,7 @@ export function zeige(bereich, ctx) {
       el("td", {}, wann(t)),
       el("td", {}, t.art ?? ""),
       el("td", {}, manuell ? "Selbst angelegt" : "Aus Lodur"),
+      platzZelle(t),
       el("td", {}, wahl.wurzel),
       manuell
         ? aktionenZelle(
@@ -323,6 +371,7 @@ export function zeige(bereich, ctx) {
                 "Wann",
                 "Art",
                 "Quelle",
+                "Leiter-Plätze",
                 "In der App",
                 "Aktionen",
               ],

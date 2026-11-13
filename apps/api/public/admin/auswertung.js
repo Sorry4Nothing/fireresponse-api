@@ -54,6 +54,7 @@ const ANTWORTEN = {
   ja: ["Ja", "ok", "haken"],
   nein: ["Nein", "warn", "schliessen"],
   offen: ["Offen", undefined, "uhr"],
+  warteliste: ["Warteliste", "warn", "uhr"],
 };
 
 const zahl = (n) => ZAHL.format(n);
@@ -70,9 +71,14 @@ function terminDatum(t) {
   return tagText(t.tagVon);
 }
 
-function antwortChip(antwort) {
+// Auf der Warteliste steht die Nummer dabei: «Warteliste 2»
+function antwortChip(antwort, position) {
   const [text, art, symbol] = ANTWORTEN[antwort];
-  return el("ul", { class: "chips" }, chip(text, art, symbol));
+  return el(
+    "ul",
+    { class: "chips" },
+    chip(position ? `${text} ${position}` : text, art, symbol),
+  );
 }
 
 function kachel(titel, wert, hinweis) {
@@ -87,9 +93,12 @@ function kachel(titel, wert, hinweis) {
 
 // «Ja 12 · Nein 3 · Offen 5»; null, wenn die Gruppe ausgefiltert ist
 function jaNeinOffen(z) {
-  return z
-    ? `Ja ${zahl(z.ja)} · Nein ${zahl(z.nein)} · Offen ${zahl(z.offen)}`
-    : "–";
+  if (!z) return "–";
+  const text = `Ja ${zahl(z.ja)} · Nein ${zahl(z.nein)} · Offen ${zahl(z.offen)}`;
+  // Die Warteliste gibt es nur bei Terminen mit Höchstzahl
+  return z.warteliste === undefined
+    ? text
+    : `${text} · Warteliste ${zahl(z.warteliste)}`;
 }
 
 function leer(text) {
@@ -189,26 +198,36 @@ function oeffneTermin(termin) {
     untertitel: `${terminDatum(termin)} · ${termin.einheit.name}`,
     inhalt,
   });
-  const REIHE = { ja: 0, nein: 1, offen: 2 };
-  const gruppe = (titel, zahlen, zeilen, name) =>
+  const REIHE = { ja: 0, warteliste: 1, nein: 2, offen: 3 };
+  const gruppe = (titel, zahlen, zeilen, name, plaetze) =>
     el(
       "section",
       { class: "spalte", "aria-label": titel },
       el("h3", {}, titel),
       el("p", { class: "meta" }, jaNeinOffen(zahlen)),
+      plaetze &&
+        el(
+          "p",
+          { class: "meta" },
+          `Leiter-Plätze: ${zahl(plaetze.belegt)} von ${zahl(plaetze.hoechstzahl)} belegt${plaetze.voll ? " (voll)" : ""}`,
+        ),
       zeilen.length === 0
         ? leer("Niemand.")
         : tabelle({
             beschriftung: titel,
             spalten: ["Name", "Antwort"],
             zeilen: [...zeilen]
-              .sort((a, b) => REIHE[a.status] - REIHE[b.status])
+              .sort(
+                (a, b) =>
+                  REIHE[a.status] - REIHE[b.status] ||
+                  (a.position ?? 0) - (b.position ?? 0),
+              )
               .map((p) =>
                 el(
                   "tr",
                   {},
                   el("th", { scope: "row" }, name(p)),
-                  el("td", {}, antwortChip(p.status)),
+                  el("td", {}, antwortChip(p.status, p.position)),
                 ),
               ),
           }).wurzel,
@@ -235,8 +254,13 @@ function oeffneTermin(termin) {
         d.teilnehmende,
         (p) => `${p.vorname} ${p.nachname}`,
       ),
-      gruppe("Leitende", d.zahlen.leitende, d.leitende, (p) =>
-        p.rolle === "leitung" ? p.name : `${p.name} (${ROLLEN[p.rolle]})`,
+      gruppe(
+        "Leitende",
+        d.zahlen.leitende,
+        d.leitende,
+        (p) =>
+          p.rolle === "leitung" ? p.name : `${p.name} (${ROLLEN[p.rolle]})`,
+        d.leitungPlaetze,
       ),
     ],
   )();
