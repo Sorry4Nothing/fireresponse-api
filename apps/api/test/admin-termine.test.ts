@@ -171,6 +171,28 @@ const lege = async (body: Record<string, unknown> = {}) => {
     nurLeitende: boolean;
   };
 };
+// Eine frische Einheit, die das Kommando verwaltet, mit oder ohne Lodur-Link
+const neueEinheit = async (mitLink: boolean) => {
+  const [bezirk] = await db
+    .insert(schema.bezirk)
+    .values({ name: `Löschen ${randomUUID()}` })
+    .returning();
+  const [e] = await db
+    .insert(schema.einheit)
+    .values({
+      bezirkId: bezirk!.id,
+      typ: "jf",
+      name: "Löschen",
+      ...(mitLink && { lodurUrlVerschluesselt: "geheim" }),
+    })
+    .returning();
+  await db.insert(schema.einheitRolle).values({
+    userId: kommando.id!,
+    einheitId: e!.id,
+    typ: "kommandant",
+  });
+  return e!.id;
+};
 const zeile = async (id: string) =>
   (
     await db.select().from(schema.programm).where(eq(schema.programm.id, id))
@@ -404,15 +426,92 @@ describe("DELETE …/termine/:id", () => {
     expect((await sende("DELETE", `/${id}`)).status).toBe(404);
   });
 
-  test("Termin aus Lodur: 409, bleibt bestehen", async () => {
-    const res = await sende("DELETE", `/${eigener}`);
+  test("Termin aus Lodur ohne Link: wird gelöscht, auch ein vergangener", async () => {
+    const e = await neueEinheit(false);
+    const alt = (
+      await legeProgrammAn(db, {
+        einheitId: e,
+        titel: "Falscher Kalender",
+        beginn: new Date("2020-01-10T18:00:00Z"),
+      })
+    ).id;
+    expect((await sende("DELETE", `/${alt}`, undefined, e)).status).toBe(204);
+    expect(await zeile(alt)).toBeUndefined();
+    const audit = await db
+      .select()
+      .from(schema.auditLog)
+      .where(eq(schema.auditLog.zielId, alt));
+    expect(audit.map((a) => a.aktion)).toEqual(["termin_geloescht"]);
+  });
+
+  test("Termin aus Lodur mit Link: 409, bleibt bestehen", async () => {
+    const e = await neueEinheit(true);
+    const id = (
+      await legeProgrammAn(db, {
+        einheitId: e,
+        beginn: new Date("2031-05-01T18:00:00Z"),
+      })
+    ).id;
+    const res = await sende("DELETE", `/${id}`, undefined, e);
     expect(res.status).toBe(409);
     expect(await res.json()).toMatchObject({ code: "TERMIN_AUS_LODUR" });
-    expect(await zeile(eigener)).toBeDefined();
+    expect(await zeile(id)).toBeDefined();
   });
 
   test("Termin einer anderen Einheit: 404", async () => {
     expect((await sende("DELETE", `/${fremder}`)).status).toBe(404);
+    expect(await zeile(fremder)).toBeDefined();
+  });
+});
+
+describe("DELETE …/termine (alle aus Lodur)", () => {
+  const termineVon = (einheitId: string) =>
+    db
+      .select()
+      .from(schema.programm)
+      .where(eq(schema.programm.einheitId, einheitId));
+
+  test("ohne Link: löscht alle Lodur-Termine, auch vergangene; manuelle bleiben; Audit nennt nur die Zahl", async () => {
+    const e = await neueEinheit(false);
+    for (const beginn of ["2020-01-10T18:00:00Z", "2031-05-01T18:00:00Z"]) {
+      await legeProgrammAn(db, { einheitId: e, beginn: new Date(beginn) });
+    }
+    const eigenerTermin = (await (
+      await sende("POST", "", manuell, e)
+    ).json()) as { id: string };
+    const res = await sende("DELETE", "", undefined, e);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ geloescht: 2 });
+    expect((await termineVon(e)).map((t) => t.id)).toEqual([eigenerTermin.id]);
+    const audit = await db
+      .select()
+      .from(schema.auditLog)
+      .where(eq(schema.auditLog.aktion, "termine_aus_lodur_geloescht"));
+    expect(audit.filter((a) => a.einheitId === e)).toMatchObject([
+      { details: { anzahl: 2 }, zielId: e },
+    ]);
+    // Zweiter Aufruf: nichts mehr da, kein weiterer Audit-Eintrag
+    expect(await (await sende("DELETE", "", undefined, e)).json()).toEqual({
+      geloescht: 0,
+    });
+  });
+
+  test("mit Link: 409, nichts gelöscht", async () => {
+    const e = await neueEinheit(true);
+    await legeProgrammAn(db, {
+      einheitId: e,
+      beginn: new Date("2031-05-01T18:00:00Z"),
+    });
+    const res = await sende("DELETE", "", undefined, e);
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({ code: "LODUR_LINK_GESETZT" });
+    expect(await termineVon(e)).toHaveLength(1);
+  });
+
+  test("fremde Einheit: 404, deren Termine bleiben", async () => {
+    expect(
+      (await sende("DELETE", "", undefined, welt.einheit.kfA)).status,
+    ).toBe(404);
     expect(await zeile(fremder)).toBeDefined();
   });
 });

@@ -926,6 +926,11 @@ const MATRIX: Record<string, Zeile> = {
   // Statische Dateien der Verwaltung (Datepicker)
   "GET /admin/datum.js": { erwartet: alle(200) },
   "GET /admin/datumfeld.js": { erwartet: alle(200) },
+  // Zuletzt: Löscht alle Lodur-Termine von JF A, auch den von programmId, den die Zeilen davor brauchen. Ohne Link (die Zeile «DELETE …/lodur» steht davor); Folgeaufrufe löschen nichts und antworten 200. Link, Quelle und Audit prüft test/admin-termine.test.ts
+  "DELETE /api/v1/admin/einheiten/:einheitId/termine": {
+    url: (w) => `/api/v1/admin/einheiten/${w.einheit.jfA}/termine`,
+    erwartet: VERWALTEN_JF_A(200),
+  },
 };
 
 const abzeichenSvg = new TextEncoder().encode(

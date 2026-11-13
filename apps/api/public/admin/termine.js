@@ -243,6 +243,25 @@ export function zeige(bereich, ctx) {
     });
   }
 
+  // Nur ohne Link: Sonst holte der Sync die Termine zurück
+  function alleAusLodurLoeschen() {
+    bestaetigen({
+      titel: "Termine aus Lodur löschen",
+      beschreibung:
+        "Alle Termine, die aus Lodur kamen, werden gelöscht, auch die vergangenen, mit allen Zu- und Absagen. Selbst angelegte Termine bleiben. Es geht kein Push raus. Das lässt sich nicht rückgängig machen.",
+      ok: "Alle löschen",
+      aktion: () => anfrage("DELETE", `${basis}/termine`),
+      danach: (antwort) => {
+        ctx.melde(
+          antwort?.geloescht === 1
+            ? "Ein Termin ist gelöscht."
+            : `${antwort?.geloescht ?? 0} Termine sind gelöscht.`,
+        );
+        ladeTermine();
+      },
+    });
+  }
+
   // Belegte Plätze der Leitenden; «Voll» trägt ein Symbol, nie nur Farbe
   function platzZelle(t) {
     const p = t.leitungPlaetze;
@@ -295,6 +314,14 @@ export function zeige(bereich, ctx) {
       }
     });
     const manuell = t.quelle === "manuell";
+    const loeschKnopf = () =>
+      knopf("Löschen", {
+        klein: true,
+        art: "gefahr",
+        symbol: "papierkorb",
+        kontext: t.titel,
+        onclick: () => loeschen(t),
+      });
     return el(
       "tr",
       {},
@@ -318,15 +345,12 @@ export function zeige(bereich, ctx) {
               kontext: t.titel,
               onclick: () => terminDialog(t),
             }),
-            knopf("Löschen", {
-              klein: true,
-              art: "gefahr",
-              symbol: "papierkorb",
-              kontext: t.titel,
-              onclick: () => loeschen(t),
-            }),
+            loeschKnopf(),
           )
-        : el("td", {}),
+        : // Termine aus Lodur löscht die Verwaltung erst ohne Link
+          mitLink
+          ? el("td", {})
+          : aktionenZelle(loeschKnopf()),
     );
   }
 
@@ -392,6 +416,12 @@ export function zeige(bereich, ctx) {
         symbol: "plus",
         onclick: () => terminDialog(),
       }),
+      // Wer den falschen Kalender gesynct hat, kommt sonst nicht mehr heraus
+      knopf("Termine aus Lodur löschen", {
+        art: "gefahr",
+        symbol: "papierkorb",
+        onclick: alleAusLodurLoeschen,
+      }),
     );
   }
   bereich.append(
@@ -400,7 +430,7 @@ export function zeige(bereich, ctx) {
       { class: "hilfe" },
       mitLink
         ? "Die Termine kommen aus dem Terminkalender (Lodur). Titel, Zeit und Texte ändert der Sync. Eigene Termine legst du erst an, wenn du den Link unter «Einheiten» entfernst. «Nur Leitende» versteckt den Termin vor Eltern und Teilnehmenden: ohne Anmeldung, Erinnerung und Push für sie. Kommando, Stellvertretung und Leitende sehen ihn weiter."
-        : "Du legst die Termine selbst an, solange unter «Einheiten» kein Link zum Terminkalender hinterlegt ist. Ändert oder löschst du einen Termin, melden wir es per Push allen, die schon geantwortet haben (bei einer Absage allen der Einheit). «Nur Leitende» versteckt den Termin vor Eltern und Teilnehmenden: ohne Anmeldung, Erinnerung und Push für sie.",
+        : "Du legst die Termine selbst an, solange unter «Einheiten» kein Link zum Terminkalender hinterlegt ist. Ändert oder löschst du einen Termin, melden wir es per Push allen, die schon geantwortet haben (bei einer Absage allen der Einheit). «Nur Leitende» versteckt den Termin vor Eltern und Teilnehmenden: ohne Anmeldung, Erinnerung und Push für sie. Termine, die noch aus Lodur stammen, löschst du einzeln oder mit «Termine aus Lodur löschen» alle auf einmal.",
     ),
     zeitraum.wurzel,
     fehler,

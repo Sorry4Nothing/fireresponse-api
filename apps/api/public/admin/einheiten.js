@@ -529,7 +529,7 @@ function lodurAbschnitte(e, ctx, geaendert) {
               bestaetigen({
                 titel: "Link entfernen?",
                 beschreibung:
-                  "Der Sync holt danach keine Termine mehr. Die bisherigen Termine bleiben im Kalender.",
+                  "Der Sync holt danach keine Termine mehr. Die bisherigen Termine bleiben im Kalender; unter «Termine» kannst du sie danach löschen.",
                 ok: "Entfernen",
                 aktion: () => anfrage("DELETE", `${basis}/lodur`),
                 danach: () => {
