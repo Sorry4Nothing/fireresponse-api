@@ -527,6 +527,30 @@ export const zeitregelGesendet = pgTable(
   (t) => [primaryKey({ columns: [t.regelId, t.programmId] })],
 );
 
+// Wartungsmodus: genau eine Zeile (feste ID). Aus heisst: text, ende und seit sind leer
+export const WARTUNG_ID = "00000000-0000-4000-8000-000000000001";
+export const wartung = pgTable(
+  "wartung",
+  {
+    id: uuid("id").primaryKey(),
+    aktiv: boolean("aktiv").notNull().default(false),
+    // Eigener Text für die App; leer heisst: Standardtext der App
+    text: text("text"),
+    // Voraussichtliches Ende, nur zur Anzeige: Es beendet die Wartung nicht von selbst
+    ende: zeitpunkt("ende"),
+    seit: zeitpunkt("seit"),
+  },
+  (t) => [
+    check("wartung_einzeln", sql`${t.id} = ${sql.raw(`'${WARTUNG_ID}'`)}`),
+    check("wartung_text_kurz", sql`char_length(${t.text}) <= 280`),
+    check(
+      "wartung_aus_leer",
+      sql`${t.aktiv} or (${t.text} is null and ${t.ende} is null and ${t.seit} is null)`,
+    ),
+    check("wartung_an_seit", sql`not ${t.aktiv} or ${t.seit} is not null`),
+  ],
+);
+
 // akteur_id und ziel_id ohne Fremdschlüssel, damit das Log Löschungen übersteht
 export const auditLog = pgTable("audit_log", {
   id: id(),

@@ -170,6 +170,8 @@ const MATRIX: Record<string, Zeile> = {
   "GET /datenschutz": { erwartet: alle(200) },
   // Öffentlich, vor der Sitzung; der Inhalt kommt aus derselben Quelle wie die Seite (test/seiten.test.ts)
   "GET /api/v1/datenschutz": { erwartet: alle(200) },
+  // Öffentlich, vor der Sitzung und auch in Wartung; Inhalt in test/wartung.test.ts
+  "GET /api/v1/wartung": { erwartet: alle(200) },
   "GET /nutzungsbedingungen": { erwartet: alle(200) },
   "GET /konto-loeschen": { erwartet: alle(200) },
   "GET /support": { erwartet: alle(200) },
@@ -194,6 +196,7 @@ const MATRIX: Record<string, Zeile> = {
   "GET /admin/teilnehmende.js": { erwartet: alle(200) },
   "GET /admin/termine.js": { erwartet: alle(200) },
   "GET /admin/uebersicht.js": { erwartet: alle(200) },
+  "GET /admin/wartung.js": { erwartet: alle(200) },
   "GET /admin/zeitregeln.js": { erwartet: alle(200) },
   "GET /.well-known/apple-app-site-association": { erwartet: alle(200) },
   "GET /.well-known/assetlinks.json": { erwartet: alle(200) },
@@ -376,6 +379,16 @@ const MATRIX: Record<string, Zeile> = {
     },
   },
   "GET /api/v1/admin/system/sync": {
+    erwartet: {
+      ...alle(403),
+      kantonsadmin: 200,
+      deaktiviert: 401,
+      ohneLogin: 401,
+    },
+  },
+  // Wartung schalten: nur das Konto des Kantonsadmins. Der Body schaltet aus: Ein Einschalten sperrte die Routen für alle Testdateien; Ein und Aus prüft test/wartung.test.ts
+  "PUT /api/v1/admin/system/wartung": {
+    body: () => ({ aktiv: false }),
     erwartet: {
       ...alle(403),
       kantonsadmin: 200,

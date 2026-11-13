@@ -39,6 +39,9 @@ const AKTIONEN = {
   zeitregel_angelegt: "Erinnerung angelegt",
   zeitregel_geaendert: "Erinnerung geändert",
   zeitregel_geloescht: "Erinnerung gelöscht",
+  wartung_eingeschaltet: "Wartung eingeschaltet",
+  wartung_geaendert: "Wartung geändert",
+  wartung_ausgeschaltet: "Wartung ausgeschaltet",
 };
 
 // «rolle: leitung, felder: name, telefon»; die Werte sind feste Wörter, IDs und Zahlen

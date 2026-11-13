@@ -1,5 +1,5 @@
 {
-  "id": "85610572-2554-4210-848b-c2aa41ef48e8",
+  "id": "1c54a433-27ef-4abe-ae41-6b439155b8ea",
   "prevId": "8a572acc-758f-40b3-a546-1fbb58f3a2cc",
   "version": "7",
   "dialect": "postgresql",
@@ -627,13 +627,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "quelle": {
-          "name": "quelle",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'lodur'"
-        },
         "google_event_id": {
           "name": "google_event_id",
           "type": "text",
@@ -768,10 +761,6 @@
       },
       "policies": {},
       "checkConstraints": {
-        "programm_quelle_check": {
-          "name": "programm_quelle_check",
-          "value": "\"programm\".\"quelle\" in ('lodur', 'manuell')"
-        },
         "programm_status_check": {
           "name": "programm_status_check",
           "value": "\"programm\".\"status\" in ('aktiv', 'abgesagt', 'pruefen')"
@@ -1809,6 +1798,67 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.wartung": {
+      "name": "wartung",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "aktiv": {
+          "name": "aktiv",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "text": {
+          "name": "text",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ende": {
+          "name": "ende",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "seit": {
+          "name": "seit",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "wartung_einzeln": {
+          "name": "wartung_einzeln",
+          "value": "\"wartung\".\"id\" = '00000000-0000-4000-8000-000000000001'"
+        },
+        "wartung_text_kurz": {
+          "name": "wartung_text_kurz",
+          "value": "char_length(\"wartung\".\"text\") <= 280"
+        },
+        "wartung_aus_leer": {
+          "name": "wartung_aus_leer",
+          "value": "\"wartung\".\"aktiv\" or (\"wartung\".\"text\" is null and \"wartung\".\"ende\" is null and \"wartung\".\"seit\" is null)"
+        },
+        "wartung_an_seit": {
+          "name": "wartung_an_seit",
+          "value": "not \"wartung\".\"aktiv\" or \"wartung\".\"seit\" is not null"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.zeitregel": {
