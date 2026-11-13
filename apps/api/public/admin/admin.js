@@ -56,7 +56,7 @@ const BEREICHE = [
     modul: termine,
     symbol: "kalender",
     untertitel:
-      "Die Termine der Einheit aus dem Terminkalender. Du bestimmst, welche nur Leitende sehen.",
+      "Die Termine der Einheit: aus dem Terminkalender oder selbst angelegt. Du bestimmst, welche nur Leitende sehen.",
     einheit: true,
   },
   {
