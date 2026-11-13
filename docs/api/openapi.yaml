@@ -364,6 +364,21 @@ paths:
             text/javascript:
               schema:
                 type: string
+  /admin/nachrichten.js:
+    get:
+      operationId: getAdminNachrichtenSkript
+      summary: Skript der Verwaltung – Glocke mit den Nachrichten
+      tags:
+        - Allgemein
+      security: []
+      description: Statische Datei der Verwaltung (siehe `GET /admin`), ohne Anmeldung.
+      responses:
+        "200":
+          description: Datei (`text/javascript; charset=UTF-8`).
+          content:
+            text/javascript:
+              schema:
+                type: string
   /admin/personen.js:
     get:
       operationId: getAdminPersonenSkript
@@ -1379,6 +1394,150 @@ paths:
                   value:
                     code: ANMELDEFENSTER_NICHT_OFFEN
                     message: Die Anmeldung öffnet am 23.01.2027.
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/admin/nachrichten:
+    get:
+      operationId: listeAdminNachrichten
+      summary: Nachrichten der Glocke
+      description: |
+        Die Glocke der Verwaltung: wichtige Hinweise der Kantonsadministration an die Konten der Verwaltung (Kommando und Stellvertretungen). Nie in der App, nie als Push. Liefert höchstens die 100 jüngsten, neueste zuerst.
+
+        Kommando und Stellvertretungen (mit zweitem Faktor) sehen die Nachrichten, die noch nicht abgelaufen sind, je mit `gelesen` für das eigene Konto. Der Kantonsadmin sieht alle, auch abgelaufene, je mit `abgelaufen` und der Zahl der `lesende` Konten; die Zahl der `empfaenger` steht einmal in der Antwort. Welche Konten gelesen haben, steht nirgends.
+
+        Statuscodes: 200 bei Erfolg. 403 für Leitende, Eltern und ohne zweiten Faktor (Code `ZWEITER_FAKTOR_FEHLT`).
+      tags:
+        - Verwaltung
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+      responses:
+        "200":
+          description: Die Nachrichten.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminNachrichtListe"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+    post:
+      operationId: sendeAdminNachricht
+      summary: Nachricht an die Verwaltung senden
+      description: |
+        Nur das Konto des Kantonsadmins. Die Nachricht geht an alle aktiven Konten mit Kommando oder Stellvertretung (keine Wahl je Rolle oder Einheit) und erscheint in deren Glocke. Nur Text, keine Personendaten. Mit `laeuftAbAm` verschwindet sie danach aus der Glocke. Die API löscht sie 6 Monate nach dem Ablauf, ohne Ablauf 6 Monate nach dem Erstellen.
+
+        Je Adresse höchstens 5 Nachrichten pro Minute (429). Das Senden steht im Audit-Log (`nachricht_gesendet`), nie mit Titel oder Text.
+
+        Statuscodes: 201 bei Erfolg. 400 bei ungültiger Eingabe. 403 für alle anderen. 429 bei zu vielen Nachrichten.
+      tags:
+        - Verwaltung
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminNachrichtAnlegen"
+      responses:
+        "201":
+          description: Gesendet.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminNachrichtAngelegt"
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/admin/nachrichten/gelesen:
+    post:
+      operationId: markiereAlleAdminNachrichtenGelesen
+      summary: Alle Nachrichten als gelesen markieren
+      description: |
+        Kommando und Stellvertretungen markieren alle ihre sichtbaren (nicht abgelaufenen) Nachrichten als gelesen. Harmlos, wenn nichts offen ist. Der Kantonsadmin ist kein Empfänger (403).
+
+        Statuscodes: 204 bei Erfolg. 403 für alle anderen.
+      tags:
+        - Verwaltung
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+      responses:
+        "204":
+          description: Markiert.
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/admin/nachrichten/{id}/gelesen:
+    put:
+      operationId: markiereAdminNachrichtGelesen
+      summary: Eine Nachricht als gelesen markieren
+      description: |
+        Kommando und Stellvertretungen markieren eine Nachricht für das eigene Konto; jedes Konto für sich. Ein zweites Mal ist harmlos. Der Kantonsadmin ist kein Empfänger (403).
+
+        Statuscodes: 204 bei Erfolg. 400 bei ungültiger ID. 403 für alle anderen. 404, wenn die Nachricht unbekannt, zurückgezogen oder abgelaufen ist.
+      tags:
+        - Verwaltung
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/AdminNachrichtId"
+      responses:
+        "204":
+          description: Markiert.
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/admin/nachrichten/{id}:
+    delete:
+      operationId: ziehAdminNachrichtZurueck
+      summary: Nachricht zurückziehen
+      description: |
+        Nur das Konto des Kantonsadmins. Löscht die Nachricht samt allen Lesemarken, auch eine abgelaufene. Das Zurückziehen steht im Audit-Log (`nachricht_zurueckgezogen`), ohne Text.
+
+        Statuscodes: 204 bei Erfolg. 400 bei ungültiger ID. 403 für alle anderen. 404, wenn die Nachricht unbekannt ist.
+      tags:
+        - Verwaltung
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/AdminNachrichtId"
+      responses:
+        "204":
+          description: Zurückgezogen.
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
         "426":
           $ref: "#/components/responses/AppVeraltet426"
         "429":
@@ -4900,6 +5059,77 @@ components:
           enum: [LODUR_LINK_UNGUELTIG]
         message:
           type: string
+    AdminNachrichtAnlegen:
+      type: object
+      required: [titel, text]
+      additionalProperties: false
+      properties:
+        titel:
+          type: string
+          minLength: 1
+          maxLength: 80
+          description: Eine Zeile, ohne Steuerzeichen. Leerraum am Rand wird entfernt.
+        text:
+          type: string
+          minLength: 1
+          maxLength: 1000
+          description: "Nur Text; Zeilenumbrüche sind erlaubt, Links bleiben Text. Keine Namen und keine Personendaten. Leerraum am Rand wird entfernt."
+        laeuftAbAm:
+          type: [string, "null"]
+          format: date-time
+          description: Ab diesem Zeitpunkt (mit Zeitzone, in der Zukunft) zeigt die Glocke die Nachricht nicht mehr. Ohne Angabe bleibt sie sichtbar.
+    AdminNachrichtAngelegt:
+      type: object
+      required: [id, erstelltAm, laeuftAbAm]
+      properties:
+        id:
+          type: string
+          format: uuid
+        erstelltAm:
+          type: string
+          format: date-time
+        laeuftAbAm:
+          type: [string, "null"]
+          format: date-time
+    AdminNachricht:
+      type: object
+      required: [id, titel, text, erstelltAm, laeuftAbAm]
+      properties:
+        id:
+          type: string
+          format: uuid
+        titel:
+          type: string
+        text:
+          type: string
+        erstelltAm:
+          type: string
+          format: date-time
+        laeuftAbAm:
+          type: [string, "null"]
+          format: date-time
+        gelesen:
+          type: boolean
+          description: "Nur für Kommando und Stellvertretungen: Hat das eigene Konto die Nachricht gelesen?"
+        abgelaufen:
+          type: boolean
+          description: Nur für den Kantonsadmin.
+        lesende:
+          type: integer
+          minimum: 0
+          description: "Nur für den Kantonsadmin: Wie viele der heutigen Empfänger-Konten die Nachricht gelesen haben. Welche, steht nirgends."
+    AdminNachrichtListe:
+      type: object
+      required: [nachrichten]
+      properties:
+        nachrichten:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminNachricht"
+        empfaenger:
+          type: integer
+          minimum: 0
+          description: "Nur für den Kantonsadmin: Zahl der aktiven Konten mit Kommando oder Stellvertretung."
     AdminAngelegt:
       type: object
       required:
@@ -6103,6 +6333,14 @@ components:
       in: path
       required: true
       description: ID der Erinnerungsregel (UUID).
+      schema:
+        type: string
+        format: uuid
+    AdminNachrichtId:
+      name: id
+      in: path
+      required: true
+      description: ID der Nachricht (UUID).
       schema:
         type: string
         format: uuid
