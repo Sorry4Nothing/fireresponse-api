@@ -167,7 +167,7 @@ export const SPALTEN: Record<string, Partial<Record<KategorieId, string[]>>> = {
     ],
   },
   leitung_anmeldung: {
-    anmeldungen: ["programm_id", "user_id", "status"],
+    anmeldungen: ["programm_id", "user_id", "status", "warteliste_seit"],
   },
   programm: {
     programme: [
@@ -189,6 +189,7 @@ export const SPALTEN: Record<string, Partial<Record<KategorieId, string[]>>> = {
       "aufgebot",
       "art",
       "nur_leitende",
+      "leitung_hoechstzahl",
       "status",
       "inhalt_hash",
     ],
