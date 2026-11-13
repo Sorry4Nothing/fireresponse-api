@@ -187,6 +187,7 @@ const MATRIX: Record<string, Zeile> = {
   "GET /admin/konten.js": { erwartet: alle(200) },
   "GET /admin/konto-loeschen.js": { erwartet: alle(200) },
   "GET /admin/kontext.js": { erwartet: alle(200) },
+  "GET /admin/mitteilungen.js": { erwartet: alle(200) },
   "GET /admin/personen.js": { erwartet: alle(200) },
   "GET /admin/qrcode.js": { erwartet: alle(200) },
   "GET /admin/raenge.js": { erwartet: alle(200) },
@@ -677,6 +678,12 @@ const MATRIX: Record<string, Zeile> = {
     url: (w) =>
       `/api/v1/admin/einheiten/${w.einheit.jfA}/termine/${programmId}`,
     body: () => ({ nurLeitende: false }),
+    erwartet: VERWALTEN_JF_A(200),
+  },
+  // Push-Mitteilung der Verwaltung: dieselben Rechte wie die übrige Verwaltung der Einheit; Empfänger, Rate-Limit und Fehlerfälle prüft test/admin-mitteilungen.test.ts. Die Attrappe der Matrix sendet nichts ins Netz
+  "POST /api/v1/admin/einheiten/:einheitId/mitteilungen": {
+    url: (w) => `/api/v1/admin/einheiten/${w.einheit.jfA}/mitteilungen`,
+    body: () => ({ gruppe: "leitende", titel: "Matrix", text: "Nur ein Test" }),
     erwartet: VERWALTEN_JF_A(200),
   },
   // Profilbild (#173): Jede Person mit Sitzung lädt ihr eigenes hoch und löscht es; nur die Person selbst, nie eine andere. Typ, Grösse und Rate-Limit prüft test/profilbild.test.ts

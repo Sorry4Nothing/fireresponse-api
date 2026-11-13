@@ -364,6 +364,21 @@ paths:
             text/javascript:
               schema:
                 type: string
+  /admin/mitteilungen.js:
+    get:
+      operationId: getAdminMitteilungenSkript
+      summary: Skript der Verwaltung – Bereich Push senden
+      tags:
+        - Allgemein
+      security: []
+      description: Statische Datei der Verwaltung (siehe `GET /admin`), ohne Anmeldung.
+      responses:
+        "200":
+          description: Datei (`text/javascript; charset=UTF-8`).
+          content:
+            text/javascript:
+              schema:
+                type: string
   /admin/personen.js:
     get:
       operationId: getAdminPersonenSkript
@@ -2028,6 +2043,76 @@ paths:
           $ref: "#/components/responses/AppVeraltet426"
         "429":
           $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/admin/einheiten/{einheitId}/mitteilungen:
+    post:
+      operationId: sendeAdminMitteilung
+      summary: Push-Mitteilung an die Einheit senden
+      description: |
+        Kantonsadmin, Kommandant und Stellvertretungen der Einheit. Sendet sofort eine Push-Mitteilung mit freiem Text an die aktiven Konten der Einheit, die mindestens ein Push-Token haben: `gruppe: alle` an Kommando, Stellvertretungen, Leitende sowie Eltern und teilnehmende Personen aktiver Teilnehmender; `gruppe: leitende` nur an Kommando, Stellvertretungen und Leitende. Einzelne Personen und Gruppen darunter gibt es nicht; eine Planung oder Wiederholung auch nicht. Die Schalter der Konten (`pushProgramme` und andere) gelten nicht für diese Mitteilung.
+
+        Der Push trägt `data: { typ: "mitteilung" }` ohne `id` und läuft im Android-Kanal `termine`; die Apps öffnen nur die App. Der Text steht auf dem Sperrbildschirm und läuft über Google und Apple: kein Name eines Kindes, keine Personendaten. Titel höchstens 60, Text höchstens 200 Unicode-Zeichen (nach dem Kürzen von Leerraum), nur Text; im Titel keine Steuerzeichen, im Text nur Zeilenumbrüche als Steuerzeichen.
+
+        Jeder Versand steht im Audit-Log (`push_mitteilung_gesendet` mit Gruppe und Zahl der Konten, nie der Text). Pro Konto gelten höchstens 5 Mitteilungen je Stunde und 20 je Tag (gezählt im Audit-Log, 429); wer 0 Konten erreicht, verbraucht nichts. Fehlt dem Server der Schlüssel des Push-Dienstes, antwortet er 503 `PUSH_NICHT_EINGERICHTET` und sendet und protokolliert nichts. Der Dienst meldet Fehler beim Zustellen nicht zurück: 200 heisst, dass der Versand angestossen ist.
+
+        Statuscodes: 200 bei Erfolg (`empfaenger`: Zahl der Konten, 0 heisst: nichts gesendet). 400 bei ungültigem Body. 403 für Leitende und Eltern der Einheit (und ohne zweiten Faktor, Code `ZWEITER_FAKTOR_FEHLT`). 404, wenn die Einheit unbekannt oder unsichtbar ist. 429 beim Limit. 503 ohne Push-Dienst.
+      tags:
+        - Verwaltung
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/EinheitIdPfad"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [gruppe, titel, text]
+              properties:
+                gruppe:
+                  type: string
+                  enum: [alle, leitende]
+                titel:
+                  type: string
+                  minLength: 1
+                  maxLength: 60
+                  description: Die fette Zeile des Pushs, eine Zeile.
+                text:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                  description: Der Text unter dem Titel.
+      responses:
+        "200":
+          description: Versand angestossen.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [empfaenger]
+                properties:
+                  empfaenger:
+                    type: integer
+                    minimum: 0
+                    description: Zahl der Konten mit Push-Token, die die Mitteilung bekommen.
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+        "503":
+          description: Der Server hat keinen Schlüssel für den Push-Dienst (code PUSH_NICHT_EINGERICHTET).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Fehler"
   /api/v1/admin/einheiten/{einheitId}/lodur:
     get:
       operationId: holeAdminLodurLink
