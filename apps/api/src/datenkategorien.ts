@@ -173,6 +173,7 @@ export const SPALTEN: Record<string, Partial<Record<KategorieId, string[]>>> = {
     programme: [
       "id",
       "einheit_id",
+      "quelle",
       "google_event_id",
       "google_serie",
       "titel",

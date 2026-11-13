@@ -1,8 +1,8 @@
 $kind: http-request
-name: "PUT /api/v1/admin/einheiten/:einheitId/anmelde-arten"
-order: 92000
-method: PUT
-url: "{{baseUrl}}/api/v1/admin/einheiten/{{einheit_jfA}}/anmelde-arten"
+name: "POST /api/v1/admin/einheiten/:einheitId/termine"
+order: 95000
+method: POST
+url: "{{baseUrl}}/api/v1/admin/einheiten/{{einheit_jfA}}/termine"
 headers:
   - key: "Cookie"
     value: "{{cookie}}"
@@ -18,7 +18,8 @@ body:
   type: json
   content: |-
     {
-      "arten": [
-        "Übung"
-      ]
+      "titel": "Matrix-Termin",
+      "ganztaegig": false,
+      "beginn": "2031-06-10T18:30",
+      "ende": "2031-06-10T20:30"
     }

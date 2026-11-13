@@ -1,8 +1,8 @@
 $kind: http-request
-name: "GET /api/v1/admin/einheiten/:einheitId/anmelde-arten"
-order: 91000
-method: GET
-url: "{{baseUrl}}/api/v1/admin/einheiten/{{einheit_jfA}}/anmelde-arten"
+name: "DELETE /api/v1/admin/einheiten/:einheitId/termine/:id"
+order: 96000
+method: DELETE
+url: "{{baseUrl}}/api/v1/admin/einheiten/{{einheit_jfA}}/termine/{{ziel_96}}"
 headers:
   - key: "Cookie"
     value: "{{cookie}}"

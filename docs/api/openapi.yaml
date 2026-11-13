@@ -2052,7 +2052,7 @@ paths:
       operationId: holeAdminTermine
       summary: Termine der Einheit für die Verwaltung
       description: |
-        Kantonsadmin, Kommandant und Stellvertretungen der Einheit. Liefert die synchronisierten Termine der Einheit, die den Zeitraum `von` bis `bis` (Schweizer Kalendertage, einschliesslich) berühren, nach Beginn sortiert. Titel, Zeit und Art gehören dem Lodur-Sync; der Schalter `nurLeitende` gehört der Verwaltung.
+        Kantonsadmin, Kommandant und Stellvertretungen der Einheit. Liefert die Termine der Einheit (aus Lodur und selbst angelegte), die den Zeitraum `von` bis `bis` (Schweizer Kalendertage, einschliesslich) berühren, nach Beginn sortiert. `quelle` sagt, woher ein Termin kommt: Titel, Zeit und Texte der Termine aus Lodur (`lodur`) gehören dem Sync; die selbst angelegten (`manuell`) gehören der Verwaltung. Der Schalter `nurLeitende` gehört bei beiden der Verwaltung.
 
         Statuscodes: 200 bei Erfolg. 400 bei fehlendem oder ungültigem Zeitraum. 403 für Leitende und Eltern der Einheit (und ohne zweiten Faktor, Code `ZWEITER_FAKTOR_FEHLT`); 404, wenn die Einheit unbekannt oder unsichtbar ist.
       tags:
@@ -2091,14 +2091,61 @@ paths:
           $ref: "#/components/responses/AppVeraltet426"
         "429":
           $ref: "#/components/responses/ZuVieleAnfragen429"
+    post:
+      operationId: legeAdminTerminAn
+      summary: Eigenen Termin anlegen (Quelle manuell)
+      description: |
+        Kantonsadmin, Kommandant und Stellvertretungen der Einheit. Legt einen Termin der Quelle `manuell` an. Das geht nur, solange für die Einheit kein Lodur-Link hinterlegt ist (sonst 409 `LODUR_LINK_GESETZT`); ein Termin bleibt bestehen, wenn später ein Link gesetzt wird, denn der Sync ändert, sagt ab oder löscht ihn nie. Die Apps zeigen ihn wie jeden anderen Termin, mit Anmeldung, «nur Leitende» und den Erinnerungen der Zeitregeln. Einen Push zur Anlage gibt es wie beim Sync nicht.
+
+        Zeit: Mit `ganztaegig: false` kommen `beginn` und `ende` als Schweizer Wanduhrzeit `YYYY-MM-DDTHH:mm` (ohne Zone; der Server rechnet mit Europe/Zurich um; `ende` nach `beginn`). Mit `ganztaegig: true` kommen `tagVon` und `tagBis` (`tagBis` nicht vor `tagVon`). Alles andere ist 400. Das Anlegen steht im Audit-Log (`termin_angelegt`, ohne Inhalte).
+
+        Statuscodes: 201 mit dem Termin. 400 bei ungültigem Body. 403 für Leitende und Eltern. 404 bei unbekannter oder unsichtbarer Einheit. 409 `LODUR_LINK_GESETZT`.
+      tags:
+        - Verwaltung
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/EinheitIdPfad"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminTerminAnlegen"
+      responses:
+        "201":
+          description: Angelegt.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminTermin"
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "409":
+          $ref: "#/components/responses/AdminKonflikt409"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
   /api/v1/admin/einheiten/{einheitId}/termine/{id}:
     put:
-      operationId: setzeAdminTerminNurLeitende
-      summary: Termin auf «nur Leitende» stellen oder wieder freigeben
+      operationId: aendereAdminTermin
+      summary: Termin ändern oder auf «nur Leitende» stellen
       description: |
-        Kantonsadmin, Kommandant und Stellvertretungen der Einheit. «Nur Leitende» versteckt den Termin vor Eltern und Teilnehmenden (Liste, Detail, Push, Erinnerung, Auswertung); Kantonsadmin, Kommando, Stellvertretung und Leitende der Einheit sehen ihn weiter. Der Sync überschreibt den Schalter nie. Eine Änderung steht im Audit-Log (`termin_sichtbarkeit_geaendert`); derselbe Wert ändert nichts.
+        Kantonsadmin, Kommandant und Stellvertretungen der Einheit. Nur die mitgeschickten Felder ändern sich; `null` leert `art`, `ort`, `thema`, `info` und `aufgebot`.
 
-        Statuscodes: 200 bei Erfolg. 400 bei ungültigem Body. 403 für Leitende und Eltern. 404 bei unbekannter oder unsichtbarer Einheit und bei einem Termin einer anderen Einheit.
+        **Termin aus Lodur (`quelle` `lodur`):** erlaubt ist allein `nurLeitende`. «Nur Leitende» versteckt den Termin vor Eltern und Teilnehmenden (Liste, Detail, Push, Erinnerung, Auswertung); Kantonsadmin, Kommando, Stellvertretung und Leitende der Einheit sehen ihn weiter. Der Sync überschreibt den Schalter nie. Jedes andere Feld ergibt 409 `TERMIN_AUS_LODUR`.
+
+        **Selbst angelegter Termin (`quelle` `manuell`):** alle Felder. Die Zeit ändert sich nur als Ganzes: Mit `ganztaegig` kommen `beginn` und `ende` (Schweizer Zeit) oder `tagVon` und `tagBis`, die Regeln wie beim Anlegen. Ändert sich Titel, Art, Thema, Info, Aufgebot oder Zeit eines künftigen aktiven Termins, bekommen alle, die schon geantwortet haben, einen Push («Titel am Tag geändert»); Ort und «nur Leitende» lösen keinen aus. Bei «nur Leitende» geht der Push nicht an Eltern und Teilnehmende.
+
+        Eine Änderung steht im Audit-Log (`termin_geaendert` mit den Namen der Felder, `termin_sichtbarkeit_geaendert` für den Schalter); derselbe Wert ändert nichts.
+
+        Statuscodes: 200 mit dem Termin. 400 bei ungültigem Body, auch bei einem leeren. 403 für Leitende und Eltern. 404 bei unbekannter oder unsichtbarer Einheit und bei einem Termin einer anderen Einheit. 409 `TERMIN_AUS_LODUR` bei einem Feld ausser `nurLeitende` an einem Termin aus Lodur.
       tags:
         - Verwaltung
       parameters:
@@ -2116,26 +2163,14 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              additionalProperties: false
-              required: [nurLeitende]
-              properties:
-                nurLeitende:
-                  type: boolean
+              $ref: "#/components/schemas/AdminTerminAendern"
       responses:
         "200":
-          description: Gespeichert.
+          description: Gespeichert; der Termin, wie ihn die Liste zeigt.
           content:
             application/json:
               schema:
-                type: object
-                required: [id, nurLeitende]
-                properties:
-                  id:
-                    type: string
-                    format: uuid
-                  nurLeitende:
-                    type: boolean
+                $ref: "#/components/schemas/AdminTermin"
         "400":
           $ref: "#/components/responses/UngueltigeEingabe400"
         "401":
@@ -2144,6 +2179,42 @@ paths:
           $ref: "#/components/responses/KeineBerechtigung403"
         "404":
           $ref: "#/components/responses/NichtGefunden404"
+        "409":
+          $ref: "#/components/responses/AdminKonflikt409"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+    delete:
+      operationId: loescheAdminTermin
+      summary: Selbst angelegten Termin löschen
+      description: |
+        Kantonsadmin, Kommandant und Stellvertretungen der Einheit. Löscht einen Termin der Quelle `manuell` samt den Antworten dazu. War der Termin aktiv und noch nicht begonnen, bekommen alle Aktiven der Einheit den Absage-Push («Titel am Tag abgesagt»), bei «nur Leitende» nur Kommando und Leitende. Das Audit-Log hält `termin_geloescht` fest.
+
+        Statuscodes: 204 bei Erfolg. 403 für Leitende und Eltern. 404 bei unbekannter oder unsichtbarer Einheit und bei einem Termin einer anderen Einheit. 409 `TERMIN_AUS_LODUR`: Termine aus Lodur löscht nur der Sync.
+      tags:
+        - Verwaltung
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/EinheitIdPfad"
+        - name: id
+          in: path
+          required: true
+          description: ID des Termins (UUID).
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Gelöscht.
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "409":
+          $ref: "#/components/responses/AdminKonflikt409"
         "426":
           $ref: "#/components/responses/AppVeraltet426"
         "429":
@@ -4520,6 +4591,8 @@ components:
             - KONTO_GEMEINSAM
             - KEIN_ZWEITER_FAKTOR
             - KEIN_STARTPASSWORT
+            - TERMIN_AUS_LODUR
+            - LODUR_LINK_GESETZT
         message:
           type: string
           example: Diese Person ist schon Kommandantin oder Kommandant.
@@ -4999,6 +5072,69 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/AdminZeitregel"
+    AdminTermin:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          titel,
+          art,
+          status,
+          quelle,
+          ganztaegig,
+          beginn,
+          ende,
+          tagVon,
+          tagBis,
+          ort,
+          thema,
+          info,
+          aufgebot,
+          nurLeitende,
+        ]
+      properties:
+        id:
+          type: string
+          format: uuid
+        titel:
+          type: string
+        art:
+          type: [string, "null"]
+          description: Art laut Lodur (Sitzung, Übung, Kurs …) oder die Angabe der Verwaltung.
+        status:
+          type: string
+          enum: [aktiv, abgesagt, pruefen]
+        quelle:
+          type: string
+          enum: [lodur, manuell]
+          description: "`lodur`: vom Sync, nur der Schalter `nurLeitende` ist änderbar. `manuell`: von der Verwaltung angelegt, der Sync fasst ihn nie an."
+        ganztaegig:
+          type: boolean
+        beginn:
+          type: [string, "null"]
+          format: date-time
+          description: "`null` bei ganztägigen Terminen; dann gelten `tagVon` und `tagBis`."
+        ende:
+          type: [string, "null"]
+          format: date-time
+        tagVon:
+          type: [string, "null"]
+          format: date
+        tagBis:
+          type: [string, "null"]
+          format: date
+        ort:
+          type: [string, "null"]
+          description: Nur bei selbst angelegten Terminen; die Apps zeigen ihn noch nicht.
+        thema:
+          type: [string, "null"]
+        info:
+          type: [string, "null"]
+        aufgebot:
+          type: [string, "null"]
+        nurLeitende:
+          type: boolean
     AdminTermine:
       type: object
       additionalProperties: false
@@ -5007,50 +5143,94 @@ components:
         termine:
           type: array
           items:
-            type: object
-            additionalProperties: false
-            required:
-              [
-                id,
-                titel,
-                art,
-                status,
-                ganztaegig,
-                beginn,
-                ende,
-                tagVon,
-                tagBis,
-                nurLeitende,
-              ]
-            properties:
-              id:
-                type: string
-                format: uuid
-              titel:
-                type: string
-              art:
-                type: [string, "null"]
-                description: Art laut Lodur (Sitzung, Übung, Kurs …).
-              status:
-                type: string
-                enum: [aktiv, abgesagt, pruefen]
-              ganztaegig:
-                type: boolean
-              beginn:
-                type: [string, "null"]
-                format: date-time
-                description: "`null` bei ganztägigen Terminen; dann gelten `tagVon` und `tagBis`."
-              ende:
-                type: [string, "null"]
-                format: date-time
-              tagVon:
-                type: [string, "null"]
-                format: date
-              tagBis:
-                type: [string, "null"]
-                format: date
-              nurLeitende:
-                type: boolean
+            $ref: "#/components/schemas/AdminTermin"
+    AdminTerminAnlegen:
+      type: object
+      additionalProperties: false
+      required: [titel, ganztaegig]
+      properties:
+        titel:
+          type: string
+          minLength: 1
+          maxLength: 120
+        ganztaegig:
+          type: boolean
+        beginn:
+          type: string
+          pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$'
+          examples: ["2031-06-10T18:30"]
+          description: "Schweizer Wanduhrzeit; nur mit `ganztaegig: false`."
+        ende:
+          type: string
+          pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$'
+          description: "Schweizer Wanduhrzeit, nach `beginn`; nur mit `ganztaegig: false`."
+        tagVon:
+          type: string
+          format: date
+          description: "Nur mit `ganztaegig: true`."
+        tagBis:
+          type: string
+          format: date
+          description: "Nicht vor `tagVon`; nur mit `ganztaegig: true`."
+        art:
+          type: [string, "null"]
+          maxLength: 120
+        ort:
+          type: [string, "null"]
+          maxLength: 120
+        thema:
+          type: [string, "null"]
+          maxLength: 2000
+        info:
+          type: [string, "null"]
+          maxLength: 2000
+        aufgebot:
+          type: [string, "null"]
+          maxLength: 2000
+        nurLeitende:
+          type: boolean
+          default: false
+    AdminTerminAendern:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      description: Dieselben Felder wie beim Anlegen, alle optional. Die Zeit nur als Ganzes (`ganztaegig` mit seinen zwei Angaben). Bei einem Termin aus Lodur ist nur `nurLeitende` erlaubt.
+      properties:
+        titel:
+          type: string
+          minLength: 1
+          maxLength: 120
+        ganztaegig:
+          type: boolean
+        beginn:
+          type: string
+          pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$'
+        ende:
+          type: string
+          pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$'
+        tagVon:
+          type: string
+          format: date
+        tagBis:
+          type: string
+          format: date
+        art:
+          type: [string, "null"]
+          maxLength: 120
+        ort:
+          type: [string, "null"]
+          maxLength: 120
+        thema:
+          type: [string, "null"]
+          maxLength: 2000
+        info:
+          type: [string, "null"]
+          maxLength: 2000
+        aufgebot:
+          type: [string, "null"]
+          maxLength: 2000
+        nurLeitende:
+          type: boolean
     AdminLodurSetzen:
       type: object
       additionalProperties: false

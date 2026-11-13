@@ -1,0 +1,14 @@
+$kind: http-request
+name: "GET /admin/termine.js"
+order: 25000
+method: GET
+url: "{{baseUrl}}/admin/termine.js"
+headers:
+  - key: "Cookie"
+    value: "{{cookie}}"
+  - key: "expo-origin"
+    value: "{{expoOrigin}}"
+  - key: "X-Forwarded-For"
+    value: "{{ip}}"
+  - key: "X-App-Version"
+    value: "{{appVersion}}"

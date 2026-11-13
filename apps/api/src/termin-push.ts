@@ -114,16 +114,19 @@ async function empfaenger(
   return [...new Set([...eltern, ...leitende].map(({ id }) => id))];
 }
 
-// Wirft nie: Der Aufrufer (Lodur-Sync) hat die Änderung schon gespeichert, ein Fehler hier darf sie nicht wiederholen lassen
-async function pushAnTermin(
-  { db, fcm, c, jetzt }: Umgebung,
+export type PushZeile = {
+  einheitId: string;
+  titel: string;
+  nurLeitende: boolean;
+  beginnMs: string;
+};
+
+// Nur künftige Programme: Für ein begonnenes ist jede Meldung zu spät. Wirft nie; undefined heisst: kein Push
+export async function ladePushZeile(
+  { db, c, jetzt }: Pick<Umgebung, "db" | "c" | "jetzt">,
   programmId: string,
-  was: "abgesagt" | "geändert",
-  text: string,
-  nurAntworten: boolean,
-) {
+): Promise<PushZeile | undefined> {
   try {
-    // Nur künftige Programme: Für ein begonnenes ist jede Meldung zu spät
     const [zeile] = await db
       .select({
         einheitId: programm.einheitId,
@@ -140,6 +143,26 @@ async function pushAnTermin(
             : roh`${programmBeginn} > now()`,
         ),
       );
+    return zeile;
+  } catch (fehler) {
+    // Nur der Code: message enthielte die SQL-Parameter
+    log(c, { ereignis: "push", code: (fehler as { code?: unknown }).code });
+    return undefined;
+  }
+}
+
+// Wirft nie: Der Aufrufer (Lodur-Sync, Verwaltung) hat die Änderung schon gespeichert, ein Fehler hier darf sie nicht wiederholen lassen. vorgeladen: die Zeile aus ladePushZeile, wenn das Programm gelöscht wird
+async function pushAnTermin(
+  umgebung: Umgebung,
+  programmId: string,
+  was: "abgesagt" | "geändert",
+  text: string,
+  nurAntworten: boolean,
+  vorgeladen?: PushZeile,
+) {
+  const { db, fcm, c } = umgebung;
+  try {
+    const zeile = vorgeladen ?? (await ladePushZeile(umgebung, programmId));
     if (!zeile) return;
     const konten = await empfaenger(
       db,
@@ -163,13 +186,18 @@ async function pushAnTermin(
 }
 
 // Nach dem Absagen eines künftigen Programms aufrufen. Geht an alle der Einheit (Eltern, teilnehmende Personen, Kommando, Leitende), auch ohne Antwort: Wer nicht abgesagt hat, käme sonst vergeblich
-export const sendeAbsagePush = (umgebung: Umgebung, programmId: string) =>
+export const sendeAbsagePush = (
+  umgebung: Umgebung,
+  programmId: string,
+  vorgeladen?: PushZeile,
+) =>
   pushAnTermin(
     umgebung,
     programmId,
     "abgesagt",
     "Mehr in Fire-Response.",
     false,
+    vorgeladen,
   );
 
 // Nach der Änderung eines künftigen Programms aufrufen. Geht nur an Personen, die schon geantwortet haben; hat noch niemand geantwortet, geschieht nichts (der Sync übernimmt die Änderung still)

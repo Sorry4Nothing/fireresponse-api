@@ -356,6 +356,11 @@ export const programm = pgTable(
     einheitId: uuid("einheit_id")
       .notNull()
       .references(() => einheit.id, { onDelete: "restrict" }),
+    // Woher der Termin kommt: «lodur» gehört dem Sync, «manuell» legt die Verwaltung an und der Sync fasst ihn nie an. Weitere Angaben zu manuellen Terminen (z. B. eine Höchstzahl) kommen als eigene Spalten dazu
+    quelle: text("quelle", { enum: ["lodur", "manuell"] })
+      .notNull()
+      .default("lodur"),
+    // Bei manuellen Terminen «manuell-<uuid>»: nur damit die Eindeutigkeit je Einheit gilt
     googleEventId: text("google_event_id").notNull(),
     // Roher recurringEventId; der Sync (E3) kürzt den Stamm (_R…) erst beim Suchen
     googleSerie: text("google_serie"),
@@ -388,6 +393,7 @@ export const programm = pgTable(
       t.einheitId,
       t.googleEventId,
     ),
+    check("programm_quelle_check", sql`${t.quelle} in ('lodur', 'manuell')`),
     check(
       "programm_status_check",
       sql`${t.status} in ('aktiv', 'abgesagt', 'pruefen')`,
