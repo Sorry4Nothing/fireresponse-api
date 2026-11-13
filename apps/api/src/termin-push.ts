@@ -1,4 +1,4 @@
-import { and, eq, exists, isNull, sql as roh } from "drizzle-orm";
+import { and, eq, exists, inArray, isNull, sql as roh } from "drizzle-orm";
 import type { Context } from "hono";
 import type { Db } from "./db/client.js";
 import {
@@ -209,3 +209,42 @@ export const sendeAenderungsPush = (umgebung: Umgebung, programmId: string) =>
     "Bitte Zeit und Aufgebot in der App prüfen.",
     true,
   );
+
+// Nach dem Commit aufrufen, wenn Leitende von der Warteliste in einen Platz gerückt sind. Geht nur an diese Konten (aktiv, Schalter pushProgramme an); Titel und Tag des Programms, nie ein Name
+export async function sendeNachrueckPush(
+  umgebung: Umgebung,
+  programmId: string,
+  userIds: string[],
+) {
+  const { db, fcm, c } = umgebung;
+  if (userIds.length === 0) return;
+  try {
+    const zeile = await ladePushZeile(umgebung, programmId);
+    if (!zeile) return;
+    const konten = await db
+      .select({ id: user.id })
+      .from(user)
+      .where(
+        and(
+          inArray(user.id, userIds),
+          aktivesKonto(),
+          eq(user.pushProgramme, true),
+        ),
+      );
+    if (konten.length === 0) return;
+    await sendePush(
+      { db, fcm, c },
+      konten.map(({ id }) => id),
+      {
+        typ: "programm",
+        kanal: "termine",
+        id: programmId,
+        titel: "Du bist nachgerückt",
+        text: titelMitTag(zeile.titel, zeile.beginnMs),
+      },
+    );
+  } catch (fehler) {
+    // Nur der Code: message enthielte die SQL-Parameter
+    log(c, { ereignis: "push", code: (fehler as { code?: unknown }).code });
+  }
+}

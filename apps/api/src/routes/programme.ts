@@ -31,6 +31,13 @@ import { bildUrl } from "../bild.js";
 import { pushAnmeldung } from "../anmeldung-push.js";
 import { eingabe } from "../eingabe.js";
 import { ladeKontakt } from "../kontakt.js";
+import {
+  eigeneAnmeldungWert,
+  ladePlaetze,
+  ohneBegonnen,
+  setzeLeitung,
+  wartende,
+} from "../leiter-plaetze.js";
 import type { Fcm } from "../push.js";
 import {
   aktivesKonto,
@@ -42,10 +49,13 @@ import {
   terminFuerPerson,
   type Person,
 } from "../rechte.js";
+import { sendeNachrueckPush } from "../termin-push.js";
 
 // PostgreSQL 18 lehnt das Jahr 0000 ab (Fehler 22008), zod lässt es durch
 // «offen» hat keine Zeile; die Routen füllen es mit coalesce
 type Antwort = "ja" | "nein" | "offen";
+// Leitende haben einen vierten Wert: Die Zusage wartet auf einen Platz
+type LeitungAntwort = Antwort | "warteliste";
 
 const tag = z.iso.date().refine((wert) => !wert.startsWith("0000"));
 const fensterSchema = z.strictObject({ von: tag, bis: tag });
@@ -194,6 +204,7 @@ export function erstelleProgrammRouten({
         id: programm.id,
         einheitId: programm.einheitId,
         nurLeitende: programm.nurLeitende,
+        hoechstzahl: programm.leitungHoechstzahl,
       })
       .from(programm)
       .where(
@@ -229,7 +240,7 @@ export function erstelleProgrammRouten({
       const ids = programme.map((p) => p.id);
       const eigene = await eigeneTeilnehmende(person, ids);
       // Eine Abfrage für alle Termine des Fensters statt eine je Termin
-      const leitung = new Map<string, "ja" | "nein">();
+      const leitung = new Map<string, "ja" | "nein" | "warteliste">();
       if (ids.length > 0 && person.einheiten.length > 0) {
         const zeilen = await db
           .select({
@@ -245,15 +256,25 @@ export function erstelleProgrammRouten({
           );
         for (const z of zeilen) leitung.set(z.programmId, z.status);
       }
+      // Plätze der Leitenden: nur für Termine mit Höchstzahl und nur, wenn die Person Kommando oder Leitung ist
+      const plaetze =
+        person.einheiten.length > 0
+          ? await ladePlaetze(db, ids, person.id)
+          : new Map<string, never>();
       return c.json({
-        programme: programme.map((p) => ({
-          ...ausgabe(p),
-          teilnehmende: eigene.get(p.id) ?? [],
-          // Wie im Detail: nur wer sich anmelden dürfte, bekommt den Schlüssel; undefined fällt aus dem JSON
-          eigeneAnmeldung: hatRolleIn(person, p.einheitId)
-            ? (leitung.get(p.id) ?? "offen")
-            : undefined,
-        })),
+        programme: programme.map((p) => {
+          const rolle = hatRolleIn(person, p.einheitId);
+          const platz = rolle ? plaetze.get(p.id) : undefined;
+          return {
+            ...ausgabe(p),
+            teilnehmende: eigene.get(p.id) ?? [],
+            // Wie im Detail: nur wer sich anmelden dürfte, bekommt den Schlüssel; undefined fällt aus dem JSON
+            eigeneAnmeldung: rolle
+              ? eigeneAnmeldungWert(leitung.get(p.id) ?? "offen", platz)
+              : undefined,
+            leitungPlaetze: platz && ohneBegonnen(platz),
+          };
+        }),
       });
     })
     .get("/:id", eingabe("param", pfadSchema), async (c) => {
@@ -278,7 +299,8 @@ export function erstelleProgrammRouten({
         );
       if (!zeile) throw new HTTPException(404);
       // Nur wer sich anmelden dürfte, bekommt den Schlüssel; undefined fällt aus dem JSON, für alle anderen fehlt er
-      let eigeneAnmeldung: Antwort | undefined;
+      let eigeneAnmeldung: LeitungAntwort | undefined;
+      let leitungPlaetze: ReturnType<typeof ohneBegonnen> | undefined;
       if (hatRolleIn(person, zeile.einheitId)) {
         const [anmeldung] = await db
           .select({ status: leitungAnmeldung.status })
@@ -289,7 +311,12 @@ export function erstelleProgrammRouten({
               eq(leitungAnmeldung.userId, person.id),
             ),
           );
-        eigeneAnmeldung = anmeldung?.status ?? "offen";
+        const platz = (await ladePlaetze(db, [id], person.id)).get(id);
+        eigeneAnmeldung = eigeneAnmeldungWert(
+          anmeldung?.status ?? "offen",
+          platz,
+        );
+        leitungPlaetze = platz && ohneBegonnen(platz);
       }
       const eigene = (await eigeneTeilnehmende(person, [id])).get(id) ?? [];
       return c.json({
@@ -297,12 +324,16 @@ export function erstelleProgrammRouten({
         teilnehmende: eigene,
         kontakt: await ladeKontakt(db, person, zeile.einheitId, id),
         eigeneAnmeldung,
+        leitungPlaetze,
       });
     })
     .get("/:id/teilnahmen", eingabe("param", pfadSchema), async (c) => {
       const person = c.get("person");
       const { id } = c.req.valid("param");
-      const { einheitId, nurLeitende } = await ladeSichtbar(person, id);
+      const { einheitId, nurLeitende, hoechstzahl } = await ladeSichtbar(
+        person,
+        id,
+      );
       // Ganze Liste: das Kantonsadmin-Konto sowie Kommando und Leitende der Einheit; sonst nur die eigenen Teilnehmenden
       const gesamt = person.kantonsadmin || hatRolleIn(person, einheitId);
       // Bei «nur Leitende» antworten nur Leitende: Kinder und Eltern kommen nicht vor
@@ -357,7 +388,7 @@ export function erstelleProgrammRouten({
                 name: user.name,
                 bildUrl,
                 rolle: einheitRolle.typ,
-                status: sql<Antwort>`coalesce(${leitungAnmeldung.status}, 'offen')`,
+                status: sql<LeitungAntwort>`coalesce(${leitungAnmeldung.status}, 'offen')`,
                 ...abzeichenFelder,
               })
               .from(einheitRolle)
@@ -384,15 +415,43 @@ export function erstelleProgrammRouten({
               .orderBy(rollenReihenfolge, asc(user.name), asc(user.id))
           ).map(mitAbzeichen)
         : [];
-      const zaehle = (l: { status: Antwort }[]) => ({
+      // Plätze und Warteliste nur bei einem Termin mit Höchstzahl, und nur für die, die die Leitenden sehen
+      const platz =
+        gesamt && hoechstzahl !== null
+          ? (await ladePlaetze(db, [id], person.id)).get(id)
+          : undefined;
+      const reihe =
+        platz && !platz.begonnen ? await wartende(db, id, einheitId) : [];
+      const leitendeMitPlatz = leitende.map((l) => {
+        if (!platz) return l;
+        const status = eigeneAnmeldungWert(l.status, platz);
+        const stelle = reihe.indexOf(l.id);
+        return {
+          ...l,
+          status,
+          position: status === "warteliste" && stelle >= 0 ? stelle + 1 : null,
+        };
+      });
+      const zaehle = (l: { status: LeitungAntwort }[]) => ({
         ja: l.filter((e) => e.status === "ja").length,
         nein: l.filter((e) => e.status === "nein").length,
         offen: l.filter((e) => e.status === "offen").length,
       });
       return c.json({
-        zahlen: { teilnehmende: zaehle(liste), leitende: zaehle(leitende) },
+        zahlen: {
+          teilnehmende: zaehle(liste),
+          leitende: {
+            ...zaehle(leitendeMitPlatz),
+            ...(platz && {
+              warteliste: leitendeMitPlatz.filter(
+                (e) => e.status === "warteliste",
+              ).length,
+            }),
+          },
+        },
         teilnehmende: liste,
-        leitende,
+        leitende: leitendeMitPlatz,
+        leitungPlaetze: platz && ohneBegonnen(platz),
       });
     })
     .put(
@@ -417,14 +476,16 @@ export function erstelleProgrammRouten({
           );
         }
         if (!stand.fensterOffen) return c.json(fensterZu(stand.ab), 409);
-        await db
-          .insert(leitungAnmeldung)
-          .values({ programmId: id, userId: person.id, status })
-          .onConflictDoUpdate({
-            target: [leitungAnmeldung.programmId, leitungAnmeldung.userId],
-            set: { status },
-          });
-        return c.body(null, 204);
+        // Prüfen, Eintragen und Nachrücken in einer Transaktion mit gesperrtem Programm
+        const ergebnis = await setzeLeitung(db, {
+          programmId: id,
+          userId: person.id,
+          status,
+        });
+        if (!ergebnis) throw new HTTPException(404);
+        // Der Push läuft nach dem Commit und wirft nie
+        await sendeNachrueckPush({ db, fcm, c }, id, ergebnis.nachgerueckt);
+        return c.json({ status: ergebnis.status, position: ergebnis.position });
       },
     )
     .put(

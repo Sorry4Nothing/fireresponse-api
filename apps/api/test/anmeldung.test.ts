@@ -402,9 +402,9 @@ describe("GET /api/v1/programme/:id/teilnahmen", () => {
 
 describe("PUT /api/v1/programme/:id/leitung", () => {
   test.each([
-    ["kommandoJfA", 204],
-    ["stellvertretung1JfA", 204],
-    ["leitendeJfA", 204],
+    ["kommandoJfA", 200],
+    ["stellvertretung1JfA", 200],
+    ["leitendeJfA", 200],
     ["elternJfA", 403],
     ["teilnehmendeSelbstJfA", 403],
     ["kantonsadmin", 403],
@@ -438,13 +438,13 @@ describe("PUT /api/v1/programme/:id/leitung", () => {
     expect(zeilen).toHaveLength(1);
   });
 
-  test("zwei gleichzeitige Anfragen: beide 204, eine Zeile", async () => {
+  test("zwei gleichzeitige Anfragen: beide 200, eine Zeile", async () => {
     const konto = await person("leitendeJfA");
     const antworten = await Promise.all([
       meldeLeitung(konto, jfA, "ja"),
       meldeLeitung(konto, jfA, "nein"),
     ]);
-    expect(antworten.map((a) => a.status)).toEqual([204, 204]);
+    expect(antworten.map((a) => a.status)).toEqual([200, 200]);
     const zeilen = await db
       .select()
       .from(schema.leitungAnmeldung)
@@ -529,7 +529,7 @@ describe("Termine nur für Leitende", () => {
     const eltern = await person("elternJfA");
     expect((await melde(eltern, id, welt.teilnehmende.jfA)).status).toBe(404);
     expect((await meldeLeitung(await person("leitendeJfA"), id)).status).toBe(
-      204,
+      200,
     );
     expect(
       await db

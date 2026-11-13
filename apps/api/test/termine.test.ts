@@ -254,7 +254,7 @@ describe("Kontakt pro Termin", () => {
     });
 
     expect((await meldeLeitung("kommandoJfA", programmId, "nein")).status).toBe(
-      204,
+      200,
     );
     expect(await kontakt()).toMatchObject({
       id: konto("stellvertretung1JfA").id,
@@ -268,21 +268,21 @@ describe("Kontakt pro Termin", () => {
     // Eine Stellvertretung, die «ja» sagt, bleibt Kontakt; «offen» der zweiten ändert nichts
     expect(
       (await meldeLeitung("stellvertretung1JfA", programmId, "ja")).status,
-    ).toBe(204);
+    ).toBe(200);
     expect((await kontakt()).id).toBe(konto("stellvertretung1JfA").id);
 
     expect(
       (await meldeLeitung("stellvertretung1JfA", programmId, "nein")).status,
-    ).toBe(204);
+    ).toBe(200);
     expect((await kontakt()).id).toBe(konto("stellvertretung2JfA").id);
 
     expect(
       (await meldeLeitung("stellvertretung2JfA", programmId, "nein")).status,
-    ).toBe(204);
+    ).toBe(200);
     expect((await kontakt()).id).toBe(konto("kommandoJfA").id);
 
     expect((await meldeLeitung("kommandoJfA", programmId, "ja")).status).toBe(
-      204,
+      200,
     );
     expect((await kontakt()).id).toBe(konto("kommandoJfA").id);
   });
