@@ -28,6 +28,7 @@ const AKTIONEN = {
   teilnehmende_geaendert: "Person geändert",
   eltern_verknuepft: "Eltern verknüpft",
   konto_gewechselt: "Konto aufs Kind übertragen",
+  teilnehmende_uebertragen: "Person in andere Einheit übertragen",
   rang_angelegt: "Rang angelegt",
   rang_geaendert: "Rang geändert",
   rang_geloescht: "Rang gelöscht",
@@ -39,6 +40,12 @@ const AKTIONEN = {
   zeitregel_angelegt: "Erinnerung angelegt",
   zeitregel_geaendert: "Erinnerung geändert",
   zeitregel_geloescht: "Erinnerung gelöscht",
+  push_mitteilung_gesendet: "Push-Mitteilung gesendet",
+  nachricht_gesendet: "Nachricht an die Verwaltung gesendet",
+  nachricht_zurueckgezogen: "Nachricht zurückgezogen",
+  wartung_eingeschaltet: "Wartung eingeschaltet",
+  wartung_geaendert: "Wartung geändert",
+  wartung_ausgeschaltet: "Wartung ausgeschaltet",
 };
 
 // «rolle: leitung, felder: name, telefon»; die Werte sind feste Wörter, IDs und Zahlen

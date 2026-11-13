@@ -103,7 +103,10 @@ export async function uebernimm(
       beginnMs: roh<string>`(extract(epoch from ${programmBeginn}) * 1000)::bigint`,
     })
     .from(programm)
-    .where(eq(programm.einheitId, einheitId));
+    // Manuelle Termine gehören der Verwaltung: Sie fehlen im Kalender, sind aber nie abgesagt
+    .where(
+      and(eq(programm.einheitId, einheitId), eq(programm.quelle, "lodur")),
+    );
   const nachUid = new Map(vorhanden.map((v) => [v.uid, v]));
   const kuenftig = (v: Vorhanden) => Number(v.beginnMs) > jetzt.getTime();
 

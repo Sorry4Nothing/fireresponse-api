@@ -1,6 +1,6 @@
 $kind: http-request
 name: "GET /api/v1/admin/einheiten"
-order: 58000
+order: 59000
 method: GET
 url: "{{baseUrl}}/api/v1/admin/einheiten"
 headers:

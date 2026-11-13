@@ -102,6 +102,7 @@ export const user = pgTable(
     telefon: text("telefon"),
     pushProgramme: boolean("push_programme").notNull().default(true),
     pushAnmeldungen: boolean("push_anmeldungen").notNull().default(true),
+    pushInfokanal: boolean("push_infokanal").notNull().default(true),
     // Einwilligung beim ersten Start; ohne gültige Version sperrt die API die App-Routen
     einwilligungAm: zeitpunkt("einwilligung_am"),
     einwilligungVersion: integer("einwilligung_version"),
@@ -356,6 +357,11 @@ export const programm = pgTable(
     einheitId: uuid("einheit_id")
       .notNull()
       .references(() => einheit.id, { onDelete: "restrict" }),
+    // Woher der Termin kommt: «lodur» gehört dem Sync, «manuell» legt die Verwaltung an und der Sync fasst ihn nie an. Weitere Angaben zu manuellen Terminen (z. B. eine Höchstzahl) kommen als eigene Spalten dazu
+    quelle: text("quelle", { enum: ["lodur", "manuell"] })
+      .notNull()
+      .default("lodur"),
+    // Bei manuellen Terminen «manuell-<uuid>»: nur damit die Eindeutigkeit je Einheit gilt
     googleEventId: text("google_event_id").notNull(),
     // Roher recurringEventId; der Sync (E3) kürzt den Stamm (_R…) erst beim Suchen
     googleSerie: text("google_serie"),
@@ -377,6 +383,8 @@ export const programm = pgTable(
     art: text("art"),
     // Gehört der Verwaltung, nie dem Sync: true zeigt den Termin Kindern und Eltern weder in der App noch in Push und Erinnerungen
     nurLeitende: boolean("nur_leitende").notNull().default(false),
+    // Höchstzahl der Zusagen von Leitenden (Kommando, Stellvertretung, Leitung); null heisst ohne Grenze. Nur bei manuellen Terminen; weitere Zusagen kommen auf die Warteliste
+    leitungHoechstzahl: integer("leitung_hoechstzahl"),
     status: text("status", { enum: ["aktiv", "abgesagt", "pruefen"] })
       .notNull()
       .default("aktiv"),
@@ -387,6 +395,11 @@ export const programm = pgTable(
     unique("programm_einheit_google_event_eindeutig").on(
       t.einheitId,
       t.googleEventId,
+    ),
+    check("programm_quelle_check", sql`${t.quelle} in ('lodur', 'manuell')`),
+    check(
+      "programm_leitung_hoechstzahl_check",
+      sql`${t.leitungHoechstzahl} is null or (${t.leitungHoechstzahl} >= 1 and ${t.quelle} = 'manuell')`,
     ),
     check(
       "programm_status_check",
@@ -423,7 +436,7 @@ export const teilnahme = pgTable(
   ],
 );
 
-// Keine Zeile heisst «offen»; dass die Person Kommando oder Leitung der Einheit des Programms ist, prüft die Route
+// Keine Zeile heisst «offen»; dass die Person Kommando oder Leitung der Einheit des Programms ist, prüft die Route. «warteliste»: Die Zusage fand wegen der Höchstzahl des Programms keinen Platz
 export const leitungAnmeldung = pgTable(
   "leitung_anmeldung",
   {
@@ -433,12 +446,21 @@ export const leitungAnmeldung = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    status: text("status", { enum: ["ja", "nein"] }).notNull(),
+    status: text("status", { enum: ["ja", "nein", "warteliste"] }).notNull(),
+    // Nur bei «warteliste»: Zeitpunkt der Eintragung, danach richtet sich die Reihenfolge
+    wartelisteSeit: zeitpunkt("warteliste_seit"),
   },
   (t) => [
     primaryKey({ columns: [t.programmId, t.userId] }),
     // text({ enum }) prüft nur in TypeScript, nicht in der Datenbank
-    check("leitung_anmeldung_status_check", sql`${t.status} in ('ja', 'nein')`),
+    check(
+      "leitung_anmeldung_status_check",
+      sql`${t.status} in ('ja', 'nein', 'warteliste')`,
+    ),
+    check(
+      "leitung_anmeldung_warteliste_check",
+      sql`(${t.status} = 'warteliste') = (${t.wartelisteSeit} is not null)`,
+    ),
   ],
 );
 
@@ -506,6 +528,30 @@ export const zeitregelGesendet = pgTable(
   (t) => [primaryKey({ columns: [t.regelId, t.programmId] })],
 );
 
+// Wartungsmodus: genau eine Zeile (feste ID). Aus heisst: text, ende und seit sind leer
+export const WARTUNG_ID = "00000000-0000-4000-8000-000000000001";
+export const wartung = pgTable(
+  "wartung",
+  {
+    id: uuid("id").primaryKey(),
+    aktiv: boolean("aktiv").notNull().default(false),
+    // Eigener Text für die App; leer heisst: Standardtext der App
+    text: text("text"),
+    // Voraussichtliches Ende, nur zur Anzeige: Es beendet die Wartung nicht von selbst
+    ende: zeitpunkt("ende"),
+    seit: zeitpunkt("seit"),
+  },
+  (t) => [
+    check("wartung_einzeln", sql`${t.id} = ${sql.raw(`'${WARTUNG_ID}'`)}`),
+    check("wartung_text_kurz", sql`char_length(${t.text}) <= 280`),
+    check(
+      "wartung_aus_leer",
+      sql`${t.aktiv} or (${t.text} is null and ${t.ende} is null and ${t.seit} is null)`,
+    ),
+    check("wartung_an_seit", sql`not ${t.aktiv} or ${t.seit} is not null`),
+  ],
+);
+
 // akteur_id und ziel_id ohne Fremdschlüssel, damit das Log Löschungen übersteht
 export const auditLog = pgTable("audit_log", {
   id: id(),
@@ -535,4 +581,86 @@ export const profilbild = pgTable(
     // Die Route kodiert auf rund 20 KB; die Grenze fängt einen Fehler im Code ab, bevor die Tabelle wächst
     check("profilbild_inhalt_klein", sql`octet_length(${t.inhalt}) <= 262144`),
   ],
+);
+
+// Eine Mitteilung im Infokanal einer Einheit (Einwegkanal: schreiben nur Kommando und Leitung). Gelöscht heisst: Text und Autor sind in der Datenbank weg, die Zeile bleibt als Platzhalter bis zur automatischen Löschung nach 6 Monaten. Ohne Autor, aber nicht gelöscht: Das Konto des Autors ist gelöscht, der Text bleibt
+export const infokanalMitteilung = pgTable(
+  "infokanal_mitteilung",
+  {
+    id: id(),
+    // RESTRICT wie überall bei der Einheit; das Löschen einer leeren Einheit entfernt ihre Mitteilungen zuvor selbst (routes/admin/einheiten.ts)
+    einheitId: uuid("einheit_id")
+      .notNull()
+      .references(() => einheit.id, { onDelete: "restrict" }),
+    autorId: uuid("autor_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    text: text("text"),
+    bearbeitetAm: zeitpunkt("bearbeitet_am"),
+    geloeschtAm: zeitpunkt("geloescht_am"),
+    erstelltAm: zeitpunkt("erstellt_am").notNull().defaultNow(),
+  },
+  (t) => [
+    // Die Liste läuft je Einheit nach id (uuidv7, also nach Zeit)
+    index("infokanal_mitteilung_einheit_idx").on(t.einheitId, t.id),
+    index("infokanal_mitteilung_erstellt_idx").on(t.erstelltAm),
+    index("infokanal_mitteilung_autor_idx").on(t.autorId),
+    // Text genau dann, wenn nicht gelöscht; ein gelöschter Eintrag hat auch keinen Autor mehr
+    check(
+      "infokanal_mitteilung_text_check",
+      sql`(${t.geloeschtAm} is null and ${t.text} is not null and char_length(${t.text}) between 1 and 2000) or (${t.geloeschtAm} is not null and ${t.text} is null and ${t.autorId} is null)`,
+    ),
+  ],
+);
+
+// Bis wann ein Konto den Infokanal einer Einheit gelesen hat; ohne Zeile ist alles ungelesen
+export const infokanalGelesen = pgTable(
+  "infokanal_gelesen",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    einheitId: uuid("einheit_id")
+      .notNull()
+      .references(() => einheit.id, { onDelete: "restrict" }),
+    gelesenBis: zeitpunkt("gelesen_bis").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.einheitId] })],
+);
+
+// Eine Mitteilung des Kantonsadmins an die Konten der Verwaltung (Glocke im Panel), nur Text und ohne Personendaten. Sie läuft nach laeuft_ab_am aus der Glocke; die API löscht sie 6 Monate danach, ohne Ablauf 6 Monate nach dem Erstellen
+export const nachricht = pgTable(
+  "nachricht",
+  {
+    id: id(),
+    titel: text("titel").notNull(),
+    text: text("text").notNull(),
+    laeuftAbAm: zeitpunkt("laeuft_ab_am"),
+    erstelltAm: zeitpunkt("erstellt_am").notNull().defaultNow(),
+  },
+  (t) => [
+    check(
+      "nachricht_titel_check",
+      sql`char_length(${t.titel}) between 1 and 80`,
+    ),
+    check(
+      "nachricht_text_check",
+      sql`char_length(${t.text}) between 1 and 1000`,
+    ),
+  ],
+);
+
+// Wer eine Mitteilung gelesen hat; der Kantonsadmin sieht nur die Zahl, nie die Konten
+export const nachrichtGelesen = pgTable(
+  "nachricht_gelesen",
+  {
+    nachrichtId: uuid("nachricht_id")
+      .notNull()
+      .references(() => nachricht.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    gelesenAm: zeitpunkt("gelesen_am").notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.nachrichtId, t.userId] })],
 );

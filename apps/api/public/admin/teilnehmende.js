@@ -1,6 +1,7 @@
-import { anfrage, fehlertext } from "./api.js";
+import { ApiFehler, anfrage, fehlertext } from "./api.js";
 import {
   aktionenZelle,
+  auswahl,
   bestaetigen,
   chip,
   dialogFormular,
@@ -25,6 +26,7 @@ import {
   mehrzahl,
   zustandsChips,
 } from "./konten.js";
+import { TYPNAME } from "./kontext.js";
 import { abzeichen, raengeAuswahl, raengeVomTyp } from "./raenge.js";
 
 // Suche und Filter überleben das Neuladen nach einer Aktion; fokus: Person, deren Zeile danach den Fokus bekommt
@@ -49,11 +51,16 @@ export function zeige(bereich, ctx) {
   const einheit = ctx.einheit;
   ctx.lade(
     async () => {
-      const [personen, raenge] = await Promise.all([
+      const [personen, raenge, ziele] = await Promise.all([
         anfrage("GET", `${basis(einheit)}/teilnehmende`),
         anfrage("GET", `${basis(einheit)}/raenge`),
+        anfrage("GET", `${basis(einheit)}/teilnehmende/ziele`),
       ]);
-      return { teilnehmende: personen.teilnehmende, raenge: raenge.raenge };
+      return {
+        teilnehmende: personen.teilnehmende,
+        raenge: raenge.raenge,
+        ziele: ziele.ziele,
+      };
     },
     (daten, neu) => zeichne(bereich, ctx, einheit, daten, neu),
   );
@@ -351,6 +358,39 @@ function kontoWechsel(t, einheit, ctx, neu, fertig) {
   });
 }
 
+// Nur die Einheit der Person ändert sich; die Konten bleiben. Die Ziele liefert die API: Ohne Recht oder ohne registrierte Zieleinheit bleibt die Liste leer und die Aktion fehlt
+function uebertragen(t, einheit, ziele, ctx, neu, fertig) {
+  const ziel = auswahl({
+    label: "Zieleinheit",
+    optionen: [
+      ["", "Bitte wählen"],
+      ...ziele.map((z) => [z.id, `${z.name} (${TYPNAME[z.typ]}, ${z.bezirk})`]),
+    ],
+    wert: ziele.length === 1 ? ziele[0].id : "",
+  });
+  dialogFormular({
+    titel: "In andere Einheit übertragen",
+    beschreibung: `«${vollerName(t)}» wechselt in die gewählte Einheit. Die Konten bleiben: Die Eltern oder die Person sehen sie danach dort. Alle Anmeldungen und Abmeldungen der Person in dieser Einheit verfallen, auch vergangene. Ein Rang geht nur mit, wenn die Zieleinheit einen Rang mit gleichem Namen und gleicher Art hat, sonst ist die Person danach ohne Rang. Prüfe vorher, ob das Alter für den Wechsel erreicht ist. Das lässt sich nur über die Zieleinheit rückgängig machen.`,
+    felder: [ziel.wurzel],
+    ok: "Übertragen",
+    gefaehrlich: true,
+    senden: () => {
+      if (!ziel.eingabe.value) throw new Error("Bitte wähle die Zieleinheit.");
+      return anfrage(
+        "POST",
+        `${basis(einheit)}/teilnehmende/${t.id}/uebertragen`,
+        { zielEinheitId: ziel.eingabe.value },
+      );
+    },
+    fehlertext: (f) => (f instanceof ApiFehler ? fehlertext(f) : f.message),
+    danach: () => {
+      neu();
+      ctx.melde(`«${vollerName(t)}» ist übertragen.`);
+      fertig();
+    },
+  });
+}
+
 function aktivSetzen(t, aktiv, einheit, ctx, neu, fertig = () => {}) {
   bestaetigen({
     titel: aktiv ? "Person aktiv setzen" : "Person inaktiv setzen",
@@ -476,6 +516,11 @@ function bearbeiten(t, einheit, daten, ctx, neu) {
       knopf("Konto aufs Kind übertragen", {
         symbol: "schluessel",
         onclick: () => kontoWechsel(t, einheit, ctx, neu, schliesse),
+      }),
+    daten.ziele.length > 0 &&
+      knopf("In andere Einheit übertragen", {
+        onclick: () =>
+          uebertragen(t, einheit, daten.ziele, ctx, neu, schliesse),
       }),
     t.aktiv
       ? knopf("Inaktiv setzen", {
@@ -714,6 +759,12 @@ function zeichne(bereich, ctx, einheit, daten, neu) {
               !hatSelbst(t) && {
                 text: "Konto aufs Kind übertragen",
                 onclick: () => kontoWechsel(t, einheit, ctx, neu, () => {}),
+              },
+              daten.ziele.length > 0 && {
+                text: "In andere Einheit übertragen",
+                gefaehrlich: true,
+                onclick: () =>
+                  uebertragen(t, einheit, daten.ziele, ctx, neu, () => {}),
               },
               t.aktiv
                 ? {

@@ -4,6 +4,8 @@ import { ZU_VIELE_ANFRAGEN } from "./auth.js";
 // Anfragen je Minute und Absender-Adresse. Allgemein gross genug für einen Elternabend im selben WLAN
 export const LIMIT_ALLGEMEIN = 600;
 export const LIMIT_OEFFENTLICH = 30;
+// Mitteilungen an die Verwaltung je Minute und Adresse: ein Kantonsadmin sendet wenige
+export const LIMIT_NACHRICHTEN = 5;
 
 const FENSTER_MS = 60_000;
 

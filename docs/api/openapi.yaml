@@ -2,7 +2,10 @@ openapi: 3.1.0
 info:
   title: FireResponse API
   version: 1.0.0
-  description: Schnittstelle des Backends für die nativen Apps (Android, iOS). Sie beschreibt, was der Code in apps/api tatsächlich liefert; test/openapi.test.ts vergleicht Pfade und Methoden mit den Routen der App.
+  description: |
+    Schnittstelle des Backends für die nativen Apps (Android, iOS). Sie beschreibt, was der Code in apps/api tatsächlich liefert; test/openapi.test.ts vergleicht Pfade und Methoden mit den Routen der App.
+
+    **Wartung.** Solange die Wartung läuft, antwortet jede Route unter `/api/v1/` mit 503 `WARTUNG` (Schema `WartungFehler`, Header `Retry-After`), und zwar vor der Prüfung von Sitzung, Rolle und Einwilligung. Ausgenommen sind `GET /api/v1/wartung`, `GET /api/v1/datenschutz`, `/api/v1/admin/*` und `/health`. Darum steht die 503 als Antwort (`Wartung503`) bei den Operationen der App, nicht bei denen der Verwaltung. Auch `POST /api/auth/sign-in/username` antwortet mit 503, aber nur mit `X-App-Version`. Das Kantonsadmin-Konto schaltet die Wartung mit `PUT /api/v1/admin/system/wartung`.
 servers:
   - url: https://api.example.org
     description: Platzhalter; die echte Adresse steht in der Konfiguration der App
@@ -364,6 +367,36 @@ paths:
             text/javascript:
               schema:
                 type: string
+  /admin/mitteilungen.js:
+    get:
+      operationId: getAdminMitteilungenSkript
+      summary: Skript der Verwaltung – Bereich Push senden
+      tags:
+        - Allgemein
+      security: []
+      description: Statische Datei der Verwaltung (siehe `GET /admin`), ohne Anmeldung.
+      responses:
+        "200":
+          description: Datei (`text/javascript; charset=UTF-8`).
+          content:
+            text/javascript:
+              schema:
+                type: string
+  /admin/nachrichten.js:
+    get:
+      operationId: getAdminNachrichtenSkript
+      summary: Skript der Verwaltung – Glocke mit den Nachrichten
+      tags:
+        - Allgemein
+      security: []
+      description: Statische Datei der Verwaltung (siehe `GET /admin`), ohne Anmeldung.
+      responses:
+        "200":
+          description: Datei (`text/javascript; charset=UTF-8`).
+          content:
+            text/javascript:
+              schema:
+                type: string
   /admin/personen.js:
     get:
       operationId: getAdminPersonenSkript
@@ -428,6 +461,21 @@ paths:
     get:
       operationId: getAdminTermineSkript
       summary: Skript der Verwaltung – Bereich Termine
+      tags:
+        - Allgemein
+      security: []
+      description: Statische Datei der Verwaltung (siehe `GET /admin`), ohne Anmeldung.
+      responses:
+        "200":
+          description: Datei (`text/javascript; charset=UTF-8`).
+          content:
+            text/javascript:
+              schema:
+                type: string
+  /admin/wartung.js:
+    get:
+      operationId: getAdminWartungSkript
+      summary: Skript der Verwaltung – Wartung ein- und ausschalten
       tags:
         - Allgemein
       security: []
@@ -532,8 +580,10 @@ paths:
         Zusätzlich gilt ein Limit von 30 Anfragen je 15 Minuten und Client-IP (429 `ZU_VIELE_ANFRAGEN`, Header
         `X-Retry-After` in Sekunden).
 
+        **Wartung.** Solange die Wartung läuft, antwortet die Route mit `X-App-Version` mit 503 `WARTUNG` und prüft nichts. Ohne den Header (die Verwaltung im Browser) geht die Anmeldung durch, damit das Kantonsadmin-Konto die Wartung beenden kann.
+
         **Rollen.** Alle Personen mit Konto; deaktivierte Konten und unbekannte Namen bekommen 401.
-        Statuscodes: 200, 401, 426, 429.
+        Statuscodes: 200, 401, 426, 429, 503 (Wartung, nur mit `X-App-Version`).
       requestBody:
         required: true
         content:
@@ -568,6 +618,8 @@ paths:
           $ref: "#/components/responses/AppVeraltet426"
         "429":
           $ref: "#/components/responses/ZuVieleAnfragen429"
+        "503":
+          $ref: "#/components/responses/Wartung503"
   /api/auth/sign-out:
     post:
       operationId: abmelden
@@ -960,7 +1012,7 @@ paths:
         antworten dann mit 403.
 
         **Rollen.** Alle angemeldeten Personen, auch ohne zweiten Faktor.
-        Statuscodes: 200, 401 (ohne Sitzung, deaktiviert, Konto gelöscht), 426.
+        Statuscodes: 200, 401 (ohne Sitzung, deaktiviert, Konto gelöscht), 426, 503.
       responses:
         "200":
           description: Das eigene Profil.
@@ -972,6 +1024,8 @@ paths:
           $ref: "#/components/responses/NichtAngemeldet401"
         "426":
           $ref: "#/components/responses/AppVeraltet426"
+        "503":
+          $ref: "#/components/responses/Wartung503"
     patch:
       operationId: ichAendern
       summary: Eigene Push-Schalter und Telefonnummer ändern
@@ -988,13 +1042,15 @@ paths:
 
         **Anmelde-Push.** `pushAnmeldungen` (Push an Kommando und Leitende bei An- und Abmeldung für ein Programm) ist ein Boolean und standardmässig an. `GET /api/v1/ich` gibt den Schalter nur Personen mit einer Rolle in einer Einheit zurück; setzen lässt er sich von jeder Person, ohne Wirkung ohne Rolle.
 
+        **Infokanal-Push.** `pushInfokanal` (Push bei einer neuen Mitteilung im Infokanal einer Einheit) ist ein Boolean und standardmässig an; `GET /api/v1/ich` liefert ihn für alle Konten. Der Push heisst «Neue Mitteilung im Infokanal <Einheitsname>», trägt nie den Text, hat die Daten `typ` `infokanal` und `id` (Einheit) und den Android-Kanal `infokanal`. Er geht nie an die schreibende Person.
+
         **Telefonnummer.** Freiwillig, nur für Kommandant und Stellvertretungen (sie sind die Kontakte). `telefon` ist ein Text mit Ziffern und den Zeichen
         `+ ( ) / . -` sowie Leerzeichen (6 bis 30 Zeichen, nach dem Trimmen); sonst 400. Ein leerer Text oder `null`
         entfernt die Nummer. Eine Nummer speichern darf nur, wer Kommandant oder Stellvertretung ist (sonst 403); entfernen darf sie
         jede Person, auch eine, die die Rolle verloren hat.
 
         **Rollen.** Alle angemeldeten Personen ausser bei offenem Pflichtwechsel des Passworts oder fehlender Einwilligung (403); die Nummer nur
-        Kommandant und Stellvertretungen. Statuscodes: 204, 400, 401, 403, 426.
+        Kommandant und Stellvertretungen. Statuscodes: 204, 400, 401, 403, 426, 503.
       requestBody:
         required: true
         content:
@@ -1012,6 +1068,8 @@ paths:
           $ref: "#/components/responses/KeineBerechtigung403"
         "426":
           $ref: "#/components/responses/AppVeraltet426"
+        "503":
+          $ref: "#/components/responses/Wartung503"
   /api/v1/ich/bild:
     put:
       operationId: ichBildSetzen
@@ -1042,7 +1100,7 @@ paths:
         Alternativtext) und nennt in der Bedienung nur den Namen; ein Bild darf nie allein die Information tragen.
 
         **Rollen.** Alle angemeldeten Personen ausser bei offenem Pflichtwechsel des Passworts (403).
-        Statuscodes: 204, 401, 403, 413, 415, 426, 429.
+        Statuscodes: 204, 401, 403, 413, 415, 426, 429, 503.
       requestBody:
         required: true
         content:
@@ -1081,6 +1139,8 @@ paths:
           $ref: "#/components/responses/AppVeraltet426"
         "429":
           $ref: "#/components/responses/ZuVieleAnfragen429"
+        "503":
+          $ref: "#/components/responses/Wartung503"
     delete:
       operationId: ichBildLoeschen
       summary: Eigenes Profilbild löschen
@@ -1095,7 +1155,7 @@ paths:
         zurück, die Person lädt dann ein neues hoch.
 
         **Rollen.** Alle angemeldeten Personen ausser bei offenem Pflichtwechsel des Passworts (403).
-        Statuscodes: 204, 401, 403, 426.
+        Statuscodes: 204, 401, 403, 426, 503.
       responses:
         "204":
           description: Gelöscht oder nie vorhanden; kein Body.
@@ -1105,6 +1165,8 @@ paths:
           $ref: "#/components/responses/KeineBerechtigung403"
         "426":
           $ref: "#/components/responses/AppVeraltet426"
+        "503":
+          $ref: "#/components/responses/Wartung503"
   /api/v1/personen/{id}/bild:
     get:
       operationId: personBildLesen
@@ -1132,7 +1194,7 @@ paths:
         **Rollen.** Wer eine Person mit Namen sieht, sieht auch ihr Bild, sonst niemand: die Person selbst, das Konto des Kantonsadmins für alle,
         Kommando und Leitende für alle Rollen ihrer Einheiten, Eltern und Teilnehmende für Kommandant und Stellvertretungen ihrer Einheiten
         (die Kontakte). Für alle anderen, für Personen ohne Bild und für unbekannte Personen ist die Antwort 404, ohne Unterschied.
-        Statuscodes: 200, 400, 401, 403, 404, 426.
+        Statuscodes: 200, 400, 401, 403, 404, 426, 503.
       responses:
         "200":
           description: Das Bild.
@@ -1157,6 +1219,8 @@ paths:
           $ref: "#/components/responses/NichtGefunden404"
         "426":
           $ref: "#/components/responses/AppVeraltet426"
+        "503":
+          $ref: "#/components/responses/Wartung503"
   /api/v1/push-token:
     put:
       operationId: pushTokenRegistrieren
@@ -1176,7 +1240,7 @@ paths:
         und `_ : . -`. Die Form `ExponentPushToken[…]` aus der früheren Expo-Anbindung ergibt 400.
 
         **Rollen.** Alle angemeldeten Personen ausser bei offenem Pflichtwechsel des Passworts (403).
-        Statuscodes: 204, 400, 401, 403, 426.
+        Statuscodes: 204, 400, 401, 403, 426, 503.
       requestBody:
         required: true
         content:
@@ -1194,6 +1258,8 @@ paths:
           $ref: "#/components/responses/KeineBerechtigung403"
         "426":
           $ref: "#/components/responses/AppVeraltet426"
+        "503":
+          $ref: "#/components/responses/Wartung503"
   /api/v1/programme:
     get:
       operationId: programmeAuflisten
@@ -1214,12 +1280,13 @@ paths:
         Jeder Eintrag trägt `anmeldungAb`, den Schweizer Kalendertag, ab dem sich anmelden lässt (`ANMELDEFENSTER_TAGE` Tage
         vor dem Beginn, Standard 42). Spätere Programme sind sichtbar; die App zeigt dort «Anmeldung ab <Datum>».
         `teilnahmeOffen` sagt, ob sich jetzt antworten lässt (aktiv, nicht begonnen, Fenster offen).
+        Bei Terminen mit Höchstzahl für Leitende (Quelle `manuell`) tragen Kommando, Stellvertretung und Leitung der Einheit zusätzlich `leitungPlaetze` (Plätze, Zahl der Wartenden, eigene Position); für alle anderen fehlt der Schlüssel. Das Widget liest dieselbe Liste: `leitungPlaetze.voll` und `eigeneAnmeldung` `warteliste` genügen, `wartende` und `eigenePosition` stehen auch darin.
         `anmeldbar` ist immer `true` und nur noch für Apps da, die das Feld lesen. Termine, die die Verwaltung auf «nur Leitende» gestellt hat, fehlen für Eltern und Teilnehmende in Liste und Detail (404).
 
         Statuscodes: 200 Erfolg; 400 `von` oder `bis` fehlt, ist kein gültiges Datum `JJJJ-MM-TT`, beginnt mit Jahr
         0000 oder es gibt unbekannte Query-Parameter; 401 keine gültige Sitzung (auch deaktiviertes Konto);
         403 das Konto muss zuerst das Passwort ändern oder der Einwilligung zustimmen;
-        426 App-Version zu alt; 429 zu viele Anfragen.
+        426 App-Version zu alt; 429 zu viele Anfragen; 503 Wartung (`WARTUNG`).
       parameters:
         - $ref: "#/components/parameters/AppVersion"
         - name: von
@@ -1255,6 +1322,8 @@ paths:
           $ref: "#/components/responses/AppVeraltet426"
         "429":
           $ref: "#/components/responses/ZuVieleAnfragen429"
+        "503":
+          $ref: "#/components/responses/Wartung503"
   /api/v1/programme/{id}:
     get:
       operationId: programmLesen
@@ -1263,7 +1332,7 @@ paths:
         - Programme
       description: |
         Liefert die Felder des Listeneintrags (mit `teilnehmende` samt Rang-Abzeichen) und zusätzlich `thema`, `info`, `aufgebot`,
-        die Kontaktperson des Termins (`kontakt`) und (nur für Kommando und Leitende der Einheit) `eigeneAnmeldung`, das auch der Listeneintrag trägt.
+        die Kontaktperson des Termins (`kontakt`) und (nur für Kommando und Leitende der Einheit) `eigeneAnmeldung` und, bei einer Höchstzahl, `leitungPlaetze`; beides trägt auch der Listeneintrag.
         Die Kontaktperson ist die Kommandantin oder der Kommandant, solange sie oder er nicht «nein» gesagt hat; sonst die erste
         Stellvertretung ohne «nein»; haben alle «nein» gesagt, wieder die Kommandantin oder der Kommandant. «Offen» ist keine Absage.
         Die Telefonnummer des Kontakts sehen nur Eltern und Teilnehmende mit aktiver Person in der Einheit, sonst ist `telefon` `null`.
@@ -1271,7 +1340,7 @@ paths:
         Wer aufrufen darf: jede angemeldete Person, für die das Programm sichtbar ist (Regeln wie bei der Liste).
         Ein Programm, das die Person nicht sieht oder das es nicht gibt, ist 404.
 
-        Statuscodes: 200, 400 (`id` keine UUID), 401, 403 (Pflichtwechsel des Passworts oder Einwilligung offen), 404, 426, 429.
+        Statuscodes: 200, 400 (`id` keine UUID), 401, 403 (Pflichtwechsel des Passworts oder Einwilligung offen), 404, 426, 429, 503.
       parameters:
         - $ref: "#/components/parameters/AppVersion"
         - $ref: "#/components/parameters/ProgrammIdPfad"
@@ -1294,6 +1363,8 @@ paths:
           $ref: "#/components/responses/AppVeraltet426"
         "429":
           $ref: "#/components/responses/ZuVieleAnfragen429"
+        "503":
+          $ref: "#/components/responses/Wartung503"
   /api/v1/programme/{id}/teilnahmen:
     get:
       operationId: teilnahmenUebersicht
@@ -1303,10 +1374,11 @@ paths:
       description: |
         Kommando, Leitende und das Konto des Kantonsadmins sehen alle aktiven teilnehmenden Personen der Einheit mit ihrer
         Antwort (`ja`, `nein`, `offen`) und ihrem Abzeichen und die Rollen der Einheit (Kommandant zuerst, dann Stellvertretungen nach Reihenfolge, dann Leitende)
-        mit ihrer eigenen Anmeldung und ihrem Abzeichen. Eltern und Teilnehmende sehen nur ihre eigenen Personen und keine Leitenden.
+        mit ihrer eigenen Anmeldung und ihrem Abzeichen. Eltern und Teilnehmende sehen nur ihre eigenen Personen und keine Leitenden, auch keine Zahlen zu Plätzen und Warteliste.
+        Bei einem Termin mit Höchstzahl für Leitende steht bei den Leitenden zusätzlich der Status `warteliste` mit `position`, `zahlen.leitende` trägt `warteliste`, und `leitungPlaetze` liefert Plätze und Zahl der Wartenden. Zusagen tragen `name` und `bildUrl` (Bild über `GET /api/v1/personen/{id}/bild`, erlaubt für alle Rollen der eigenen Einheit).
         Eine Person, die das Programm sieht, aber weder eine Rolle noch eine eigene teilnehmende Person in der Einheit hat, bekommt 403.
 
-        Statuscodes: 200, 400, 401, 403, 404 (Programm unbekannt oder in keiner sichtbaren Einheit), 426, 429.
+        Statuscodes: 200, 400, 401, 403, 404 (Programm unbekannt oder in keiner sichtbaren Einheit), 426, 429, 503.
       parameters:
         - $ref: "#/components/parameters/AppVersion"
         - $ref: "#/components/parameters/ProgrammIdPfad"
@@ -1329,6 +1401,8 @@ paths:
           $ref: "#/components/responses/AppVeraltet426"
         "429":
           $ref: "#/components/responses/ZuVieleAnfragen429"
+        "503":
+          $ref: "#/components/responses/Wartung503"
   /api/v1/programme/{id}/leitung:
     put:
       operationId: leitungAnmelden
@@ -1341,7 +1415,11 @@ paths:
 
         Reihenfolge der Prüfung: Eingabe (400); Programm nicht sichtbar (404); keine Rolle in der Einheit (403);
         Programm schon begonnen (409, Code `PROGRAMM_BEGONNEN`); Anmeldefenster noch nicht offen (409, Code
-        `ANMELDEFENSTER_NICHT_OFFEN`). Statuscodes: 204, 400, 401, 403, 404, 409, 426, 429.
+        `ANMELDEFENSTER_NICHT_OFFEN`).
+
+        **Höchstzahl für Leitende.** Hat der Termin (Quelle `manuell`) eine Höchstzahl, belegen nur Zusagen Plätze. `ja` bei vollem Termin ist kein Fehler: Die Person kommt auf die Warteliste, die Antwort sagt `warteliste` mit der Position (Reihenfolge nach Zeitpunkt der Eintragung; Wiederholen behält den Platz). Prüfen und Eintragen sind unteilbar, auch bei zwei gleichzeitigen Zusagen um den letzten Platz. `nein` von der Warteliste trägt aus. `nein` von `ja` gibt den Platz frei: Die erste wartende Person rückt in derselben Transaktion nach und bekommt einen Push («Du bist nachgerückt», Text «Titel am Tag», Kanal `termine`, `data` `typ` `programm` und `id`). Das Wiederholen ist unschädlich.
+
+        Statuscodes: 200, 400, 401, 403, 404, 409, 426, 429, 503.
       parameters:
         - $ref: "#/components/parameters/AppVersion"
         - $ref: "#/components/parameters/ProgrammIdPfad"
@@ -1352,8 +1430,12 @@ paths:
             schema:
               $ref: "#/components/schemas/ProgrammAntwort"
       responses:
-        "204":
-          description: Anmeldung gespeichert. Kein Body.
+        "200":
+          description: Anmeldung gespeichert; der Stand der eigenen Anmeldung.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeitungAntwort"
         "400":
           $ref: "#/components/responses/UngueltigeEingabe400"
         "401":
@@ -1383,6 +1465,152 @@ paths:
           $ref: "#/components/responses/AppVeraltet426"
         "429":
           $ref: "#/components/responses/ZuVieleAnfragen429"
+        "503":
+          $ref: "#/components/responses/Wartung503"
+  /api/v1/admin/nachrichten:
+    get:
+      operationId: listeAdminNachrichten
+      summary: Nachrichten der Glocke
+      description: |
+        Die Glocke der Verwaltung: wichtige Hinweise der Kantonsadministration an die Konten der Verwaltung (Kommando und Stellvertretungen). Nie in der App, nie als Push. Liefert höchstens die 100 jüngsten, neueste zuerst.
+
+        Kommando und Stellvertretungen (mit zweitem Faktor) sehen die Nachrichten, die noch nicht abgelaufen sind, je mit `gelesen` für das eigene Konto. Der Kantonsadmin sieht alle, auch abgelaufene, je mit `abgelaufen` und der Zahl der `lesende` Konten; die Zahl der `empfaenger` steht einmal in der Antwort. Welche Konten gelesen haben, steht nirgends.
+
+        Statuscodes: 200 bei Erfolg. 403 für Leitende, Eltern und ohne zweiten Faktor (Code `ZWEITER_FAKTOR_FEHLT`).
+      tags:
+        - Verwaltung
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+      responses:
+        "200":
+          description: Die Nachrichten.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminNachrichtListe"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+    post:
+      operationId: sendeAdminNachricht
+      summary: Nachricht an die Verwaltung senden
+      description: |
+        Nur das Konto des Kantonsadmins. Die Nachricht geht an alle aktiven Konten mit Kommando oder Stellvertretung (keine Wahl je Rolle oder Einheit) und erscheint in deren Glocke. Nur Text, keine Personendaten. Mit `laeuftAbAm` verschwindet sie danach aus der Glocke. Die API löscht sie 6 Monate nach dem Ablauf, ohne Ablauf 6 Monate nach dem Erstellen.
+
+        Je Adresse höchstens 5 Nachrichten pro Minute (429). Das Senden steht im Audit-Log (`nachricht_gesendet`), nie mit Titel oder Text.
+
+        Statuscodes: 201 bei Erfolg. 400 bei ungültiger Eingabe. 403 für alle anderen. 429 bei zu vielen Nachrichten.
+      tags:
+        - Verwaltung
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminNachrichtAnlegen"
+      responses:
+        "201":
+          description: Gesendet.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminNachrichtAngelegt"
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/admin/nachrichten/gelesen:
+    post:
+      operationId: markiereAlleAdminNachrichtenGelesen
+      summary: Alle Nachrichten als gelesen markieren
+      description: |
+        Kommando und Stellvertretungen markieren alle ihre sichtbaren (nicht abgelaufenen) Nachrichten als gelesen. Harmlos, wenn nichts offen ist. Der Kantonsadmin ist kein Empfänger (403).
+
+        Statuscodes: 204 bei Erfolg. 403 für alle anderen.
+      tags:
+        - Verwaltung
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+      responses:
+        "204":
+          description: Markiert.
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/admin/nachrichten/{id}/gelesen:
+    put:
+      operationId: markiereAdminNachrichtGelesen
+      summary: Eine Nachricht als gelesen markieren
+      description: |
+        Kommando und Stellvertretungen markieren eine Nachricht für das eigene Konto; jedes Konto für sich. Ein zweites Mal ist harmlos. Der Kantonsadmin ist kein Empfänger (403).
+
+        Statuscodes: 204 bei Erfolg. 400 bei ungültiger ID. 403 für alle anderen. 404, wenn die Nachricht unbekannt, zurückgezogen oder abgelaufen ist.
+      tags:
+        - Verwaltung
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/AdminNachrichtId"
+      responses:
+        "204":
+          description: Markiert.
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/admin/nachrichten/{id}:
+    delete:
+      operationId: ziehAdminNachrichtZurueck
+      summary: Nachricht zurückziehen
+      description: |
+        Nur das Konto des Kantonsadmins. Löscht die Nachricht samt allen Lesemarken, auch eine abgelaufene. Das Zurückziehen steht im Audit-Log (`nachricht_zurueckgezogen`), ohne Text.
+
+        Statuscodes: 204 bei Erfolg. 400 bei ungültiger ID. 403 für alle anderen. 404, wenn die Nachricht unbekannt ist.
+      tags:
+        - Verwaltung
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/AdminNachrichtId"
+      responses:
+        "204":
+          description: Zurückgezogen.
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
   /api/v1/admin/system:
     get:
       operationId: holeAdminSystem
@@ -1404,6 +1632,45 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminSystem"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/admin/system/wartung:
+    put:
+      operationId: schalteAdminWartung
+      summary: Wartung ein- oder ausschalten
+      description: |
+        Nur das Konto des Kantonsadmins (mit zweitem Faktor). Schaltet die Wartung für das ganze System. Solange sie läuft, antworten alle App-Routen unter `/api/v1/` mit 503 `WARTUNG`; die Verwaltung (`/api/v1/admin/*`) und `GET /api/v1/wartung` bleiben benutzbar.
+
+        `aktiv: true` schaltet ein oder ändert Text und Ende einer laufenden Wartung (`seit` bleibt). `text` (getrimmt, höchstens 280 Zeichen, leer zählt als kein Text) und `ende` (ISO 8601 mit Zeitzone) sind optional. `aktiv: false` schaltet aus und leert alle Felder; `text` und `ende` sind dann nicht erlaubt (400). Die Antwort hat dieselbe Form wie `GET /api/v1/wartung`.
+
+        Jede Änderung steht im Protokoll (`wartung_eingeschaltet`, `wartung_geaendert`, `wartung_ausgeschaltet`); es nennt das Ende, nie den Text. Aus bei schon ausgeschalteter Wartung ändert nichts und schreibt nichts.
+
+        Statuscodes: 200, 400, 401, 403, 426, 429.
+      tags:
+        - Verwaltung
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WartungSchalten"
+      responses:
+        "200":
+          description: Neuer Stand.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WartungStand"
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
         "401":
           $ref: "#/components/responses/NichtAngemeldet401"
         "403":
@@ -1506,6 +1773,235 @@ paths:
           $ref: "#/components/responses/AppVeraltet426"
         "429":
           $ref: "#/components/responses/ZuVieleAnfragen429"
+        "503":
+          $ref: "#/components/responses/Wartung503"
+  /api/v1/infokanaele:
+    get:
+      operationId: infokanaeleListe
+      summary: Infokanäle der Person (eine Zeile je Einheit)
+      tags:
+        - Infokanal
+      description: |
+        Der Infokanal ist ein Einwegkanal je Einheit: Kommando (mit Stellvertretungen) und Leitende schreiben, alle anderen Konten der Einheit lesen.
+        Die Liste hat eine Zeile für jede Einheit, in der die Person eine Rolle hat oder für aktive Teilnehmende antwortet; sie kann leer sein.
+        Das Konto des Kantonsadmins hat keine Einheit und bekommt eine leere Liste. Die Rechte gelten je Einheit und werden im Backend geprüft.
+
+        `ungelesen` zählt Mitteilungen nach dem Lesestand des Kontos (`PUT …/gelesen`), ohne eigene und ohne gelöschte; ohne Lesestand ist alles ungelesen. `letzteMitteilungAm` ist die jüngste nicht gelöschte Mitteilung oder `null`.
+        Der Zähler am Reiter der App ist die Summe von `ungelesen`.
+
+        Statuscodes: 200, 401, 403 (Pflichtwechsel des Passworts oder fehlende Einwilligung), 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+      responses:
+        "200":
+          description: Die Infokanäle, nach Einheitsname geordnet.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InfokanalListe"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/infokanaele/{einheitId}/mitteilungen:
+    get:
+      operationId: infokanalVerlauf
+      summary: Verlauf eines Infokanals lesen
+      tags:
+        - Infokanal
+      description: |
+        Die Mitteilungen der Einheit, die neueste zuerst, seitenweise. `vor` ist die ID der letzten Mitteilung der vorigen Seite
+        (die Antwort nennt sie als `naechste`), `limit` 1 bis 100 (Standard 50). `naechste` ist `null` am Ende.
+
+        Eine gelöschte Mitteilung hat `geloescht: true`, `text: null` und `autor: null` und bleibt als Platzhalter «Nachricht gelöscht» im Verlauf.
+        `autor.rolle` ist `kommando` (auch für Stellvertretungen), `leitung` oder `null`, wenn die Person die Rolle in der Einheit nicht mehr hat.
+        `autor` ist auch `null`, wenn das Konto der schreibenden Person gelöscht ist; dann bleibt der Text. `bearbeitet` meint den Hinweis «bearbeitet» (ohne Zeit).
+        Die App zeigt Bearbeiten und Löschen nur, wo `darfBearbeiten` und `darfLoeschen` es sagen.
+
+        Wer die Einheit nicht kennt, auch das Konto des Kantonsadmins, bekommt 404.
+        Statuscodes: 200, 400, 401, 403 (Pflichtwechsel oder fehlende Einwilligung), 404, 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/InfokanalEinheitIdPfad"
+        - name: vor
+          in: query
+          required: false
+          description: ID der Mitteilung, vor der die Seite beginnt.
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          required: false
+          description: Mitteilungen je Seite.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        "200":
+          description: Eine Seite des Verlaufs.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InfokanalVerlauf"
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+    post:
+      operationId: infokanalSchreiben
+      summary: Mitteilung in den Infokanal schreiben
+      tags:
+        - Infokanal
+      description: |
+        Schreiben dürfen Kommando, Stellvertretungen und Leitende der Einheit. Alle anderen Konten der Einheit bekommen 403, wer die Einheit nicht kennt 404.
+        `text` hat 1 bis 2000 Zeichen nach dem Trimmen, nur Text (kein Markup, keine Anhänge; Links im Text bleiben Text). Der Body ist strikt.
+
+        **Push.** Nach dem Speichern geht ein Push «Neue Mitteilung im Infokanal <Einheitsname>» an alle Konten der Einheit ausser der schreibenden Person,
+        nie mit dem Text. Daten: `typ` `infokanal`, `id` die Einheit; Android-Kanal `infokanal`. Der Schalter `pushInfokanal` am Konto (siehe `PATCH /api/v1/ich`) schaltet ihn ab.
+        Deaktivierte Konten und Konten ohne aktive Teilnehmende oder Rolle in der Einheit bekommen ihn nicht.
+
+        Ein Konto schreibt höchstens 20 Mitteilungen in 10 Minuten (429), damit der Push nicht zum Spam wird.
+        Statuscodes: 201, 400, 401, 403, 404, 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/InfokanalEinheitIdPfad"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InfokanalText"
+      responses:
+        "201":
+          description: Die neue Mitteilung.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InfokanalMitteilung"
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/infokanaele/{einheitId}/mitteilungen/{id}:
+    put:
+      operationId: infokanalBearbeiten
+      summary: Eigene Mitteilung bearbeiten
+      tags:
+        - Infokanal
+      description: |
+        Bearbeiten darf nur, wer die Mitteilung schrieb, und nur solange sie Kommando, Stellvertretung oder Leitung der Einheit ist (sonst 403).
+        Der Text gilt wie beim Schreiben; die Mitteilung trägt danach `bearbeitet: true`. Bearbeiten löst keinen Push aus.
+        Eine gelöschte oder unbekannte Mitteilung, auch eine einer anderen Einheit, ist 404.
+        Statuscodes: 200, 400, 401, 403, 404, 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/InfokanalEinheitIdPfad"
+        - $ref: "#/components/parameters/InfokanalMitteilungIdPfad"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InfokanalText"
+      responses:
+        "200":
+          description: Die geänderte Mitteilung.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InfokanalMitteilung"
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+    delete:
+      operationId: infokanalLoeschen
+      summary: Mitteilung löschen
+      tags:
+        - Infokanal
+      description: |
+        Löschen darf die schreibende Person (auch wenn sie die Rolle verloren hat) und das Kommando mit den Stellvertretungen; fremde Mitteilungen löscht die Leitung nicht (403).
+        Das Löschen entfernt Text und Autor in der Datenbank; nur ein Platzhalter bleibt, bis das System die Mitteilung nach 6 Monaten ganz löscht.
+        Eine schon gelöschte oder unbekannte Mitteilung ist 404.
+        Statuscodes: 204, 400, 401, 403, 404, 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/InfokanalEinheitIdPfad"
+        - $ref: "#/components/parameters/InfokanalMitteilungIdPfad"
+      responses:
+        "204":
+          description: Gelöscht; kein Body.
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/infokanaele/{einheitId}/gelesen:
+    put:
+      operationId: infokanalGelesen
+      summary: Infokanal als gelesen markieren
+      tags:
+        - Infokanal
+      description: |
+        Setzt den Lesestand des Kontos für diese Einheit auf jetzt, ohne Body. Die App ruft es, wenn der Verlauf offen ist und die neueste Mitteilung gesehen wurde.
+        Alle Konten, die den Infokanal sehen, dürfen; wer die Einheit nicht kennt, auch das Konto des Kantonsadmins, bekommt 404.
+        Statuscodes: 204, 400, 401, 403, 404, 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/InfokanalEinheitIdPfad"
+      responses:
+        "204":
+          description: Gespeichert; kein Body.
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
   /api/v1/einheiten/{einheitId}/kontakt:
     get:
       operationId: einheitKontaktLesen
@@ -1519,7 +2015,7 @@ paths:
         dieser Einheit, sonst ist `telefon` `null`.
 
         Wer aufrufen darf: jede Person, die die Einheit sieht (Rolle in der Einheit, aktive teilnehmende Person darin oder
-        Kantonsadmin-Konto); sonst 404. Statuscodes: 200, 400, 401, 403, 404, 426.
+        Kantonsadmin-Konto); sonst 404. Statuscodes: 200, 400, 401, 403, 404, 426, 503.
       parameters:
         - $ref: "#/components/parameters/AppVersion"
         - $ref: "#/components/parameters/EinheitIdPfad"
@@ -1546,6 +2042,8 @@ paths:
           $ref: "#/components/responses/NichtGefunden404"
         "426":
           $ref: "#/components/responses/AppVeraltet426"
+        "503":
+          $ref: "#/components/responses/Wartung503"
   /api/v1/einheiten/{einheitId}/logo:
     get:
       operationId: einheitLogoLesen
@@ -1555,7 +2053,7 @@ paths:
       description: |
         Das gespeicherte, bereinigte Logo der Einheit (PNG oder SVG). Die Adresse steht als `logoUrl` in `/ich` und in der Liste der Einheiten der Verwaltung. Die Antwort trägt `Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; sandbox` und `X-Content-Type-Options: nosniff`, damit auch ein SVG nie als Seite läuft.
 
-        Wer aufrufen darf: jede Person, die die Einheit sieht (Rolle in der Einheit, aktive teilnehmende Person darin oder Kantonsadmin-Konto); sonst 404, ebenso ohne Logo. Statuscodes: 200, 400, 401, 403, 404, 426.
+        Wer aufrufen darf: jede Person, die die Einheit sieht (Rolle in der Einheit, aktive teilnehmende Person darin oder Kantonsadmin-Konto); sonst 404, ebenso ohne Logo. Statuscodes: 200, 400, 401, 403, 404, 426, 503.
       parameters:
         - $ref: "#/components/parameters/AppVersion"
         - $ref: "#/components/parameters/EinheitIdPfad"
@@ -1581,6 +2079,8 @@ paths:
           $ref: "#/components/responses/NichtGefunden404"
         "426":
           $ref: "#/components/responses/AppVeraltet426"
+        "503":
+          $ref: "#/components/responses/Wartung503"
   /api/v1/raenge/{id}/abzeichen:
     get:
       operationId: abzeichenBildLesen
@@ -1593,7 +2093,7 @@ paths:
 
         Die Antwort trägt `Cache-Control: private, no-store`, `X-Content-Type-Options: nosniff` und eine CSP, die Skripte und
         Nachladen sperrt. Wer die Einheit des Rangs nicht sieht, ein Rang ohne Bild und ein unbekannter Rang sind 404, ohne Unterschied.
-        Statuscodes: 200, 400, 401, 403, 404, 426.
+        Statuscodes: 200, 400, 401, 403, 404, 426, 503.
       parameters:
         - $ref: "#/components/parameters/AppVersion"
         - name: id
@@ -1625,6 +2125,8 @@ paths:
           $ref: "#/components/responses/NichtGefunden404"
         "426":
           $ref: "#/components/responses/AppVeraltet426"
+        "503":
+          $ref: "#/components/responses/Wartung503"
   /api/v1/datenschutz:
     get:
       operationId: datenschutzLesen
@@ -1660,6 +2162,33 @@ paths:
           $ref: "#/components/responses/ZuVieleAnfragen429"
         "426":
           $ref: "#/components/responses/AppVeraltet426"
+  /api/v1/wartung:
+    get:
+      operationId: holeWartung
+      summary: Stand der Wartung lesen
+      tags:
+        - Allgemein
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+      description: |
+        Öffentlich, ohne Anmeldung und ausserhalb der Wartungssperre: Die Route antwortet immer mit 200, auch während der Wartung. Die App ruft sie auf, wenn eine Antwort 503 `WARTUNG` war und die Person «Erneut prüfen» wählt; bei `aktiv: false` geht die App weiter. Keine Dauerabfrage.
+
+        `text` ist `null`, wenn die Verwaltung keinen eigenen Text gesetzt hat; die App zeigt dann ihren Standardtext. `text` hat höchstens 280 Zeichen. `ende` ist das voraussichtliche Ende, nur zur Anzeige: Die Wartung endet erst, wenn das Kantonsadmin-Konto sie ausschaltet. Ist die Wartung aus, sind alle Felder ausser `aktiv` `null`.
+        Drosselung wie alle Routen unter `/api/v1/` (600 je Minute und Adresse), nicht die strengere der Seiten. `Cache-Control: no-store`.
+
+        Statuscodes: 200, 426, 429.
+      responses:
+        "200":
+          description: Stand der Wartung.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WartungStand"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
   /api/v1/einwilligung:
     get:
       operationId: einwilligungLesen
@@ -1674,7 +2203,7 @@ paths:
         Routen unter `/api/v1` ausser `GET /api/v1/ich`, dieser Route und `/api/v1/admin/*` mit 403 `EINWILLIGUNG_FEHLT`;
         Passwortwechsel und Abmelden laufen über `/api/auth/*` und bleiben offen.
 
-        Statuscodes: 200, 401, 403 (Pflichtwechsel des Passworts offen), 426.
+        Statuscodes: 200, 401, 403 (Pflichtwechsel des Passworts offen), 426, 503.
       responses:
         "200":
           description: Fassung und Stand.
@@ -1688,6 +2217,8 @@ paths:
           $ref: "#/components/responses/KeineBerechtigung403"
         "426":
           $ref: "#/components/responses/AppVeraltet426"
+        "503":
+          $ref: "#/components/responses/Wartung503"
     put:
       operationId: einwilligungGeben
       summary: Der aktuellen Fassung zustimmen
@@ -1699,7 +2230,7 @@ paths:
         Speichert Zeitpunkt und aktuelle Version der Einwilligung am eigenen Konto. Kein Body: Die Fassung setzt der Server,
         nicht die App. Ein zweiter Aufruf schreibt Zeitpunkt und Version neu.
 
-        Statuscodes: 204, 401, 403 (Pflichtwechsel des Passworts offen), 426.
+        Statuscodes: 204, 401, 403 (Pflichtwechsel des Passworts offen), 426, 503.
       responses:
         "204":
           description: Gespeichert; kein Body.
@@ -1709,6 +2240,8 @@ paths:
           $ref: "#/components/responses/KeineBerechtigung403"
         "426":
           $ref: "#/components/responses/AppVeraltet426"
+        "503":
+          $ref: "#/components/responses/Wartung503"
   /api/v1/admin/einheiten/{einheitId}:
     delete:
       operationId: loescheAdminEinheit
@@ -1932,7 +2465,7 @@ paths:
       operationId: holeAdminTermine
       summary: Termine der Einheit für die Verwaltung
       description: |
-        Kantonsadmin, Kommandant und Stellvertretungen der Einheit. Liefert die synchronisierten Termine der Einheit, die den Zeitraum `von` bis `bis` (Schweizer Kalendertage, einschliesslich) berühren, nach Beginn sortiert. Titel, Zeit und Art gehören dem Lodur-Sync; der Schalter `nurLeitende` gehört der Verwaltung.
+        Kantonsadmin, Kommandant und Stellvertretungen der Einheit. Liefert die Termine der Einheit (aus Lodur und selbst angelegte), die den Zeitraum `von` bis `bis` (Schweizer Kalendertage, einschliesslich) berühren, nach Beginn sortiert. `quelle` sagt, woher ein Termin kommt: Titel, Zeit und Texte der Termine aus Lodur (`lodur`) gehören dem Sync; die selbst angelegten (`manuell`) gehören der Verwaltung. Der Schalter `nurLeitende` gehört bei beiden der Verwaltung.
 
         Statuscodes: 200 bei Erfolg. 400 bei fehlendem oder ungültigem Zeitraum. 403 für Leitende und Eltern der Einheit (und ohne zweiten Faktor, Code `ZWEITER_FAKTOR_FEHLT`); 404, wenn die Einheit unbekannt oder unsichtbar ist.
       tags:
@@ -1971,14 +2504,61 @@ paths:
           $ref: "#/components/responses/AppVeraltet426"
         "429":
           $ref: "#/components/responses/ZuVieleAnfragen429"
+    post:
+      operationId: legeAdminTerminAn
+      summary: Eigenen Termin anlegen (Quelle manuell)
+      description: |
+        Kantonsadmin, Kommandant und Stellvertretungen der Einheit. Legt einen Termin der Quelle `manuell` an. Das geht nur, solange für die Einheit kein Lodur-Link hinterlegt ist (sonst 409 `LODUR_LINK_GESETZT`); ein Termin bleibt bestehen, wenn später ein Link gesetzt wird, denn der Sync ändert, sagt ab oder löscht ihn nie. Die Apps zeigen ihn wie jeden anderen Termin, mit Anmeldung, «nur Leitende» und den Erinnerungen der Zeitregeln. Einen Push zur Anlage gibt es wie beim Sync nicht.
+
+        Zeit: Mit `ganztaegig: false` kommen `beginn` und `ende` als Schweizer Wanduhrzeit `YYYY-MM-DDTHH:mm` (ohne Zone; der Server rechnet mit Europe/Zurich um; `ende` nach `beginn`). Mit `ganztaegig: true` kommen `tagVon` und `tagBis` (`tagBis` nicht vor `tagVon`). Alles andere ist 400. Das Anlegen steht im Audit-Log (`termin_angelegt`, ohne Inhalte).
+
+        Statuscodes: 201 mit dem Termin. 400 bei ungültigem Body. 403 für Leitende und Eltern. 404 bei unbekannter oder unsichtbarer Einheit. 409 `LODUR_LINK_GESETZT`.
+      tags:
+        - Verwaltung
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/EinheitIdPfad"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminTerminAnlegen"
+      responses:
+        "201":
+          description: Angelegt.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminTermin"
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "409":
+          $ref: "#/components/responses/AdminKonflikt409"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
   /api/v1/admin/einheiten/{einheitId}/termine/{id}:
     put:
-      operationId: setzeAdminTerminNurLeitende
-      summary: Termin auf «nur Leitende» stellen oder wieder freigeben
+      operationId: aendereAdminTermin
+      summary: Termin ändern oder auf «nur Leitende» stellen
       description: |
-        Kantonsadmin, Kommandant und Stellvertretungen der Einheit. «Nur Leitende» versteckt den Termin vor Eltern und Teilnehmenden (Liste, Detail, Push, Erinnerung, Auswertung); Kantonsadmin, Kommando, Stellvertretung und Leitende der Einheit sehen ihn weiter. Der Sync überschreibt den Schalter nie. Eine Änderung steht im Audit-Log (`termin_sichtbarkeit_geaendert`); derselbe Wert ändert nichts.
+        Kantonsadmin, Kommandant und Stellvertretungen der Einheit. Nur die mitgeschickten Felder ändern sich; `null` leert `art`, `ort`, `thema`, `info` und `aufgebot`.
 
-        Statuscodes: 200 bei Erfolg. 400 bei ungültigem Body. 403 für Leitende und Eltern. 404 bei unbekannter oder unsichtbarer Einheit und bei einem Termin einer anderen Einheit.
+        **Termin aus Lodur (`quelle` `lodur`):** erlaubt ist allein `nurLeitende`. «Nur Leitende» versteckt den Termin vor Eltern und Teilnehmenden (Liste, Detail, Push, Erinnerung, Auswertung); Kantonsadmin, Kommando, Stellvertretung und Leitende der Einheit sehen ihn weiter. Der Sync überschreibt den Schalter nie. Jedes andere Feld ergibt 409 `TERMIN_AUS_LODUR`.
+
+        **Selbst angelegter Termin (`quelle` `manuell`):** alle Felder. Die Zeit ändert sich nur als Ganzes: Mit `ganztaegig` kommen `beginn` und `ende` (Schweizer Zeit) oder `tagVon` und `tagBis`, die Regeln wie beim Anlegen. Ändert sich Titel, Art, Thema, Info, Aufgebot oder Zeit eines künftigen aktiven Termins, bekommen alle, die schon geantwortet haben, einen Push («Titel am Tag geändert»); Ort und «nur Leitende» lösen keinen aus. Bei «nur Leitende» geht der Push nicht an Eltern und Teilnehmende.
+
+        Eine Änderung steht im Audit-Log (`termin_geaendert` mit den Namen der Felder, `termin_sichtbarkeit_geaendert` für den Schalter); derselbe Wert ändert nichts.
+
+        Statuscodes: 200 mit dem Termin. 400 bei ungültigem Body, auch bei einem leeren. 403 für Leitende und Eltern. 404 bei unbekannter oder unsichtbarer Einheit und bei einem Termin einer anderen Einheit. 409 `TERMIN_AUS_LODUR` bei einem Feld ausser `nurLeitende` an einem Termin aus Lodur; 409 `HOECHSTZAHL_ZU_KLEIN`, wenn die neue Höchstzahl unter der Zahl der Zusagen liegt.
       tags:
         - Verwaltung
       parameters:
@@ -1996,26 +2576,114 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              additionalProperties: false
-              required: [nurLeitende]
-              properties:
-                nurLeitende:
-                  type: boolean
+              $ref: "#/components/schemas/AdminTerminAendern"
       responses:
         "200":
-          description: Gespeichert.
+          description: Gespeichert; der Termin, wie ihn die Liste zeigt.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminTermin"
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "409":
+          $ref: "#/components/responses/AdminKonflikt409"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+    delete:
+      operationId: loescheAdminTermin
+      summary: Selbst angelegten Termin löschen
+      description: |
+        Kantonsadmin, Kommandant und Stellvertretungen der Einheit. Löscht einen Termin der Quelle `manuell` samt den Antworten dazu. War der Termin aktiv und noch nicht begonnen, bekommen alle Aktiven der Einheit den Absage-Push («Titel am Tag abgesagt»), bei «nur Leitende» nur Kommando und Leitende. Das Audit-Log hält `termin_geloescht` fest.
+
+        Statuscodes: 204 bei Erfolg. 403 für Leitende und Eltern. 404 bei unbekannter oder unsichtbarer Einheit und bei einem Termin einer anderen Einheit. 409 `TERMIN_AUS_LODUR`: Termine aus Lodur löscht nur der Sync.
+      tags:
+        - Verwaltung
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/EinheitIdPfad"
+        - name: id
+          in: path
+          required: true
+          description: ID des Termins (UUID).
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Gelöscht.
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "409":
+          $ref: "#/components/responses/AdminKonflikt409"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/admin/einheiten/{einheitId}/mitteilungen:
+    post:
+      operationId: sendeAdminMitteilung
+      summary: Push-Mitteilung an die Einheit senden
+      description: |
+        Kantonsadmin, Kommandant und Stellvertretungen der Einheit. Sendet sofort eine Push-Mitteilung mit freiem Text an die aktiven Konten der Einheit, die mindestens ein Push-Token haben: `gruppe: alle` an Kommando, Stellvertretungen, Leitende sowie Eltern und teilnehmende Personen aktiver Teilnehmender; `gruppe: leitende` nur an Kommando, Stellvertretungen und Leitende. Einzelne Personen und Gruppen darunter gibt es nicht; eine Planung oder Wiederholung auch nicht. Die Schalter der Konten (`pushProgramme` und andere) gelten nicht für diese Mitteilung.
+
+        Der Push trägt `data: { typ: "mitteilung" }` ohne `id` und läuft im Android-Kanal `termine`; die Apps öffnen nur die App. Der Text steht auf dem Sperrbildschirm und läuft über Google und Apple: kein Name eines Kindes, keine Personendaten. Titel höchstens 60, Text höchstens 200 Unicode-Zeichen (nach dem Kürzen von Leerraum), nur Text; im Titel keine Steuerzeichen, im Text nur Zeilenumbrüche als Steuerzeichen.
+
+        Jeder Versand steht im Audit-Log (`push_mitteilung_gesendet` mit Gruppe und Zahl der Konten, nie der Text). Pro Konto gelten höchstens 5 Mitteilungen je Stunde und 20 je Tag (gezählt im Audit-Log, 429); wer 0 Konten erreicht, verbraucht nichts. Fehlt dem Server der Schlüssel des Push-Dienstes, antwortet er 503 `PUSH_NICHT_EINGERICHTET` und sendet und protokolliert nichts. Der Dienst meldet Fehler beim Zustellen nicht zurück: 200 heisst, dass der Versand angestossen ist.
+
+        Statuscodes: 200 bei Erfolg (`empfaenger`: Zahl der Konten, 0 heisst: nichts gesendet). 400 bei ungültigem Body. 403 für Leitende und Eltern der Einheit (und ohne zweiten Faktor, Code `ZWEITER_FAKTOR_FEHLT`). 404, wenn die Einheit unbekannt oder unsichtbar ist. 429 beim Limit. 503 ohne Push-Dienst.
+      tags:
+        - Verwaltung
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/EinheitIdPfad"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [gruppe, titel, text]
+              properties:
+                gruppe:
+                  type: string
+                  enum: [alle, leitende]
+                titel:
+                  type: string
+                  minLength: 1
+                  maxLength: 60
+                  description: Die fette Zeile des Pushs, eine Zeile.
+                text:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                  description: Der Text unter dem Titel.
+      responses:
+        "200":
+          description: Versand angestossen.
           content:
             application/json:
               schema:
                 type: object
-                required: [id, nurLeitende]
+                required: [empfaenger]
                 properties:
-                  id:
-                    type: string
-                    format: uuid
-                  nurLeitende:
-                    type: boolean
+                  empfaenger:
+                    type: integer
+                    minimum: 0
+                    description: Zahl der Konten mit Push-Token, die die Mitteilung bekommen.
         "400":
           $ref: "#/components/responses/UngueltigeEingabe400"
         "401":
@@ -2028,6 +2696,12 @@ paths:
           $ref: "#/components/responses/AppVeraltet426"
         "429":
           $ref: "#/components/responses/ZuVieleAnfragen429"
+        "503":
+          description: Der Server hat keinen Schlüssel für den Push-Dienst (code PUSH_NICHT_EINGERICHTET).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Fehler"
   /api/v1/admin/einheiten/{einheitId}/lodur:
     get:
       operationId: holeAdminLodurLink
@@ -3012,6 +3686,77 @@ paths:
           $ref: "#/components/responses/AppVeraltet426"
         "429":
           $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/admin/einheiten/{einheitId}/teilnehmende/ziele:
+    get:
+      operationId: listeAdminUebertragungsziele
+      summary: Zieleinheiten für die Übertragung von Teilnehmenden
+      tags:
+        - Verwaltung
+      description: |
+        Kommando, Stellvertretungen und Kantonsadmin (mit zweitem Faktor), nur für die Einheit im Pfad. Die Einheiten, in die die Person Teilnehmende dieser Einheit übertragen darf, für die Auswahl im Panel; die Liste kann leer sein.
+        Das Kommando und die Stellvertretungen einer Kinderfeuerwehr dürfen nur in die Jugendfeuerwehr desselben Bezirks übertragen; aus einer Jugendfeuerwehr übertragen sie nie. Jede andere Übertragung (andere Einheit, anderer Bezirk) macht allein das Konto des Kantonsadmins.
+        Ziel ist nur eine in der App registrierte Einheit, also eine mit aktivem Kommando-Konto. Die eigene Einheit fehlt.
+
+        Statuscodes: 200, 401, 403, 404, 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/EinheitIdPfad"
+      responses:
+        "200":
+          description: Zieleinheiten nach Bezirk und Art.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUebertragungsziele"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
+  /api/v1/admin/einheiten/{einheitId}/teilnehmende/{teilnehmendeId}/uebertragen:
+    post:
+      operationId: uebertrageAdminTeilnehmende
+      summary: Teilnehmende in eine andere Einheit übertragen
+      tags:
+        - Verwaltung
+      description: |
+        Kommando, Stellvertretungen und Kantonsadmin (mit zweitem Faktor), nur für Personen der Einheit im Pfad; eine Person einer anderen Einheit ist 404. Die Ziele nennt `GET .../teilnehmende/ziele`:
+        Das Kommando und die Stellvertretungen einer Kinderfeuerwehr übertragen nur in die Jugendfeuerwehr desselben Bezirks, alles andere nur der Kantonsadmin, und das Ziel muss eine in der App registrierte Einheit sein (aktives Kommando-Konto). Ein Ziel, das die Person nicht wählen darf, ist für das Kommando 403, für den Kantonsadmin 400 (unbekannt, die eigene Einheit, nicht registriert).
+        Es ändert sich nur die Einheit der Person. Die Konten (Eltern oder eigenes Konto) bleiben verknüpft: Danach steht die Person bei `GET /api/v1/ich` mit der neuen Einheit (`einheitId`, `einheitName`, `einheitTyp`), und die Eltern antworten dort, auch ohne Rolle in der Einheit.
+        Alle Antworten (Anmeldungen) der Person in Programmen der alten Einheit verfallen, auch vergangene: Sie wären sonst in keiner Auswertung mehr sichtbar. Der Rang geht mit, wenn die Zieleinheit einen Rang mit gleichem Namen und gleicher Art hat, sonst ist die Person danach ohne Rang. Alles geschieht in einer Transaktion.
+        Die Übertragung steht im Audit-Log (`teilnehmende_uebertragen`) mit der abgebenden und der Zieleinheit, der ID der Person und der Zahl der gelöschten Antworten, nie mit Namen.
+
+        Statuscodes: 204, 400, 401, 403, 404, 426, 429.
+      parameters:
+        - $ref: "#/components/parameters/AppVersion"
+        - $ref: "#/components/parameters/EinheitIdPfad"
+        - $ref: "#/components/parameters/AdminTeilnehmendeIdPfad"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminUebertragen"
+      responses:
+        "204":
+          description: Übertragen.
+        "400":
+          $ref: "#/components/responses/UngueltigeEingabe400"
+        "401":
+          $ref: "#/components/responses/NichtAngemeldet401"
+        "403":
+          $ref: "#/components/responses/KeineBerechtigung403"
+        "404":
+          $ref: "#/components/responses/NichtGefunden404"
+        "426":
+          $ref: "#/components/responses/AppVeraltet426"
+        "429":
+          $ref: "#/components/responses/ZuVieleAnfragen429"
   /api/v1/admin/system/changes:
     get:
       operationId: listeAdminAenderungen
@@ -3774,6 +4519,72 @@ paths:
                 type: string
 components:
   schemas:
+    WartungStand:
+      type: object
+      required:
+        - aktiv
+        - text
+        - ende
+        - seit
+      properties:
+        aktiv:
+          type: boolean
+        text:
+          type:
+            - string
+            - "null"
+          maxLength: 280
+          description: Text der Verwaltung für die App; `null` heisst Standardtext der App.
+        ende:
+          type:
+            - string
+            - "null"
+          format: date-time
+          description: Voraussichtliches Ende, nur zur Anzeige.
+        seit:
+          type:
+            - string
+            - "null"
+          format: date-time
+    WartungSchalten:
+      type: object
+      additionalProperties: false
+      required:
+        - aktiv
+      properties:
+        aktiv:
+          type: boolean
+        text:
+          type:
+            - string
+            - "null"
+          maxLength: 280
+        ende:
+          type:
+            - string
+            - "null"
+          format: date-time
+          description: ISO 8601 mit Zeitzone (`Z` oder Abstand zu UTC).
+    WartungFehler:
+      type: object
+      required:
+        - code
+        - message
+        - ende
+      properties:
+        code:
+          type: string
+          enum:
+            - WARTUNG
+        message:
+          type: string
+          examples:
+            - FireResponse wird gerade gewartet. Bitte versuche es später noch einmal.
+        ende:
+          type:
+            - string
+            - "null"
+          format: date-time
     Fehler:
       type: object
       required:
@@ -4041,6 +4852,7 @@ components:
         - telefon
         - bildUrl
         - pushProgramme
+        - pushInfokanal
         - einheiten
         - teilnehmende
       properties:
@@ -4074,6 +4886,9 @@ components:
           type: boolean
         pushAnmeldungen:
           type: boolean
+        pushInfokanal:
+          type: boolean
+          description: Push bei neuen Mitteilungen im Infokanal; für alle Konten, standardmässig an.
         einheiten:
           type: array
           items:
@@ -4092,16 +4907,137 @@ components:
           type: boolean
         pushAnmeldungen:
           type: boolean
+        pushInfokanal:
+          type: boolean
         telefon:
           type:
             - string
             - "null"
           maxLength: 30
           description: Eigene Telefonnummer, nur für SL; leerer Text oder `null` entfernt sie.
+    InfokanalListe:
+      type: object
+      required: [infokanaele]
+      properties:
+        infokanaele:
+          type: array
+          items:
+            $ref: "#/components/schemas/Infokanal"
+    Infokanal:
+      type: object
+      required:
+        - einheit
+        - name
+        - darfSchreiben
+        - ungelesen
+        - letzteMitteilungAm
+      properties:
+        einheit:
+          $ref: "#/components/schemas/ProgrammEinheit"
+        name:
+          type: string
+          description: «Infokanal» und Einheitsname.
+          example: Infokanal Jugendfeuerwehr Meilen
+        darfSchreiben:
+          type: boolean
+          description: Kommando, Stellvertretung und Leitung der Einheit.
+        ungelesen:
+          type: integer
+          minimum: 0
+        letzteMitteilungAm:
+          type:
+            - string
+            - "null"
+          format: date-time
+    InfokanalVerlauf:
+      type: object
+      required: [darfSchreiben, mitteilungen, naechste]
+      properties:
+        darfSchreiben:
+          type: boolean
+        mitteilungen:
+          type: array
+          items:
+            $ref: "#/components/schemas/InfokanalMitteilung"
+        naechste:
+          type:
+            - string
+            - "null"
+          format: uuid
+          description: Das `vor` der nächsten Seite; `null` am Ende.
+    InfokanalMitteilung:
+      type: object
+      required:
+        - id
+        - text
+        - geloescht
+        - bearbeitet
+        - erstelltAm
+        - autor
+        - eigene
+        - darfBearbeiten
+        - darfLoeschen
+      properties:
+        id:
+          type: string
+          format: uuid
+        text:
+          type:
+            - string
+            - "null"
+          description: "`null` bei einer gelöschten Mitteilung."
+        geloescht:
+          type: boolean
+        bearbeitet:
+          type: boolean
+        erstelltAm:
+          type: string
+          format: date-time
+        autor:
+          oneOf:
+            - $ref: "#/components/schemas/InfokanalAutor"
+            - type: "null"
+          description: "`null` bei einer gelöschten Mitteilung und bei einem gelöschten Konto."
+        eigene:
+          type: boolean
+        darfBearbeiten:
+          type: boolean
+        darfLoeschen:
+          type: boolean
+    InfokanalAutor:
+      type: object
+      required: [name, rolle, bildUrl]
+      properties:
+        name:
+          type: string
+        rolle:
+          type:
+            - string
+            - "null"
+          enum: [kommando, leitung, null]
+          description: Stellvertretung zählt als `kommando`; `null`, wenn die Person die Rolle in der Einheit nicht mehr hat.
+        bildUrl:
+          type:
+            - string
+            - "null"
+          description: Pfad zum Profilbild oder `null`.
+    InfokanalText:
+      type: object
+      additionalProperties: false
+      required: [text]
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          description: Nur Text, 1 bis 2000 Zeichen nach dem Trimmen.
     TeilnahmenZahlen:
       type: object
       required: [ja, nein, offen]
       properties:
+        warteliste:
+          type: integer
+          description: Nur bei Leitenden eines Termins mit Höchstzahl.
         ja:
           type: integer
         nein:
@@ -4112,6 +5048,8 @@ components:
       type: object
       required: [zahlen, teilnehmende, leitende]
       properties:
+        leitungPlaetze:
+          $ref: "#/components/schemas/LeitungPlaetze"
         zahlen:
           type: object
           required: [teilnehmende, leitende]
@@ -4161,7 +5099,11 @@ components:
                 enum: [kommandant, stellvertretung, leitung]
               status:
                 type: string
-                enum: [ja, nein, offen]
+                enum: [ja, nein, offen, warteliste]
+              position:
+                type: [integer, "null"]
+                minimum: 1
+                description: Nummer auf der Warteliste; nur bei einem Termin mit Höchstzahl, sonst fehlt der Schlüssel.
               abzeichen:
                 oneOf:
                   - $ref: "#/components/schemas/Abzeichen"
@@ -4258,8 +5200,43 @@ components:
             $ref: "#/components/schemas/ProgrammTeilnehmende"
         eigeneAnmeldung:
           type: string
-          enum: [ja, nein, offen]
-          description: "Die eigene Anmeldung als Leitung. Der Schlüssel fehlt, ausser für Kommando, Stellvertretung und Leitung der Einheit des Termins; er fehlt auch bei `anmeldbar: false`. In Liste und Detail dieselbe Regel."
+          enum: [ja, nein, offen, warteliste]
+          description: "Die eigene Anmeldung als Leitung. `warteliste`: Die Zusage hat wegen der Höchstzahl keinen Platz, die Position steht in `leitungPlaetze.eigenePosition`; nach dem Beginn des Termins ist die Warteliste verfallen (`offen`). Der Schlüssel fehlt, ausser für Kommando, Stellvertretung und Leitung der Einheit des Termins; er fehlt auch bei `anmeldbar: false`. In Liste und Detail dieselbe Regel."
+        leitungPlaetze:
+          $ref: "#/components/schemas/LeitungPlaetze"
+    LeitungPlaetze:
+      type: object
+      description: |
+        Plätze der Leitenden eines Termins mit Höchstzahl. Der Schlüssel fehlt bei Terminen ohne Höchstzahl und für alle, die nicht Kommando, Stellvertretung oder Leitung der Einheit sind. Nur Zusagen (`ja`) belegen Plätze. Nach dem Beginn des Termins ist die Warteliste verfallen: `wartende` 0, `eigenePosition` `null`.
+      required: [hoechstzahl, belegt, frei, voll, wartende, eigenePosition]
+      properties:
+        hoechstzahl:
+          type: integer
+          minimum: 1
+        belegt:
+          type: integer
+        frei:
+          type: integer
+        voll:
+          type: boolean
+        wartende:
+          type: integer
+        eigenePosition:
+          type: [integer, "null"]
+          minimum: 1
+          description: Nummer auf der Warteliste (1 = als Nächste dran) oder `null`.
+    LeitungAntwort:
+      type: object
+      required: [status, position]
+      properties:
+        status:
+          type: string
+          enum: [ja, nein, warteliste]
+          description: "`warteliste`, wenn die Zusage wegen der Höchstzahl keinen Platz fand."
+        position:
+          type: [integer, "null"]
+          minimum: 1
+          description: Nummer auf der Warteliste, sonst `null`.
     ProgrammListe:
       type: object
       required:
@@ -4334,6 +5311,8 @@ components:
             - KONTO_GEMEINSAM
             - KEIN_ZWEITER_FAKTOR
             - KEIN_STARTPASSWORT
+            - TERMIN_AUS_LODUR
+            - LODUR_LINK_GESETZT
         message:
           type: string
           example: Diese Person ist schon Kommandantin oder Kommandant.
@@ -4813,6 +5792,89 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/AdminZeitregel"
+    AdminTermin:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          titel,
+          art,
+          status,
+          quelle,
+          ganztaegig,
+          beginn,
+          ende,
+          tagVon,
+          tagBis,
+          ort,
+          thema,
+          info,
+          aufgebot,
+          nurLeitende,
+          leitungHoechstzahl,
+        ]
+      properties:
+        id:
+          type: string
+          format: uuid
+        titel:
+          type: string
+        art:
+          type: [string, "null"]
+          description: Art laut Lodur (Sitzung, Übung, Kurs …) oder die Angabe der Verwaltung.
+        status:
+          type: string
+          enum: [aktiv, abgesagt, pruefen]
+        quelle:
+          type: string
+          enum: [lodur, manuell]
+          description: "`lodur`: vom Sync, nur der Schalter `nurLeitende` ist änderbar. `manuell`: von der Verwaltung angelegt, der Sync fasst ihn nie an."
+        ganztaegig:
+          type: boolean
+        beginn:
+          type: [string, "null"]
+          format: date-time
+          description: "`null` bei ganztägigen Terminen; dann gelten `tagVon` und `tagBis`."
+        ende:
+          type: [string, "null"]
+          format: date-time
+        tagVon:
+          type: [string, "null"]
+          format: date
+        tagBis:
+          type: [string, "null"]
+          format: date
+        ort:
+          type: [string, "null"]
+          description: Nur bei selbst angelegten Terminen; die Apps zeigen ihn noch nicht.
+        thema:
+          type: [string, "null"]
+        info:
+          type: [string, "null"]
+        aufgebot:
+          type: [string, "null"]
+        nurLeitende:
+          type: boolean
+        leitungHoechstzahl:
+          type: [integer, "null"]
+          minimum: 1
+          description: Höchstzahl der Zusagen von Leitenden; `null` ohne Grenze. Nur bei `manuell`.
+        leitungPlaetze:
+          type: [object, "null"]
+          description: Nur in der Liste. Zusagen und Wartende bei einer Höchstzahl, sonst `null`; nach dem Beginn ist `wartende` 0.
+          required: [hoechstzahl, belegt, frei, voll, wartende]
+          properties:
+            hoechstzahl:
+              type: integer
+            belegt:
+              type: integer
+            frei:
+              type: integer
+            voll:
+              type: boolean
+            wartende:
+              type: integer
     AdminTermine:
       type: object
       additionalProperties: false
@@ -4821,38 +5883,104 @@ components:
         termine:
           type: array
           items:
-            type: object
-            additionalProperties: false
-            required: [id, titel, art, status, ganztaegig, beginn, ende, tagVon, tagBis, nurLeitende]
-            properties:
-              id:
-                type: string
-                format: uuid
-              titel:
-                type: string
-              art:
-                type: [string, "null"]
-                description: Art laut Lodur (Sitzung, Übung, Kurs …).
-              status:
-                type: string
-                enum: [aktiv, abgesagt, pruefen]
-              ganztaegig:
-                type: boolean
-              beginn:
-                type: [string, "null"]
-                format: date-time
-                description: "`null` bei ganztägigen Terminen; dann gelten `tagVon` und `tagBis`."
-              ende:
-                type: [string, "null"]
-                format: date-time
-              tagVon:
-                type: [string, "null"]
-                format: date
-              tagBis:
-                type: [string, "null"]
-                format: date
-              nurLeitende:
-                type: boolean
+            $ref: "#/components/schemas/AdminTermin"
+    AdminTerminAnlegen:
+      type: object
+      additionalProperties: false
+      required: [titel, ganztaegig]
+      properties:
+        titel:
+          type: string
+          minLength: 1
+          maxLength: 120
+        ganztaegig:
+          type: boolean
+        beginn:
+          type: string
+          pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$'
+          examples: ["2031-06-10T18:30"]
+          description: "Schweizer Wanduhrzeit; nur mit `ganztaegig: false`."
+        ende:
+          type: string
+          pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$'
+          description: "Schweizer Wanduhrzeit, nach `beginn`; nur mit `ganztaegig: false`."
+        tagVon:
+          type: string
+          format: date
+          description: "Nur mit `ganztaegig: true`."
+        tagBis:
+          type: string
+          format: date
+          description: "Nicht vor `tagVon`; nur mit `ganztaegig: true`."
+        art:
+          type: [string, "null"]
+          maxLength: 120
+        ort:
+          type: [string, "null"]
+          maxLength: 120
+        thema:
+          type: [string, "null"]
+          maxLength: 2000
+        info:
+          type: [string, "null"]
+          maxLength: 2000
+        aufgebot:
+          type: [string, "null"]
+          maxLength: 2000
+        nurLeitende:
+          type: boolean
+          default: false
+        leitungHoechstzahl:
+          type: [integer, "null"]
+          minimum: 1
+          maximum: 500
+          description: Höchstzahl der Zusagen von Leitenden; weitere kommen auf die Warteliste. Ohne Angabe oder mit `null` gibt es keine Grenze.
+    AdminTerminAendern:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      description: Dieselben Felder wie beim Anlegen, alle optional. Die Zeit nur als Ganzes (`ganztaegig` mit seinen zwei Angaben). Bei einem Termin aus Lodur ist nur `nurLeitende` erlaubt.
+      properties:
+        titel:
+          type: string
+          minLength: 1
+          maxLength: 120
+        ganztaegig:
+          type: boolean
+        beginn:
+          type: string
+          pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$'
+        ende:
+          type: string
+          pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$'
+        tagVon:
+          type: string
+          format: date
+        tagBis:
+          type: string
+          format: date
+        art:
+          type: [string, "null"]
+          maxLength: 120
+        ort:
+          type: [string, "null"]
+          maxLength: 120
+        thema:
+          type: [string, "null"]
+          maxLength: 2000
+        info:
+          type: [string, "null"]
+          maxLength: 2000
+        aufgebot:
+          type: [string, "null"]
+          maxLength: 2000
+        nurLeitende:
+          type: boolean
+        leitungHoechstzahl:
+          type: [integer, "null"]
+          minimum: 1
+          maximum: 500
+          description: Neue Höchstzahl der Zusagen von Leitenden, `null` hebt die Grenze auf. Nur bei selbst angelegten Terminen. Nicht unter die Zahl der Zusagen (409 `HOECHSTZAHL_ZU_KLEIN`); eine höhere oder aufgehobene Grenze lässt Wartende der Reihe nach nachrücken (mit Push).
     AdminLodurSetzen:
       type: object
       additionalProperties: false
@@ -4900,6 +6028,77 @@ components:
           enum: [LODUR_LINK_UNGUELTIG]
         message:
           type: string
+    AdminNachrichtAnlegen:
+      type: object
+      required: [titel, text]
+      additionalProperties: false
+      properties:
+        titel:
+          type: string
+          minLength: 1
+          maxLength: 80
+          description: Eine Zeile, ohne Steuerzeichen. Leerraum am Rand wird entfernt.
+        text:
+          type: string
+          minLength: 1
+          maxLength: 1000
+          description: "Nur Text; Zeilenumbrüche sind erlaubt, Links bleiben Text. Keine Namen und keine Personendaten. Leerraum am Rand wird entfernt."
+        laeuftAbAm:
+          type: [string, "null"]
+          format: date-time
+          description: Ab diesem Zeitpunkt (mit Zeitzone, in der Zukunft) zeigt die Glocke die Nachricht nicht mehr. Ohne Angabe bleibt sie sichtbar.
+    AdminNachrichtAngelegt:
+      type: object
+      required: [id, erstelltAm, laeuftAbAm]
+      properties:
+        id:
+          type: string
+          format: uuid
+        erstelltAm:
+          type: string
+          format: date-time
+        laeuftAbAm:
+          type: [string, "null"]
+          format: date-time
+    AdminNachricht:
+      type: object
+      required: [id, titel, text, erstelltAm, laeuftAbAm]
+      properties:
+        id:
+          type: string
+          format: uuid
+        titel:
+          type: string
+        text:
+          type: string
+        erstelltAm:
+          type: string
+          format: date-time
+        laeuftAbAm:
+          type: [string, "null"]
+          format: date-time
+        gelesen:
+          type: boolean
+          description: "Nur für Kommando und Stellvertretungen: Hat das eigene Konto die Nachricht gelesen?"
+        abgelaufen:
+          type: boolean
+          description: Nur für den Kantonsadmin.
+        lesende:
+          type: integer
+          minimum: 0
+          description: "Nur für den Kantonsadmin: Wie viele der heutigen Empfänger-Konten die Nachricht gelesen haben. Welche, steht nirgends."
+    AdminNachrichtListe:
+      type: object
+      required: [nachrichten]
+      properties:
+        nachrichten:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminNachricht"
+        empfaenger:
+          type: integer
+          minimum: 0
+          description: "Nur für den Kantonsadmin: Zahl der aktiven Konten mit Kommando oder Stellvertretung."
     AdminAngelegt:
       type: object
       required:
@@ -5483,6 +6682,8 @@ components:
       properties:
         termin:
           $ref: "#/components/schemas/AuswertungTerminKopf"
+        leitungPlaetze:
+          $ref: "#/components/schemas/LeitungPlaetze"
         zahlen:
           type: object
           required: [teilnehmende, leitende]
@@ -5490,7 +6691,13 @@ components:
             teilnehmende:
               $ref: "#/components/schemas/AuswertungZahlen"
             leitende:
-              $ref: "#/components/schemas/AuswertungZahlen"
+              allOf:
+                - $ref: "#/components/schemas/AuswertungZahlen"
+                - type: object
+                  properties:
+                    warteliste:
+                      type: integer
+                      description: Nur bei einem Termin mit Höchstzahl; für die Quote zählen Wartende wie «offen», `offen` selbst zählt sie nicht.
         teilnehmende:
           type: array
           description: Aktive Teilnehmende, nach Nachname und Vorname.
@@ -5525,7 +6732,11 @@ components:
                 enum: [kommandant, stellvertretung, leitung]
               status:
                 type: string
-                enum: [ja, nein, offen]
+                enum: [ja, nein, offen, warteliste]
+              position:
+                type: [integer, "null"]
+                minimum: 1
+                description: Nummer auf der Warteliste; nur bei einem Termin mit Höchstzahl.
     AuswertungQuoten:
       type: object
       required: [von, bis, personen]
@@ -6018,6 +7229,35 @@ components:
           maxLength: 64
           pattern: ^[A-Za-z0-9._-]+$
           description: Benutzername des neuen Kontos der Person.
+    AdminUebertragen:
+      type: object
+      required: [zielEinheitId]
+      additionalProperties: false
+      properties:
+        zielEinheitId:
+          type: string
+          format: uuid
+          description: Die Zieleinheit, eine aus `GET .../teilnehmende/ziele`.
+    AdminUebertragungsziele:
+      type: object
+      required: [ziele]
+      properties:
+        ziele:
+          type: array
+          items:
+            type: object
+            required: [id, name, typ, bezirk]
+            properties:
+              id:
+                type: string
+                format: uuid
+              name:
+                type: string
+              typ:
+                type: string
+                enum: [jf, kf]
+              bezirk:
+                type: string
     KontoSuche:
       type: object
       description: Ein Konto für die Rückfrage vor dem Löschen.
@@ -6103,6 +7343,30 @@ components:
       in: path
       required: true
       description: ID der Erinnerungsregel (UUID).
+      schema:
+        type: string
+        format: uuid
+    InfokanalEinheitIdPfad:
+      name: einheitId
+      in: path
+      required: true
+      description: ID der Einheit (UUID); sie kommt aus `GET /api/v1/infokanaele`.
+      schema:
+        type: string
+        format: uuid
+    InfokanalMitteilungIdPfad:
+      name: id
+      in: path
+      required: true
+      description: ID der Mitteilung (UUID).
+      schema:
+        type: string
+        format: uuid
+    AdminNachrichtId:
+      name: id
+      in: path
+      required: true
+      description: ID der Nachricht (UUID).
       schema:
         type: string
         format: uuid
@@ -6254,6 +7518,18 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/Fehler"
+    Wartung503:
+      description: |
+        Wartung (code `WARTUNG`), vor der Prüfung von Sitzung, Rolle und Einwilligung. `message` ist der Text der Verwaltung oder der Standardtext, `ende` das voraussichtliche Ende oder `null`. `Retry-After` nennt die Sekunden bis zum Ende, höchstens 3600, ohne Ende oder nach seinem Ablauf 300. Die App zeigt den Wartungsbildschirm; eine 503 ohne den Code `WARTUNG` ist ein gewöhnlicher Fehler.
+      headers:
+        Retry-After:
+          description: Sekunden bis zum nächsten Versuch.
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/WartungFehler"
     AppVeraltet426:
       description: App-Version unter dem Minimum (code APP_VERALTET)
       content:
