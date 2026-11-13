@@ -61,30 +61,45 @@
         nennen nie den Namen eines Kindes.
       </p>
 
-      <h2>Widget auf dem Startbildschirm (Android)</h2>
+      <h2>Widget auf dem Startbildschirm (Android und iOS)</h2>
       <p>
-        Auf Android kannst du ein Widget auf den Startbildschirm legen. Dazu
-        gilt:
+        Auf Android und auf dem iPhone kannst du ein Widget «Nächste Übungen»
+        auf den Startbildschirm legen. Dazu gilt:
       </p>
       <ul>
         <li>
           <strong>Sichtbarkeit.</strong> Das Widget zeigt die Vornamen der
           Kinder auf dem Startbildschirm. Sie sind dort ohne Entsperren
-          sichtbar, je nach Launcher auch bei gesperrtem Gerät. Das gilt auch,
-          wenn du die Fingerabdruck-Sperre der App eingeschaltet hast, denn die
-          schützt das Widget nicht. Willst du das nicht, platziere das Widget
-          einfach nicht.
+          sichtbar. Auf Android je nach Launcher auch bei gesperrtem Gerät. Das
+          gilt auch, wenn du die Sperre der App (Fingerabdruck oder Face ID)
+          eingeschaltet hast, denn die schützt das Widget nicht. Willst du das
+          nicht, platziere das Widget einfach nicht.
         </li>
         <li>
-          <strong>Hintergrundabruf.</strong> Das Widget holt die Übungen und die
-          Logos selbst vom Server, alle 30 Minuten und mit der gespeicherten
-          Sitzung, auch wenn die App nicht offen ist.
+          <strong>Android: Hintergrundabruf.</strong> Das Widget holt die
+          Übungen und die Logos selbst vom Server, alle 30 Minuten und mit der
+          gespeicherten Sitzung, auch wenn die App nicht offen ist.
         </li>
         <li>
-          <strong>Speicherung.</strong> Das Widget legt nichts auf die Platte.
-          Es hält die Daten nur im Arbeitsspeicher und in dem, was Android für
-          Widgets selbst hält. Auf dieses Android-Gedächtnis haben wir keinen
-          Einfluss.
+          <strong>Android: Speicherung.</strong> Das Widget legt nichts auf die
+          Platte. Es hält die Daten nur im Arbeitsspeicher und in dem, was
+          Android für Widgets selbst hält. Auf dieses Android-Gedächtnis haben
+          wir keinen Einfluss.
+        </li>
+        <li>
+          <strong>iOS: kein eigener Abruf.</strong> Das Widget ruft den Server
+          nie selbst ab. Die App legt die nächsten Übungen (bis zu vier, mit den
+          Vornamen der Kinder, ihrem Stand und deiner eigenen Anmeldung) in eine
+          Datei, wenn sie die Übungsliste lädt. Ohne offene App blendet das
+          Widget nur Übungen aus, die vorbei sind. Nachnamen, Kontaktangaben und
+          Ortsangaben stehen nicht darin.
+        </li>
+        <li>
+          <strong>iOS: Speicherung.</strong> Die Datei liegt nur auf deinem
+          Gerät, im geschützten Speicher der App, und ist erst nach dem ersten
+          Entsperren nach dem Start des Geräts lesbar. Beim Abmelden und wenn
+          die Sitzung abläuft, löscht die App die Datei. Das Widget zeigt dann
+          keine Namen mehr.
         </li>
       </ul>
 
