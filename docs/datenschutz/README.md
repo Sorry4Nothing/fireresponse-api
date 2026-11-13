@@ -41,12 +41,25 @@ Diese Dokumente gehören zu FireResponse. Der Betreiber liefert sie fertig; es g
 | Teilnehmende und ihre Anmeldungen                                                                         | Kommando                                                                           | auf Anfrage; Aufbewahrungsfrist offen                                                             |
 | Termine                                                                                                   | Kommando oder der Kalender der Einheit                                             | Aufbewahrungsfrist offen                                                                          |
 | Link zum Lodur-Kalender und Stand des Abrufs                                                              | Kommando oder Kantonsadmin über `DELETE /api/v1/admin/einheiten/{einheitId}/lodur` | auf Anfrage, sofort; die Termine bleiben, es kommen keine neuen                                   |
+| Mitteilungen im Infokanal (geplant, Issue #208)                                                           | die Schreibenden (eigene), das Kommando (fremde), sonst die API                    | sofort (Text), nach 6 Monaten automatisch (ganze Mitteilung)                                      |
 | Sitzungen                                                                                                 | die API                                                                            | täglich nach Ablauf (90 Tage ohne Nutzung)                                                        |
 | Server-Logs                                                                                               | journald                                                                           | nach 14 Tagen                                                                                     |
 | Eintrag im Audit-Log                                                                                      | niemand                                                                            | bleibt, enthält nur IDs                                                                           |
 | Sicherungen                                                                                               | restic                                                                             | nach Ablauf der Aufbewahrung (30 tägliche, 3 monatliche Stände, bis 30 Tage länger beim Anbieter) |
 
 Nach einer Wiederherstellung aus einer Sicherung sind Konten, die danach gelöscht wurden, erneut zu löschen. Das Verfahren gehört in `docs/betrieb.md`.
+
+## Geplant: Kategorie «Mitteilungen im Infokanal»
+
+Der Infokanal (Issue #208) ist beschlossen, aber noch nicht gebaut. Die Kategorie kommt in `src/datenkategorien.ts`, sobald seine Tabellen im Schema stehen; vorher scheitert `test/datenkategorien.test.ts` (jede Kategorie braucht Spalten). Weil `src/datenkategorien.ts` die Datenschutzerklärung füllt, ändert die neue Kategorie deren Wortlaut: Das braucht eine neue Fassung (`EINWILLIGUNG_VERSION` steigt, alle Konten stimmen neu zu) und die Freigabe des Verantwortlichen. Bis dahin steht der Entwurf nur hier und in der DSFA.
+
+- **Titel:** Mitteilungen im Infokanal
+- **Zweck:** Kommando und Leitung informieren die Konten ihrer Einheit in einer Richtung (Text, Absender mit Rolle, Zeitpunkt, Einheit). Keine Antworten, keine Reaktionen, keine Anhänge.
+- **Frist:** 6 Monate, dann löscht das System die Mitteilung automatisch. Eine gelöschte Mitteilung verliert den Text sofort; nur ein Platzhalter bleibt bis dahin.
+- **Empfänger:** die Konten der Einheit (lesen), Kommando und Leitung der Einheit (schreiben). Der Push nennt nur «Neue Mitteilung» mit dem Namen der Einheit, nie den Text; er läuft über Google und Apple.
+- **Store-Angaben (Apple, Google):** noch zu bestimmen; der Text der Mitteilungen ist Inhalt, den Personen eingeben.
+
+Ebenfalls neu und noch nicht in der Datenschutzerklärung: frei formulierte Push-Mitteilungen aus der Verwaltung (Issue #207), die Übertragung von Teilnehmenden zwischen Einheiten (Issue #210) und die Warteliste mit Sichtbarkeit der angemeldeten Leitenden (Issue #212). Sie ändern die Weitergabe von Daten (siehe [dsfa.md](dsfa.md), Abschnitt 2a) und gehören vor dem Bau in die Erklärung und in den Elternbrief.
 
 ## Pflege
 
