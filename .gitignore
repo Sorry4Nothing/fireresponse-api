@@ -48,3 +48,7 @@ docs/agents/
 deploy/secrets/
 .vscode/
 .idea/
+
+# Lokale Werkzeug-Ordner (Agenten, Worktrees, Browser-Logs)
+.claude/
+.playwright-mcp/
