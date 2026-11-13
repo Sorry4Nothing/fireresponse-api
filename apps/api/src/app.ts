@@ -37,6 +37,7 @@ import { erstelleStellvertretungsRouten } from "./routes/admin/stellvertretungen
 import { erstelleTeilnehmendeRouten } from "./routes/admin/teilnehmende.js";
 import { erstelleKontenRouten } from "./routes/admin/konten.js";
 import { erstelleTermineRouten } from "./routes/admin/termine.js";
+import { erstelleMitteilungsRouten } from "./routes/admin/mitteilungen.js";
 import { erstelleLodurRouten } from "./routes/admin/lodur.js";
 import { erstelleSystemRouten } from "./routes/admin/system.js";
 import { erstelleZeitregelRouten } from "./routes/admin/zeitregeln.js";
@@ -270,6 +271,10 @@ export function erstelleApp({
         erstelleTermineRouten({ db, fcm }),
       )
       .route("/api/v1/admin/nachrichten", erstelleNachrichtenRouten({ db }))
+      .route(
+        "/api/v1/admin/einheiten/:einheitId/mitteilungen",
+        erstelleMitteilungsRouten({ db, fcm }),
+      )
       .route(
         "/api/v1/admin/system",
         erstelleSystemRouten({ sql, db, metriken }),

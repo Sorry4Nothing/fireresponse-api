@@ -217,6 +217,7 @@ const MATRIX: Record<string, Zeile> = {
   "GET /admin/konten.js": { erwartet: alle(200) },
   "GET /admin/konto-loeschen.js": { erwartet: alle(200) },
   "GET /admin/kontext.js": { erwartet: alle(200) },
+  "GET /admin/mitteilungen.js": { erwartet: alle(200) },
   "GET /admin/nachrichten.js": { erwartet: alle(200) },
   "GET /admin/personen.js": { erwartet: alle(200) },
   "GET /admin/qrcode.js": { erwartet: alle(200) },
@@ -806,6 +807,12 @@ const MATRIX: Record<string, Zeile> = {
     url: (w) =>
       `/api/v1/admin/einheiten/${w.einheit.jfA}/termine/${programmId}`,
     body: () => ({ nurLeitende: false }),
+    erwartet: VERWALTEN_JF_A(200),
+  },
+  // Push-Mitteilung der Verwaltung: dieselben Rechte wie die übrige Verwaltung der Einheit; Empfänger, Rate-Limit und Fehlerfälle prüft test/admin-mitteilungen.test.ts. Die Attrappe der Matrix sendet nichts ins Netz
+  "POST /api/v1/admin/einheiten/:einheitId/mitteilungen": {
+    url: (w) => `/api/v1/admin/einheiten/${w.einheit.jfA}/mitteilungen`,
+    body: () => ({ gruppe: "leitende", titel: "Matrix", text: "Nur ein Test" }),
     erwartet: VERWALTEN_JF_A(200),
   },
   // Manuelle Termine: dieselben Rechte; JF A hat in der Matrix keinen Lodur-Link (die Zeile «PUT …/lodur» steht davor und wird entfernt). Quelle, Zeiten und Push prüft test/admin-termine.test.ts

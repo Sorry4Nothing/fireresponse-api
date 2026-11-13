@@ -39,6 +39,7 @@ const AKTIONEN = {
   zeitregel_angelegt: "Erinnerung angelegt",
   zeitregel_geaendert: "Erinnerung geändert",
   zeitregel_geloescht: "Erinnerung gelöscht",
+  push_mitteilung_gesendet: "Push-Mitteilung gesendet",
   nachricht_gesendet: "Nachricht an die Verwaltung gesendet",
   nachricht_zurueckgezogen: "Nachricht zurückgezogen",
   wartung_eingeschaltet: "Wartung eingeschaltet",
