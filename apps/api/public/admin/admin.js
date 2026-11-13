@@ -16,6 +16,7 @@ import {
   zeigeUmschalter,
 } from "./kontext.js";
 import * as mitteilungen from "./mitteilungen.js";
+import { erstelleGlocke } from "./nachrichten.js";
 import * as personen from "./personen.js";
 import * as system from "./system.js";
 import * as teilnehmende from "./teilnehmende.js";
@@ -57,7 +58,7 @@ const BEREICHE = [
     modul: termine,
     symbol: "kalender",
     untertitel:
-      "Die Termine der Einheit aus dem Terminkalender. Du bestimmst, welche nur Leitende sehen.",
+      "Die Termine der Einheit: aus dem Terminkalender oder selbst angelegt. Du bestimmst, welche nur Leitende sehen.",
     einheit: true,
   },
   {
@@ -688,7 +689,12 @@ function zeigeVerwaltung() {
       "div",
       { class: "marke" },
       el("p", { class: "ueber" }, "FireResponse"),
-      el("strong", {}, "Verwaltung"),
+      el(
+        "div",
+        { class: "marke-zeile" },
+        el("strong", {}, "Verwaltung"),
+        erstelleGlocke({ melde }).wurzel,
+      ),
       el("div", { id: "einheit-karte" }, einheitKarte()),
     ),
     bereiche,

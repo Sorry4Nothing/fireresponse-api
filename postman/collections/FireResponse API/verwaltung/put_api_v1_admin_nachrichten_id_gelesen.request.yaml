@@ -1,8 +1,8 @@
 $kind: http-request
-name: "PUT /api/v1/admin/einheiten/:einheitId/anmelde-arten"
-order: 92000
+name: "PUT /api/v1/admin/nachrichten/:id/gelesen"
+order: 58000
 method: PUT
-url: "{{baseUrl}}/api/v1/admin/einheiten/{{einheit_jfA}}/anmelde-arten"
+url: "{{baseUrl}}/api/v1/admin/nachrichten/01a1d634-e6ce-77bd-b1da-31102f235926/gelesen"
 headers:
   - key: "Cookie"
     value: "{{cookie}}"
@@ -17,8 +17,4 @@ headers:
 body:
   type: json
   content: |-
-    {
-      "arten": [
-        "Übung"
-      ]
-    }
+    {}

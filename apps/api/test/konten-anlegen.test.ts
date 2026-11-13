@@ -327,6 +327,17 @@ describe("Bezirk und Einheit mit Kommando", () => {
     };
     const leer = await neueEinheit("jf");
     const belegt = await neueEinheit("kf");
+    // Der Infokanal hält das Löschen nicht auf: Seine Mitteilungen und Lesestände gehen mit der Einheit
+    await db.insert(schema.infokanalMitteilung).values({
+      einheitId: leer.id,
+      autorId: leer.kommandant.id,
+      text: "Wird mit der Einheit gelöscht",
+    });
+    await db.insert(schema.infokanalGelesen).values({
+      userId: leer.kommandant.id,
+      einheitId: leer.id,
+      gelesenBis: new Date(),
+    });
     await db
       .insert(schema.teilnehmende)
       .values({ einheitId: belegt.id, vorname: "Tim", nachname: "Teil" });
@@ -357,6 +368,14 @@ describe("Bezirk und Einheit mit Kommando", () => {
         .from(schema.rang)
         .where(eq(schema.rang.einheitId, leer.id)),
     ).toEqual([]);
+    for (const tabelle of [
+      schema.infokanalMitteilung,
+      schema.infokanalGelesen,
+    ]) {
+      expect(
+        await db.select().from(tabelle).where(eq(tabelle.einheitId, leer.id)),
+      ).toEqual([]);
+    }
     expect(
       await db
         .select()

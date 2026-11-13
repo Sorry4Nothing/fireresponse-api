@@ -159,6 +159,8 @@ Die Schritte vom Anmelden des Kommandos bis zur Anmeldung laufen auf jedem Gerä
 - Sitzungen, offene Bestätigungscodes, die Schlüssel des Rate-Limits und Push-Tokens (Tabellen `session`, `verification`, `rate_limit`, `push_token`): Sitzungen enthalten Tokens, und Push-Tokens hängen an ihrer Sitzung. **Nach einer Wiederherstellung melden sich darum alle neu an.**
 - Dateien auf dem Server: `deploy/.env` (Passwörter und restic-Schlüssel), `deploy/secrets/fcm-service-account.json` und die Zertifikate des Edge-Caddys. Der Edge-Caddy holt Zertifikate selbst neu; die Dateien ausser den Zertifikaten sind ohne eigene Kopie verloren. Die Dateien des Edge-Ordners (`docker-compose.yml`, `Caddyfile`, `sites/`) stehen im Repo.
 
+Gelöschte Mitteilungen des Infokanals (Tabelle `infokanal_mitteilung`) tragen ihren Text nur bis zur Löschung; ein älteres Backup enthält ihn noch. **Nach einer Wiederherstellung sind sie darum erneut zu löschen** (wie gelöschte Konten): `update infokanal_mitteilung set text = null, autor_id = null, geloescht_am = now()` für die Zeilen, die der Verantwortliche meldet, oder die Mitteilungen der betroffenen Einheit ganz entfernen.
+
 Das Skript bricht ohne Backup ab, wenn eine andere Tabelle per Fremdschlüssel auf eine ausgeschlossene verweist, denn solche Zeilen machten die ganze Wiederherstellung ungültig. Dann die Ausschlussliste in `deploy/backup.sh` nachführen. Fehlt eine ausgeschlossene Tabelle dagegen noch (beim Deploy läuft das Backup vor der Migration, die sie anlegt), warnt das Skript nur und sichert ohne sie; die Prüfung meldet eine solche Tabelle im zurückgespielten Stand ebenfalls nur als Hinweis.
 
 ### Schlüssel
@@ -235,6 +237,12 @@ Bei Alarm:
 3. Platz und Speicher: `df -h`, `free -h`, `docker inspect` des Containers auf `OOMKilled` (siehe «Server»).
 4. Ist die Datenbank beschädigt oder leer: «Ernstfall: leere Datenbank» unter «Backups».
 
+## Wartung
+
+Das Konto des Kantonsadmins schaltet die Wartung in der Verwaltung (Übersicht, Kachel «Wartung») mit einem Text von höchstens 280 Zeichen und einem Ende, beides optional. Solange sie läuft, antworten alle App-Routen unter `/api/v1/` mit 503 `WARTUNG`, auch ohne Sitzung; die Apps zeigen den Wartungsbildschirm. Offen bleiben die Verwaltung (`/api/v1/admin/*`), `GET /api/v1/wartung`, `GET /api/v1/datenschutz`, `/health` und die Seiten. Die Anmeldung der Apps (mit `X-App-Version`) ist gesperrt, die der Verwaltung im Browser nicht. Das Ende ist nur eine Anzeige: Die Wartung läuft, bis jemand sie ausschaltet. Jedes Ein- und Ausschalten steht im Protokoll der Änderungen.
+
+Kommt niemand mehr in die Verwaltung (zweiter Faktor verloren), schaltet, wer den Server betreibt, mit SQL aus. Alle drei Felder müssen leer werden, sonst weist die Datenbank die Änderung ab: `update wartung set aktiv = false, text = null, ende = null, seit = null;` (in `deploy/`: `docker compose -f docker-compose.prod.yml exec postgres psql -U postgres -d fireresponse`). Den zweiten Faktor setzt die CLI aus «Zweiter Faktor» zurück; das ist der bessere Weg, weil er im Protokoll steht.
+
 ## Logs
 
 Alle Dienste aus `deploy/docker-compose.prod.yml` und der Edge-Caddy loggen über den journald-Treiber von Docker. journald löscht nach Alter statt nach Grösse: Server-Logs und Container-Logs, auch die des Edge-Caddys, bleiben so 14 Tage.
@@ -246,7 +254,7 @@ Lesen:
 
 Was in den Logs steht:
 
-- API: eine JSON-Zeile pro Anfrage mit `requestId`, Routen-Muster und Status, ohne Namen, Inhalte oder IP-Adressen. Bei 401 und 403 einer angemeldeten Anfrage steht zusätzlich `nutzerId` darin, die ID des Kontos (siehe «Abgewiesene Anfragen prüfen»). Der Healthcheck des Containers ruft `/health` alle 30 Sekunden auf; erfolgreiche Aufrufe stehen weder im Log noch in den Zahlen der Übersicht, Fehler schon. Beim Start und danach alle 24 Stunden löscht die API abgelaufene Sitzungen samt ihren Push-Tokens und schreibt eine Zeile mit `"ereignis":"sitzungen"` und der Anzahl (`geloescht`), bei einem Fehler nur dessen Code. Das Löschen nach Alter begrenzt das Log.
+- API: eine JSON-Zeile pro Anfrage mit `requestId`, Routen-Muster und Status, ohne Namen, Inhalte oder IP-Adressen. Bei 401 und 403 einer angemeldeten Anfrage steht zusätzlich `nutzerId` darin, die ID des Kontos (siehe «Abgewiesene Anfragen prüfen»). Der Healthcheck des Containers ruft `/health` alle 30 Sekunden auf; erfolgreiche Aufrufe stehen weder im Log noch in den Zahlen der Übersicht, Fehler schon. Beim Start und danach alle 24 Stunden löscht die API abgelaufene Sitzungen samt ihren Push-Tokens und schreibt eine Zeile mit `"ereignis":"sitzungen"` und der Anzahl (`geloescht`), bei einem Fehler nur dessen Code. Ebenso löscht die API Mitteilungen im Infokanal nach 6 Monaten (`"ereignis":"infokanal"`, `geloescht`); Mitteilungstexte stehen nie im Log. Im selben Takt löscht die API Nachrichten der Glocke 6 Monate nach ihrem Ablauf (ohne Ablauf 6 Monate nach dem Erstellen) und schreibt eine Zeile mit `"ereignis":"nachrichten"` und der Anzahl (`geloescht`), bei einem Fehler nur dessen Code. Das Löschen nach Alter begrenzt das Log.
 - Edge-Caddy: IP-Adressen, auch die der anderen Stacks. Caddy schreibt auf stderr und damit nach journald; keine Log-Datei, kein Volume.
 - PostgreSQL: Fehlerzeilen können Werte aus Abfragen zitieren, etwa `DETAIL: Key (…)=(…)` oder `STATEMENT: …`.
 

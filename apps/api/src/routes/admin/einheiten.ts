@@ -13,6 +13,8 @@ import {
   bezirk,
   einheit,
   einheitRolle,
+  infokanalGelesen,
+  infokanalMitteilung,
   rang,
   teilnehmende,
   teilnehmendeKonto,
@@ -211,6 +213,13 @@ export function erstelleEinheitenRouten({ db }: { db: Db }) {
                 ),
               )
               .returning({ userId: einheitRolle.userId });
+            // Mitteilungen und Lesestände des Infokanals zählen nicht als Inhalt: Sie gehen mit der Einheit
+            await tx
+              .delete(infokanalMitteilung)
+              .where(eq(infokanalMitteilung.einheitId, einheitId));
+            await tx
+              .delete(infokanalGelesen)
+              .where(eq(infokanalGelesen.einheitId, einheitId));
             await tx.delete(rang).where(eq(rang.einheitId, einheitId));
             await tx.delete(einheit).where(eq(einheit.id, einheitId));
             if (kommando) {

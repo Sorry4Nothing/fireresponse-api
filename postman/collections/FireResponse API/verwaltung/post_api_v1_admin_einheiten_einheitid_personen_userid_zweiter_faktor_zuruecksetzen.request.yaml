@@ -1,8 +1,8 @@
 $kind: http-request
 name: "POST /api/v1/admin/einheiten/:einheitId/personen/:userId/zweiter-faktor-zuruecksetzen"
-order: 74000
+order: 76000
 method: POST
-url: "{{baseUrl}}/api/v1/admin/einheiten/{{einheit_jfA}}/personen/{{ziel_73}}/zweiter-faktor-zuruecksetzen"
+url: "{{baseUrl}}/api/v1/admin/einheiten/{{einheit_jfA}}/personen/{{ziel_75}}/zweiter-faktor-zuruecksetzen"
 headers:
   - key: "Cookie"
     value: "{{cookie}}"

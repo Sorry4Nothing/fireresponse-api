@@ -85,6 +85,34 @@
       "when": 1794509037194,
       "tag": "0011_zeitregel_abstand",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1794592036427,
+      "tag": "0012_wartung",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1794595703879,
+      "tag": "0013_termin_quelle",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1794595839965,
+      "tag": "0014_infokanal",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1794596085759,
+      "tag": "0015_nachrichten",
+      "breakpoints": true
     }
   ]
 }

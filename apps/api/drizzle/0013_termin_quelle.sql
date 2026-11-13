@@ -1,0 +1,2 @@
+ALTER TABLE "programm" ADD COLUMN "quelle" text DEFAULT 'lodur' NOT NULL;--> statement-breakpoint
+ALTER TABLE "programm" ADD CONSTRAINT "programm_quelle_check" CHECK ("programm"."quelle" in ('lodur', 'manuell'));
