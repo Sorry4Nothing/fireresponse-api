@@ -35,6 +35,8 @@ jobs:
       MIGRATION_DATABASE_URL: postgres://fireresponse_besitzer@localhost:5432/fireresponse
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 26
@@ -78,6 +80,8 @@ jobs:
       KONTAKT_EMAIL: platzhalter@example.test
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - run: shellcheck deploy/*.sh
       - run: docker compose -f deploy/docker-compose.prod.yml config --quiet
       - run: docker compose -f deploy/edge/docker-compose.yml config --quiet
@@ -114,6 +118,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 26
