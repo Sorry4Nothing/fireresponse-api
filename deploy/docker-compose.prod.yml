@@ -66,7 +66,7 @@ services:
 
   postgres:
     <<: *gehaertet
-    image: postgres:18
+    image: postgres:19
     restart: unless-stopped
     user: postgres
     environment:
