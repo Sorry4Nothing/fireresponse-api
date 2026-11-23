@@ -108,7 +108,7 @@ services:
   backup:
     <<: *gehaertet
     # Exakt gepinnt; Dependabot schlägt neue Versionen per PR vor
-    image: restic/restic:0.19.1
+    image: restic/restic:0.20.0
     profiles: [backup]
     # Das Image setzt keinen Benutzer, sonst liefe restic als Root
     user: "65534:65534"
